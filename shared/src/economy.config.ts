@@ -10,7 +10,25 @@
 // =============================================================================
 import type { DecorId } from './catalog';
 
-export type BusinessType = 'scrapyard' | 'workshop' | 'store';
+export type BusinessType =
+  | 'scrapyard'
+  | 'well'
+  | 'greenhouse'
+  | 'workshop'
+  | 'store'
+  | 'diner'
+  | 'barber'
+  | 'greengrocer';
+
+/**
+ * Cómo funciona cada negocio por dentro:
+ * - producer: produce materiales solo cada cierto tiempo (chatarrería, pozo...).
+ * - workshop: convierte materiales en muebles (taller).
+ * - store: vende muebles con el precio que pone el dueño (tienda).
+ * - service: los viajeros pagan por un servicio (comer, cortarse el pelo...) que
+ *   gasta materiales del almacén del local. El dueño lo repone y pone el precio.
+ */
+export type BusinessKind = 'producer' | 'workshop' | 'store' | 'service';
 
 /**
  * Plantillas de fachada de los locales. El dueño elige una para que se vea
@@ -56,12 +74,33 @@ export const FACADES: Record<FacadeId, FacadeConfig> = {
 };
 
 export const FACADE_IDS = Object.keys(FACADES) as FacadeId[];
-export type MaterialId = 'sheet_metal' | 'old_wood' | 'tires';
+export type MaterialId = 'sheet_metal' | 'old_wood' | 'tires' | 'water' | 'fruit';
 /** Cantidades de materiales. Lo que no aparece cuenta como 0. */
 export type Materials = Partial<Record<MaterialId, number>>;
 
+/** Negocios productores: qué producen y cada cuánto. */
+export interface ProductionConfig {
+  /** Cada cuántos segundos produce. */
+  seconds: number;
+  /** Qué produce en cada ciclo. */
+  output: Materials;
+  /** Máximo que puede acumular de cada material antes de que lo recojas. */
+  storageCap: number;
+}
+
+/** Negocios de servicios: qué se vende a los viajeros y qué gasta. */
+export interface ServiceConfig {
+  /** Nombre del servicio ("Menú del día"). */
+  name: string;
+  /** Materiales que gasta cada vez que se sirve. */
+  consumes: Materials;
+  /** Valor de referencia: precio inicial y lo que los viajeros consideran justo. */
+  baseValue: number;
+}
+
 export interface BusinessConfig {
   name: string;
+  kind: BusinessKind;
   /** Plantilla de fachada que se pone al abrir el negocio (luego se puede cambiar). */
   defaultFacade: FacadeId;
   description: string;
@@ -71,7 +110,97 @@ export interface BusinessConfig {
   deposit: number;
   /** Alquiler que se cobra cada periodo (ver ECONOMY.rent). */
   rent: number;
+  /** Solo los de tipo producer. */
+  production?: ProductionConfig;
+  /** Solo los de tipo service. */
+  service?: ServiceConfig;
 }
+
+/**
+ * Los negocios que se pueden abrir, en el orden en que aparecen al alquilar.
+ * Para añadir uno nuevo: añádelo a BusinessType y aquí, y dale un puesto de
+ * trabajo (STATIONS en economy.ts) y un icono de neón (shop.ts en el cliente).
+ */
+const BUSINESSES: Record<BusinessType, BusinessConfig> = {
+  scrapyard: {
+    name: 'Chatarrería',
+    kind: 'producer',
+    defaultFacade: 'garage',
+    description: 'Produce chapa, madera vieja y neumáticos cada cierto tiempo.',
+    neon: '#ffe14d',
+    deposit: 80,
+    rent: 25,
+    production: { seconds: 20, output: { sheet_metal: 1, old_wood: 1, tires: 1 }, storageCap: 20 },
+  },
+  well: {
+    name: 'Pozo',
+    kind: 'producer',
+    defaultFacade: 'garage',
+    description: 'Saca agua del subsuelo. La necesitan el diner y la peluquería.',
+    neon: '#4fa3ff',
+    deposit: 60,
+    rent: 20,
+    production: { seconds: 15, output: { water: 2 }, storageCap: 30 },
+  },
+  greenhouse: {
+    name: 'Invernadero',
+    kind: 'producer',
+    defaultFacade: 'classic',
+    description: 'Cultiva fruta a la sombra. La necesitan el diner y la frutería.',
+    neon: '#a8ff4f',
+    deposit: 70,
+    rent: 22,
+    production: { seconds: 20, output: { fruit: 2 }, storageCap: 30 },
+  },
+  workshop: {
+    name: 'Taller de muebles',
+    kind: 'workshop',
+    defaultFacade: 'classic',
+    description: 'Convierte materiales en muebles siguiendo recetas.',
+    neon: '#39e6ff',
+    deposit: 120,
+    rent: 35,
+  },
+  store: {
+    name: 'Tienda de decoración',
+    kind: 'store',
+    defaultFacade: 'boutique',
+    description: 'Vende muebles al público.',
+    neon: '#ff4fa3',
+    deposit: 150,
+    rent: 45,
+  },
+  diner: {
+    name: 'Diner',
+    kind: 'service',
+    defaultFacade: 'diner',
+    description: 'Sirve el menú del día a los viajeros. Gasta agua y fruta.',
+    neon: '#ff5a3c',
+    deposit: 140,
+    rent: 35,
+    service: { name: 'Menú del día', consumes: { water: 1, fruit: 1 }, baseValue: 45 },
+  },
+  barber: {
+    name: 'Peluquería',
+    kind: 'service',
+    defaultFacade: 'boutique',
+    description: 'Corta el pelo a los viajeros (salen con otro color). Gasta agua.',
+    neon: '#b98cff',
+    deposit: 100,
+    rent: 25,
+    service: { name: 'Corte de pelo', consumes: { water: 1 }, baseValue: 35 },
+  },
+  greengrocer: {
+    name: 'Frutería',
+    kind: 'service',
+    defaultFacade: 'classic',
+    description: 'Vende bolsas de fruta fresca a los viajeros. Gasta fruta.',
+    neon: '#7cff6b',
+    deposit: 90,
+    rent: 22,
+    service: { name: 'Bolsa de fruta', consumes: { fruit: 2 }, baseValue: 30 },
+  },
+};
 
 export interface Recipe {
   /** Materiales que consume. */
@@ -88,32 +217,7 @@ export const ECONOMY = {
   /** Muebles que recibe en su inventario un jugador nuevo. */
   starterInventory: ['tire', 'tire', 'road_sign'] as DecorId[],
 
-  businesses: {
-    scrapyard: {
-      name: 'Chatarrería',
-      defaultFacade: 'garage',
-      description: 'Produce chapa, madera vieja y neumáticos cada cierto tiempo.',
-      neon: '#ffe14d',
-      deposit: 80,
-      rent: 25,
-    },
-    workshop: {
-      name: 'Taller de muebles',
-      defaultFacade: 'classic',
-      description: 'Convierte materiales en muebles siguiendo recetas.',
-      neon: '#39e6ff',
-      deposit: 120,
-      rent: 35,
-    },
-    store: {
-      name: 'Tienda de decoración',
-      defaultFacade: 'boutique',
-      description: 'Vende muebles al público.',
-      neon: '#ff4fa3',
-      deposit: 150,
-      rent: 45,
-    },
-  } satisfies Record<BusinessType, BusinessConfig>,
+  businesses: BUSINESSES,
 
   /**
    * Alquiler periódico de los locales de los jugadores (salida de dinero).
@@ -129,7 +233,7 @@ export const ECONOMY = {
    */
   supplier: {
     name: 'Suministros del Desierto',
-    prices: { sheet_metal: 8, old_wood: 6, tires: 10 } satisfies Record<MaterialId, number>,
+    prices: { sheet_metal: 8, old_wood: 6, tires: 10, water: 4, fruit: 5 } satisfies Record<MaterialId, number>,
     /** Máximo de unidades por compra. */
     maxPerPurchase: 20,
   },
@@ -164,20 +268,20 @@ export const ECONOMY = {
     sheet_metal: { name: 'Chapa' },
     old_wood: { name: 'Madera vieja' },
     tires: { name: 'Neumáticos' },
+    water: { name: 'Agua' },
+    fruit: { name: 'Fruta' },
   } satisfies Record<MaterialId, { name: string }>,
-
-  scrapyard: {
-    /** Cada cuántos segundos produce. */
-    productionSeconds: 20,
-    /** Qué produce en cada ciclo. */
-    output: { sheet_metal: 1, old_wood: 1, tires: 1 } as Materials,
-    /** Máximo que puede acumular de cada material antes de que lo recojas. */
-    storageCap: 20,
-  },
 
   workshop: {
     /** Cuántos muebles puede tener en cola a la vez. */
     queueSize: 3,
+  },
+
+  services: {
+    /** Máximo de cada material que cabe en el almacén de un negocio de servicios. */
+    stockCap: 20,
+    minPrice: 1,
+    maxPrice: 999,
   },
 
   store: {

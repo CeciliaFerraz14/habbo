@@ -6,6 +6,8 @@ const MATERIAL_COLORS: Record<MaterialId, string> = {
   sheet_metal: '#9aa3ad',
   old_wood: '#a07a50',
   tires: '#3a3434',
+  water: '#4fa3ff',
+  fruit: '#e8562e',
 };
 
 /** "$ 120" */
@@ -15,15 +17,22 @@ export function formatMoney(amount: number): string {
 
 /**
  * Lista de "fichas" de materiales: un cuadrado de color, el nombre y la
- * cantidad. Con `max`, muestra "3/20"; con `showZero`, incluye los que están a 0.
+ * cantidad. Con `max`, muestra "3/20"; con `showZero`, incluye los que están a
+ * 0; con `only`, solo esos materiales.
  */
 export function materialChips(
   materials: Materials,
-  options: { max?: number; showZero?: boolean; have?: Materials; nameOnly?: boolean } = {},
+  options: {
+    max?: number;
+    showZero?: boolean;
+    have?: Materials;
+    nameOnly?: boolean;
+    only?: MaterialId[];
+  } = {},
 ): HTMLDivElement {
   const row = document.createElement('div');
   row.className = 'chips';
-  for (const id of MATERIAL_IDS) {
+  for (const id of options.only ?? MATERIAL_IDS) {
     const qty = materials[id] ?? 0;
     if (qty === 0 && !options.showZero) continue;
     const chip = document.createElement('span');

@@ -20,6 +20,8 @@ import {
   ECONOMY,
   FACADES,
   MATERIAL_IDS,
+  type BusinessConfig,
+  type BusinessKind,
   type BusinessType,
   type FacadeId,
   type Materials,
@@ -51,9 +53,14 @@ export interface Lot {
   business: BusinessType | null;
   /** Plantilla de fachada elegida (null si el local está en alquiler). */
   facade: FacadeId | null;
-  /** Chatarrería: materiales producidos pendientes de recoger. */
+  /**
+   * Productores: materiales producidos pendientes de recoger.
+   * Servicios: materiales que el dueño ha dejado para servir a los clientes.
+   */
   storage: Materials;
-  /** Chatarrería: tick de la próxima producción. */
+  /** Servicios: precio que cobra el local por servir (0 en los demás). */
+  price: number;
+  /** Productores: tick de la próxima producción. */
   nextProductionAt: number;
   /** Taller: muebles en fabricación (o terminados, si tick >= readyAt). */
   jobs: CraftJob[];
@@ -77,11 +84,27 @@ export function createLot(id: string, label: string): Lot {
     business: null,
     facade: null,
     storage: {},
+    price: 0,
     nextProductionAt: 0,
     jobs: [],
     nextRestockAt: 0,
     nextRentAt: 0,
   };
+}
+
+/** Configuración del negocio de un local (o null si está en alquiler). */
+export function businessOf(lot: Lot | undefined): BusinessConfig | null {
+  return lot?.business ? ECONOMY.businesses[lot.business] : null;
+}
+
+/** ¿El local tiene abierto un negocio de este tipo? */
+export function isKind(lot: Lot | undefined, kind: BusinessKind): boolean {
+  return businessOf(lot)?.kind === kind;
+}
+
+/** ¿Pueden entrar clientes a comprar? (tiendas y servicios) */
+export function servesCustomers(lot: Lot | undefined): boolean {
+  return isKind(lot, 'store') || isKind(lot, 'service');
 }
 
 /** ¿Este dueño es un NPC? Los ids de los NPC empiezan por "npc-". */
@@ -116,10 +139,15 @@ export function totalMaterials(m: Materials): number {
  * Puesto de trabajo que aparece dentro del local al abrir cada negocio. Es un
  * mueble fijo: al hacer clic en él se abre la ventana del negocio.
  */
-const STATIONS: Partial<Record<BusinessType, { defId: FurniId; x: number; y: number; rotation: Rotation }>> = {
+const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rotation: Rotation }> = {
   scrapyard: { defId: 'scrap_pile', x: 3, y: 2, rotation: 0 },
+  well: { defId: 'water_well', x: 3, y: 2, rotation: 0 },
+  greenhouse: { defId: 'fruit_planter', x: 3, y: 2, rotation: 0 },
   workshop: { defId: 'workbench', x: 3, y: 2, rotation: 0 },
   store: { defId: 'shop_counter', x: 1, y: 1, rotation: 0 },
+  diner: { defId: 'diner_grill', x: 1, y: 1, rotation: 0 },
+  barber: { defId: 'barber_chair', x: 3, y: 2, rotation: 0 },
+  greengrocer: { defId: 'fruit_stand', x: 1, y: 1, rotation: 0 },
 };
 
 /**
@@ -206,7 +234,8 @@ function openBusiness(
     business,
     facade: config.defaultFacade,
     storage: {},
-    nextProductionAt: state.tick + secondsToTicks(ECONOMY.scrapyard.productionSeconds),
+    price: config.service?.baseValue ?? 0,
+    nextProductionAt: state.tick + secondsToTicks(config.production?.seconds ?? 0),
     jobs: [],
     nextRentAt: state.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
   };
@@ -218,11 +247,8 @@ function openBusiness(
   if (building) furniture[buildingId] = { ...building, variant: buildingVariant(rented) };
 
   // Puesto de trabajo dentro del local.
-  const station = STATIONS[business];
-  if (station) {
-    const item: FurniItem = { id: stationId(lotId), sceneId: lotId, ...station };
-    furniture[item.id] = item;
-  }
+  const station: FurniItem = { id: stationId(lotId), sceneId: lotId, ...STATIONS[business] };
+  furniture[station.id] = station;
 
   const scene = state.scenes[lotId];
   return {
@@ -241,10 +267,10 @@ export function lotSceneName(lot: Lot): string {
   return `${title} · ${lot.label}`;
 }
 
-/** Chatarrería: el dueño recoge los materiales acumulados. */
+/** Productores: el dueño recoge los materiales acumulados. */
 export function collectMaterials(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || lot.business !== 'scrapyard') return state;
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'producer')) return state;
   if (totalMaterials(lot.storage) === 0) return state;
 
   const mine = state.materials[avatarId] ?? {};
@@ -264,7 +290,7 @@ export function startCraft(
 ): GameState {
   const lot = state.lots[lotId];
   const recipe = ECONOMY.recipes[defId];
-  if (!isOwnerInside(state, avatarId, lot) || lot.business !== 'workshop' || !recipe) return state;
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
   if (lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
 
   const mine = state.materials[avatarId] ?? {};
@@ -286,7 +312,7 @@ export function startCraft(
 /** Taller: el dueño recoge los muebles terminados; van a su inventario. */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || lot.business !== 'workshop') return state;
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
 
   const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
   if (done.length === 0) return state;
@@ -306,24 +332,25 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
 // --- Simulación ---------------------------------------------------------------
 
 /**
- * Lo que hace la economía en cada tick: las chatarrerías producen cuando les
- * toca (sin pasarse del límite del almacén). Los talleres no necesitan hacer
- * nada: un trabajo está terminado cuando tick >= readyAt.
+ * Lo que hace la economía en cada tick: los productores (chatarrería, pozo...)
+ * producen cuando les toca (sin pasarse del límite del almacén). Los talleres
+ * no necesitan hacer nada: un trabajo está terminado cuando tick >= readyAt.
  */
 export function economyTick(state: GameState): GameState {
   let lots = state.lots;
   for (const lot of Object.values(state.lots)) {
-    if (lot.business !== 'scrapyard' || state.tick < lot.nextProductionAt) continue;
+    const production = businessOf(lot)?.production;
+    if (!production || state.tick < lot.nextProductionAt) continue;
 
     const storage: Materials = { ...lot.storage };
-    for (const [m, qty] of Object.entries(ECONOMY.scrapyard.output) as [MaterialId, number][]) {
-      storage[m] = Math.min(ECONOMY.scrapyard.storageCap, (storage[m] ?? 0) + qty);
+    for (const [m, qty] of Object.entries(production.output) as [MaterialId, number][]) {
+      storage[m] = Math.min(production.storageCap, (storage[m] ?? 0) + qty);
     }
     if (lots === state.lots) lots = { ...lots };
     lots[lot.id] = {
       ...lot,
       storage,
-      nextProductionAt: state.tick + secondsToTicks(ECONOMY.scrapyard.productionSeconds),
+      nextProductionAt: state.tick + secondsToTicks(production.seconds),
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
@@ -373,7 +400,7 @@ export function listItem(
   price: number,
 ): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || lot.business !== 'store' || !isValidPrice(price)) {
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'store') || !isValidPrice(price)) {
     return state;
   }
   const inventory = state.inventories[avatarId] ?? [];
@@ -438,19 +465,83 @@ export function sellProduct(
   ownerId: string,
   deliver: (s: GameState) => GameState,
 ): GameState {
-  const price = item.price ?? 0;
-  const commission = Math.round(price * ECONOMY.store.commissionRate);
   const { [item.id]: _sold, ...furniture } = state.furniture;
-  const earned = price - commission;
-  let paid: GameState = {
+  const name = CATALOG[item.defId].name;
+  return deliver(payOwner({ ...state, furniture }, ownerId, item.price ?? 0, `Has vendido ${name}`));
+}
+
+/**
+ * Paga una venta al dueño de un negocio: el precio menos la comisión, que
+ * desaparece de la economía. Si es un jugador, le deja un aviso con lo cobrado.
+ */
+function payOwner(state: GameState, ownerId: string, price: number, what: string): GameState {
+  const earned = price - Math.round(price * ECONOMY.store.commissionRate);
+  const paid: GameState = {
     ...state,
-    furniture,
     money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + earned },
   };
-  if (!isNpcId(ownerId)) {
-    paid = addNotice(paid, ownerId, `Has vendido ${CATALOG[item.defId].name} por ${ECONOMY.currency}${earned}`);
+  if (isNpcId(ownerId)) return paid;
+  return addNotice(paid, ownerId, `${what} por ${ECONOMY.currency}${earned}`);
+}
+
+// --- Servicios (diner, peluquería, frutería...) ----------------------------------
+
+/** ¿El local de servicios tiene materiales para servir una vez más? */
+export function canServe(lot: Lot): boolean {
+  const service = businessOf(lot)?.service;
+  return !!service && hasMaterials(lot.storage, service.consumes);
+}
+
+/**
+ * El dueño deja en el local los materiales que gasta el servicio, sacándolos
+ * de los suyos, hasta llenar el almacén (services.stockCap de cada uno).
+ */
+export function stockLot(state: GameState, avatarId: string, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  const service = businessOf(lot)?.service;
+  if (!isOwnerInside(state, avatarId, lot) || !service) return state;
+
+  const mine = state.materials[avatarId] ?? {};
+  const moved: Materials = {};
+  for (const m of Object.keys(service.consumes) as MaterialId[]) {
+    const room = ECONOMY.services.stockCap - (lot.storage[m] ?? 0);
+    const qty = Math.min(room, mine[m] ?? 0);
+    if (qty > 0) moved[m] = qty;
   }
-  return deliver(paid);
+  if (totalMaterials(moved) === 0) return state;
+  return {
+    ...state,
+    lots: { ...state.lots, [lotId]: { ...lot, storage: addMaterials(lot.storage, moved) } },
+    materials: { ...state.materials, [avatarId]: addMaterials(mine, moved, -1) },
+  };
+}
+
+/** El dueño cambia el precio de su servicio. */
+export function setServicePrice(
+  state: GameState,
+  avatarId: string,
+  lotId: string,
+  price: number,
+): GameState {
+  const lot = state.lots[lotId];
+  const { minPrice, maxPrice } = ECONOMY.services;
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'service')) return state;
+  if (!Number.isInteger(price) || price < minPrice || price > maxPrice) return state;
+  return { ...state, lots: { ...state.lots, [lotId]: { ...lot, price } } };
+}
+
+/**
+ * Un cliente paga el servicio: se gastan los materiales del almacén y el dueño
+ * cobra el precio menos la comisión. Quien llama ya ha decidido que el cliente
+ * quiere y puede pagarlo (ver decideService en travelers.ts).
+ */
+export function serveCustomer(state: GameState, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  const service = businessOf(lot)?.service;
+  if (!lot?.ownerId || !service || !canServe(lot)) return state;
+  const storage = addMaterials(lot.storage, service.consumes, -1);
+  const served = { ...state, lots: { ...state.lots, [lotId]: { ...lot, storage } } };
+  return payOwner(served, lot.ownerId, lot.price, `Has cobrado ${service.name}`);
 }
 
 // --- Tiendas de los NPC -------------------------------------------------------

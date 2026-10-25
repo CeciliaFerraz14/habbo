@@ -9,6 +9,7 @@ import {
   canEditScene,
   canPlaceFurni,
   CATALOG,
+  ECONOMY,
   footprintContains,
   getDoorAt,
   getFootprint,
@@ -234,8 +235,10 @@ export class GameController {
         const lotId = lotOfStation(item.id);
         if (lotId) {
           const lot = state.lots[lotId];
+          const service = lot?.business ? ECONOMY.businesses[lot.business].service : undefined;
           if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
           else if (lot?.business === 'store') this.events.openShop(lotId);
+          else if (service) this.events.notify(`${service.name}: ${ECONOMY.currency}${lot!.price}. Solo para viajeros.`);
           else this.events.notify('Este negocio no es tuyo.');
           return;
         }

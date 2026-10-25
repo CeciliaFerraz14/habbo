@@ -142,8 +142,10 @@ function templateFront(look: ShopLook): Box[] {
 
 /**
  * Icono de neón en el cartel según el negocio, para saber desde la calle qué
- * es cada local: un neumático (chatarrería), un martillo (taller) o una bolsa
- * de la compra (tienda). Está hecho de tubos de 1 px en el plano del cartel.
+ * es cada local: un neumático (chatarrería), una gota (pozo), una hoja
+ * (invernadero), un martillo (taller), una bolsa (tienda), tenedor y cuchillo
+ * (diner), unas tijeras (peluquería) o una manzana (frutería). Está hecho de
+ * tubos en el plano del cartel.
  */
 function businessIcon(
   business: BusinessType | undefined,
@@ -160,6 +162,60 @@ function businessIcon(
         neon(64, 21, 45, 65, 23, 55),
         neon(64, 41, 45, 65, 43, 55),
         neon(64, 30, 48, 65, 34, 52),
+      ];
+    case 'well':
+      // Gota de agua: estrecha arriba y ancha abajo.
+      return [
+        neon(64, 30, 53, 65, 34, 57),
+        neon(64, 27, 49, 65, 37, 53),
+        neon(64, 25, 45, 65, 39, 49),
+        neon(64, 28, 43, 65, 36, 45),
+      ];
+    case 'greenhouse':
+      // Hoja con su tallo.
+      return [
+        neon(64, 31, 43, 65, 33, 49),
+        neon(64, 25, 49, 65, 39, 53),
+        neon(64, 28, 53, 65, 36, 56),
+        neon(64, 31, 56, 65, 33, 57),
+      ];
+    case 'diner':
+      // Tenedor (mango y tres púas) y cuchillo.
+      return [
+        neon(64, 25, 43, 65, 27, 51),
+        neon(64, 22, 51, 65, 30, 53),
+        neon(64, 22, 53, 65, 24, 57),
+        neon(64, 25, 53, 65, 27, 57),
+        neon(64, 28, 53, 65, 30, 57),
+        neon(64, 36, 43, 65, 38, 57),
+        neon(64, 38, 49, 65, 41, 57),
+      ];
+    case 'barber':
+      // Tijeras abiertas: dos hojas en V y dos anillas abajo.
+      return [
+        neon(64, 28, 51, 65, 30, 53),
+        neon(64, 26, 53, 65, 28, 55),
+        neon(64, 24, 55, 65, 26, 57),
+        neon(64, 34, 51, 65, 36, 53),
+        neon(64, 36, 53, 65, 38, 55),
+        neon(64, 38, 55, 65, 40, 57),
+        neon(64, 30, 49, 65, 34, 51),
+        neon(64, 22, 43, 65, 28, 45),
+        neon(64, 22, 45, 65, 24, 49),
+        neon(64, 26, 45, 65, 28, 49),
+        neon(64, 36, 43, 65, 42, 45),
+        neon(64, 36, 45, 65, 38, 49),
+        neon(64, 40, 45, 65, 42, 49),
+      ];
+    case 'greengrocer':
+      // Manzana: contorno, rabito y hoja.
+      return [
+        neon(64, 24, 43, 65, 40, 45),
+        neon(64, 24, 51, 65, 40, 53),
+        neon(64, 24, 45, 65, 26, 51),
+        neon(64, 38, 45, 65, 40, 51),
+        neon(64, 31, 53, 65, 33, 57),
+        neon(64, 33, 55, 65, 37, 57),
       ];
     case 'workshop':
       // Martillo: mango vertical y cabeza horizontal.

@@ -31,10 +31,16 @@ Abre http://localhost:5173
 1. Empiezas en **tu caravana** con 500 $ y unos muebles. Sal por la puerta a la **Calle Mayor**.
 2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio:
    - **Chatarrería**: produce chapa, madera vieja y neumáticos cada pocos segundos.
+   - **Pozo**: produce agua.
+   - **Invernadero**: produce fruta.
    - **Taller de muebles**: convierte materiales en muebles según recetas.
    - **Tienda de decoración**: pones muebles a la venta con el precio que quieras.
+   - **Diner**, **Peluquería** y **Frutería**: los viajeros pagan por el servicio
+     (menú del día, corte de pelo, bolsa de fruta). Gastan agua y/o fruta, que
+     dejas en el almacén del local con "Reponer", y tú pones el precio.
 3. Dentro de cada local, haz clic en su **puesto de trabajo** (montón de chatarra,
-   banco de trabajo o mostrador) para gestionarlo. Desde ahí también eliges la
+   pozo, bancal, banco de trabajo, mostrador, plancha, sillón de barbero o puesto
+   de fruta) para gestionarlo. Desde ahí también eliges la
    **plantilla de fachada** (Clásica, Diner, Garaje o Boutique); el cartel de neón
    muestra el icono del negocio para que se sepa desde la calle qué es cada local.
 4. Los **viajeros** paran con sus coches, entran en las tiendas abiertas y compran
@@ -73,10 +79,12 @@ escriben en segundos.
 | Quiero cambiar... | Dónde (dentro de `ECONOMY`) |
 |---|---|
 | Dinero inicial / kit de muebles inicial | `startingMoney`, `starterInventory` |
-| Fianza, alquiler, color del neón y fachada inicial de cada negocio | `businesses` |
+| Fianza, alquiler, color del neón y fachada inicial de cada negocio | `BUSINESSES` |
+| Qué y cada cuánto produce cada productor (chatarrería, pozo, invernadero) | `production` de cada negocio |
+| Qué gasta y cuánto vale cada servicio (diner, peluquería, frutería) | `service` de cada negocio |
+| Cuánto cabe en el almacén de un servicio y límites de precio | `services` |
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
-| Qué y cada cuánto produce la chatarrería | `scrapyard` |
 | Recetas del taller (materiales y tiempo) | `recipes` |
 | Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
@@ -95,6 +103,8 @@ Pistas para equilibrar:
 
 - Si los jugadores acumulan dinero demasiado rápido: sube `rent`, la comisión o
   `maxPriceRatio` más bajo (viajeros más exigentes).
+- Los viajeros se reparten entre todas las tiendas y servicios abiertos: con
+  muchos negocios, cada uno recibe menos clientes.
 - Si nadie consigue ganar dinero: baja `carIntervalSeconds` (más coches), sube
   `stopChancePerBusiness` o `budget`.
 - La probabilidad de que un coche pare es
@@ -123,7 +133,8 @@ shared/   Todo lo que también ejecutará el servidor:
   src/economy*.ts              Negocios, tiendas, alquiler y configuración
   src/npcs.ts, travelers.ts    Vecinos, viajeros y coches
   src/pathfinding.ts           A*
-server/   Servidor Socket.IO (fase 2, todavía vacío)
+server/   Servidor Socket.IO: simulación compartida, login y guardado en Supabase
+supabase/ Migraciones de la base de datos
 ```
 
 ## Arquitectura

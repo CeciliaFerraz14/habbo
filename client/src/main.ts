@@ -189,6 +189,9 @@ const businessWindow = createBusinessWindow({
     transport.dispatch({ type: 'SET_PRICE', avatarId: PLAYER_ID, itemId, price }),
   setFacade: (lotId, facade) =>
     transport.dispatch({ type: 'SET_FACADE', avatarId: PLAYER_ID, lotId, facade }),
+  stockLot: (lotId) => transport.dispatch({ type: 'STOCK_LOT', avatarId: PLAYER_ID, lotId }),
+  setServicePrice: (lotId, price) =>
+    transport.dispatch({ type: 'SET_SERVICE_PRICE', avatarId: PLAYER_ID, lotId, price }),
   // Retirar un producto es recogerlo: vuelve al inventario.
   unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
 });

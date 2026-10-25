@@ -16,7 +16,7 @@
 // ejecutará el servidor y todos los jugadores verán a los vecinos igual.
 // =============================================================================
 
-import { secondsToTicks } from './economy';
+import { secondsToTicks, servesCustomers } from './economy';
 import { createWalkableCheck } from './furniture';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
@@ -211,7 +211,7 @@ function pickOpenStoreDoor(state: GameState, random: () => number): TilePoint | 
   const street = state.scenes[SCENES.street];
   const doors = street.doors.filter((d) => {
     const lot = d.lotId ? state.lots[d.lotId] : undefined;
-    return lot?.business === 'store' && !isDoorLocked(state, d);
+    return servesCustomers(lot) && !isDoorLocked(state, d);
   });
   return doors.length > 0 ? doors[Math.floor(random() * doors.length)] : null;
 }

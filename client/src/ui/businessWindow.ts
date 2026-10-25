@@ -22,8 +22,11 @@ import {
   type FacadeId,
   type GameState,
   type Lot,
+  type MaterialId,
+  type ProductionConfig,
+  type ServiceConfig,
 } from '@juego/shared';
-import { materialChips } from './economyUi';
+import { formatMoney, materialChips } from './economyUi';
 import { furniIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -35,6 +38,8 @@ export interface BusinessActions {
   setPrice: (itemId: string, price: number) => void;
   unlist: (itemId: string) => void;
   setFacade: (lotId: string, facade: FacadeId) => void;
+  stockLot: (lotId: string) => void;
+  setServicePrice: (lotId: string, price: number) => void;
 }
 
 export interface BusinessWindow {
@@ -100,18 +105,19 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     win.body.append(text('Fachada:', 'section-title'), row);
   };
 
-  // --- Chatarrería -----------------------------------------------------------
-  const buildScrapyard = (lot: Lot, inside: boolean) => {
-    const { output, productionSeconds, storageCap } = ECONOMY.scrapyard;
+  // --- Productores (chatarrería, pozo, invernadero) ----------------------------
+  const buildProducer = (lot: Lot, inside: boolean, production: ProductionConfig) => {
+    const { output, seconds, storageCap } = production;
+    const produced = Object.keys(output) as MaterialId[];
     const countdown = text('');
     timers.push((tick) => {
       countdown.textContent = `Próxima carga en ${formatTicks(lot.nextProductionAt - tick)}`;
     });
     win.body.append(
-      text(`Cada ${productionSeconds} s produce:`, 'section-title'),
+      text(`Cada ${seconds} s produce:`, 'section-title'),
       materialChips(output),
       text('Almacén:', 'section-title'),
-      materialChips(lot.storage, { max: storageCap, showZero: true }),
+      materialChips(lot.storage, { max: storageCap, showZero: true, only: produced }),
       countdown,
       button('Recoger materiales', inside && totalMaterials(lot.storage) > 0, () =>
         actions.collectMaterials(lot.id),
@@ -120,12 +126,16 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   /** Campo numérico para escribir un precio. */
-  const priceInput = (value: number, enabled: boolean) => {
+  const priceInput = (
+    value: number,
+    enabled: boolean,
+    limits: { minPrice: number; maxPrice: number } = ECONOMY.store,
+  ) => {
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'price-input';
-    input.min = String(ECONOMY.store.minPrice);
-    input.max = String(ECONOMY.store.maxPrice);
+    input.min = String(limits.minPrice);
+    input.max = String(limits.maxPrice);
     input.step = '1';
     input.value = String(value);
     input.disabled = !enabled;
@@ -199,6 +209,54 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       text('Poner a la venta:', 'section-title'),
       forSale,
       text(`Cobras al vender, aunque no estés. El pueblo se queda un ${commission} % de comisión.`),
+    );
+  };
+
+  // --- Servicios (diner, peluquería, frutería) ---------------------------------
+  const buildService = (
+    lot: Lot,
+    inside: boolean,
+    state: GameState,
+    playerId: string,
+    service: ServiceConfig,
+  ) => {
+    const mine = state.materials[playerId] ?? {};
+    const used = Object.keys(service.consumes) as MaterialId[];
+    // Cuántos clientes más se pueden atender con lo que hay en el almacén.
+    const servings = Math.min(
+      ...used.map((m) => Math.floor((lot.storage[m] ?? 0) / (service.consumes[m] ?? 1))),
+    );
+    const canRestock = used.some(
+      (m) => (mine[m] ?? 0) > 0 && (lot.storage[m] ?? 0) < ECONOMY.services.stockCap,
+    );
+
+    const input = priceInput(lot.price, inside, ECONOMY.services);
+    const priceRow = document.createElement('div');
+    priceRow.className = 'row';
+    priceRow.append(
+      input,
+      button('Cambiar', inside, () => actions.setServicePrice(lot.id, readPrice(input))),
+    );
+
+    const maxPrice = Math.floor(service.baseValue * ECONOMY.travelers.maxPriceRatio);
+    win.body.append(
+      text(`${service.name} · cada cliente gasta:`, 'section-title'),
+      materialChips(service.consumes),
+      text('Precio:', 'section-title'),
+      priceRow,
+      text(
+        `Precio justo: ${formatMoney(service.baseValue)}. Más barato, más clientes pagan; ` +
+          `por encima de ${formatMoney(maxPrice)} no paga nadie.`,
+      ),
+      text('Almacén:', 'section-title'),
+      materialChips(lot.storage, { max: ECONOMY.services.stockCap, showZero: true, only: used }),
+      text(
+        servings > 0
+          ? `Hay para ${servings} cliente${servings === 1 ? '' : 's'} más.`
+          : '¡Sin género! Los clientes se irán sin pagar.',
+      ),
+      button('Reponer con mis materiales', inside && canRestock, () => actions.stockLot(lot.id)),
+      text('Cobras aunque no estés. Consigue materiales en el pozo, el invernadero o la gasolinera.'),
     );
   };
 
@@ -285,11 +343,13 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     if (next !== signature) {
       signature = next;
       timers = [];
-      win.setTitle(`${ECONOMY.businesses[lot.business].name} · ${lot.label}`);
+      const config = ECONOMY.businesses[lot.business];
+      win.setTitle(`${config.name} · ${lot.label}`);
       win.body.replaceChildren();
       buildFacadePicker(lot);
-      if (lot.business === 'scrapyard') buildScrapyard(lot, inside);
-      else if (lot.business === 'workshop') buildWorkshop(lot, inside, state, playerId);
+      if (config.production) buildProducer(lot, inside, config.production);
+      else if (config.service) buildService(lot, inside, state, playerId, config.service);
+      else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
     }

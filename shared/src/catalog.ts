@@ -30,6 +30,11 @@ export type StructureId =
   | 'scrap_pile'
   | 'workbench'
   | 'shop_counter'
+  | 'water_well'
+  | 'fruit_planter'
+  | 'diner_grill'
+  | 'barber_chair'
+  | 'fruit_stand'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
   | 'car';
 
@@ -103,6 +108,11 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
   workbench: structure('workbench', 'Banco de trabajo', 1, 2),
   shop_counter: structure('shop_counter', 'Mostrador', 1, 2),
+  water_well: structure('water_well', 'Pozo', 2, 2),
+  fruit_planter: structure('fruit_planter', 'Bancal', 2, 2),
+  diner_grill: structure('diner_grill', 'Plancha', 1, 2),
+  barber_chair: structure('barber_chair', 'Sillón de barbero', 1, 2),
+  fruit_stand: structure('fruit_stand', 'Puesto de fruta', 1, 2),
   car: structure('car', 'Coche', 2, 1),
 };
 

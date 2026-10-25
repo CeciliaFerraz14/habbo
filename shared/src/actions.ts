@@ -34,7 +34,7 @@ export type Action =
   // --- Negocios ---
   /** Alquilar un local libre y abrir en él un negocio. */
   | { type: 'RENT_LOT'; avatarId: string; lotId: string; business: BusinessType }
-  /** Chatarrería: recoger los materiales producidos. */
+  /** Productores (chatarrería, pozo...): recoger los materiales producidos. */
   | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
   /** Taller: empezar a fabricar un mueble. */
   | { type: 'CRAFT'; avatarId: string; lotId: string; defId: DecorId }
@@ -46,6 +46,10 @@ export type Action =
   | { type: 'SET_PRICE'; avatarId: string; itemId: string; price: number }
   /** Comprar un producto de una tienda. */
   | { type: 'BUY_ITEM'; avatarId: string; itemId: string }
+  /** Servicios: dejar en el local los materiales que gasta el servicio. */
+  | { type: 'STOCK_LOT'; avatarId: string; lotId: string }
+  /** Servicios: cambiar el precio del servicio. */
+  | { type: 'SET_SERVICE_PRICE'; avatarId: string; lotId: string; price: number }
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   /** Comprar materiales al proveedor de la gasolinera. */

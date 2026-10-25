@@ -8,17 +8,29 @@
 //   1. Cada cierto tiempo pasa un coche por la carretera.
 //   2. Puede PARAR o seguir de largo. La probabilidad de parar crece con los
 //      negocios abiertos: cuanto más vivo está el pueblo, más gente para.
-//   3. Si para, aparca frente a una tienda abierta y se baja el viajero.
-//   4. El viajero entra, mira los productos y decide si compra algo según el
-//      precio (comparado con el valor de referencia) y la variedad.
+//   3. Si para, aparca frente a un negocio abierto (tienda o servicio) y se
+//      baja el viajero.
+//   4. El viajero entra, mira y decide si compra algo (o paga el servicio:
+//      comer, cortarse el pelo...) según el precio comparado con el valor de
+//      referencia.
 //   5. Vuelve al coche, desaparece y el coche se va.
 //
 // Todo es determinista (semilla del estado) y ocurre dentro del tick, así que
 // en la fase 2 lo hará el servidor igual que aquí.
 // =============================================================================
 
-import { getListings, secondsToTicks, sellProduct } from './economy';
-import { ECONOMY } from './economy.config';
+import {
+  businessOf,
+  canServe,
+  getListings,
+  isKind,
+  secondsToTicks,
+  sellProduct,
+  serveCustomer,
+  servesCustomers,
+  type Lot,
+} from './economy';
+import { ECONOMY, type BusinessType } from './economy.config';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
 import { move, say, updateBrain, wander } from './npcs';
@@ -72,6 +84,13 @@ const TRAVELER_NAMES = ['Hank', 'Lupe', 'Moe', 'Irene', 'Sal', 'Trudy', 'Bo', 'C
 const PHRASES = {
   bought: ['¡Me lo llevo!', 'Esto quedará genial en casa.', 'Buen precio, sí señor.'],
   nothing: ['Todo está carísimo...', 'No veo nada para mí.', 'Volveré otro día.'],
+  /** Al pagar un servicio, según el negocio. */
+  served: {
+    diner: ['¡Qué bien sienta comer!', 'El mejor menú de la carretera.', 'Rico, rico.'],
+    barber: ['¡Como nuevo!', 'Me encanta el corte.', '¿A que estoy más guapo?'],
+    greengrocer: ['¡Qué fruta más fresca!', 'Para el camino.', 'Esto sí que es fruta.'],
+  } as Partial<Record<BusinessType, string[]>>,
+  closed: ['¿Cerrado? Si no hay nada...', 'Vaya, se les ha acabado todo.'],
 };
 
 /** Un paso de la simulación de coches y viajeros. Se llama en cada tick. */
@@ -86,11 +105,11 @@ export function travelerTick(state: GameState): GameState {
 
 // --- Coches -------------------------------------------------------------------
 
-/** Puertas de la calle que dan a tiendas abiertas. */
+/** Puertas de la calle que dan a negocios abiertos al público (tiendas y servicios). */
 function openStoreDoors(state: GameState) {
   return state.scenes[SCENES.street].doors.filter((d) => {
     const lot = d.lotId ? state.lots[d.lotId] : undefined;
-    return lot?.business === 'store' && !isDoorLocked(state, d);
+    return servesCustomers(lot) && !isDoorLocked(state, d);
   });
 }
 
@@ -231,9 +250,13 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
   const changes: Partial<TravelerBrain> = { patience: brain.patience - 1 };
 
   if (brain.phase === 'toStore') {
+    const door = next.scenes[SCENES.street].doors.find((d) => d.lotId === brain.lotId);
     if (avatar.sceneId === brain.lotId) {
       changes.phase = 'shopping';
       next = wander(next, avatar, rng.random);
+    } else if (door && avatar.sceneId === SCENES.street && avatar.x === door.x && avatar.y === door.y) {
+      // Está en el umbral: la puerta se cruza en el tick siguiente (ver
+      // updateDoors). Esperamos en vez de creer que la tienda ha cerrado.
     } else {
       // No ha llegado (¿la tienda ha cerrado?): vuelve al coche.
       changes.phase = 'toCar';
@@ -291,6 +314,20 @@ export function chooseProduct(
   return random() < Math.min(0.95, Math.max(0.05, chance)) ? best : null;
 }
 
+/**
+ * ¿Paga el viajero el servicio del local? Solo si queda género, le llega el
+ * dinero y no le parece un abuso. Probabilidad = base + lo buena que sea la ganga.
+ */
+export function decideService(lot: Lot, budget: number, random: () => number): boolean {
+  const t = ECONOMY.travelers;
+  const service = businessOf(lot)?.service;
+  if (!service || !canServe(lot) || lot.price > budget) return false;
+  const ratio = lot.price / service.baseValue;
+  if (ratio > t.maxPriceRatio) return false;
+  const chance = t.baseBuyChance + t.bargainBonus * (1 - ratio);
+  return random() < Math.min(0.95, Math.max(0.05, chance));
+}
+
 function decideAndBuy(
   state: GameState,
   brain: TravelerBrain,
@@ -298,6 +335,7 @@ function decideAndBuy(
   random: () => number,
 ): GameState {
   const lot = state.lots[brain.lotId];
+  if (lot && isKind(lot, 'service')) return decideAndServe(state, brain, avatar, lot, random);
   const product = lot?.ownerId ? chooseProduct(state, brain.lotId, brain.budget, random) : null;
   if (!product || !lot?.ownerId) return say(state, avatar.id, PHRASES.nothing, random);
 
@@ -306,6 +344,28 @@ function decideAndBuy(
   let next = sellProduct(state, product, lot.ownerId, (s) => s);
   next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - product.price! });
   return say(next, avatar.id, PHRASES.bought, random);
+}
+
+function decideAndServe(
+  state: GameState,
+  brain: TravelerBrain,
+  avatar: Avatar,
+  lot: Lot,
+  random: () => number,
+): GameState {
+  if (!canServe(lot)) return say(state, avatar.id, PHRASES.closed, random);
+  if (!decideService(lot, brain.budget, random)) return say(state, avatar.id, PHRASES.nothing, random);
+
+  let next = serveCustomer(state, lot.id);
+  next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - lot.price });
+  // En la peluquería el viajero sale con el pelo de otro color.
+  if (lot.business === 'barber') {
+    const traveler = next.avatars[avatar.id];
+    const look = { ...traveler.look, hair: randomLook(random).hair };
+    next = { ...next, avatars: { ...next.avatars, [avatar.id]: { ...traveler, look } } };
+  }
+  const phrases = (lot.business && PHRASES.served[lot.business]) || PHRASES.bought;
+  return say(next, avatar.id, phrases, random);
 }
 
 /** El viajero desaparece y su coche se marcha. */
