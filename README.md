@@ -38,6 +38,10 @@ Abre http://localhost:5173
 | Girar mueble | `R` o clic derecho (mientras lo colocas), o botón "Girar" |
 | Cancelar | `Esc` |
 | Chatear | `Enter`, escribir y `Enter` |
+| Forzar día / atardecer / noche / amanecer (depuración) | `N` (otra vez para volver a la hora real) |
+
+En desarrollo, el estado del juego está disponible en la consola del navegador:
+`game.state` para verlo y `game.dispatch({...})` para lanzar acciones a mano.
 
 ## Estructura
 

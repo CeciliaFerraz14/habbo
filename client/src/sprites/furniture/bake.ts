@@ -96,7 +96,13 @@ function visibleFaces(b: Box): { poly: Point[]; color: string }[] {
 }
 
 /** Qué parte del mueble hornear: entero, o solo el respaldo (ver Box.backrest). */
-export type FurniPart = 'all' | 'backrest';
+/**
+ * Qué parte del mueble hornear:
+ * - 'all': entero.
+ * - 'backrest': solo el respaldo (ver Box.backrest).
+ * - 'emissive': solo las piezas que dan luz (ver Box.emissive), para la capa de luces.
+ */
+export type FurniPart = 'all' | 'backrest' | 'emissive';
 
 /** Resuelve el modelo de un mueble para una variante (si el modelo depende de ella). */
 export function getModel(defId: FurniId, variant?: string): FurniModel {
@@ -114,8 +120,10 @@ function bake(
   const model = getModel(defId, variant);
 
   // 1. Girar cajas y calcomanías tantas veces como indique la rotación.
-  let boxes = part === 'backrest' ? model.boxes.filter((b) => b.backrest) : model.boxes;
-  let decals: Decal[] = part === 'backrest' ? [] : (model.decals ?? []);
+  let boxes = model.boxes;
+  if (part === 'backrest') boxes = boxes.filter((b) => b.backrest);
+  if (part === 'emissive') boxes = boxes.filter((b) => b.emissive);
+  let decals: Decal[] = part === 'all' ? (model.decals ?? []) : [];
   let depth = def.depth;
   let width = def.width;
   for (let r = 0; r < rotation; r++) {
@@ -181,7 +189,9 @@ function bake(
       const isEdge =
         !mask.has(i - 1) || !mask.has(i + 1) || !mask.has(i - w) || !mask.has(i + w) ||
         px === 0 || px === w - 1 || py === 0 || py === h - 1;
-      pixels[i] = isEdge ? OUTLINE : color;
+      // Las piezas que dan luz no llevan contorno oscuro: un tubo de neón de
+      // 1 px sería todo contorno y se vería negro.
+      pixels[i] = isEdge && !b.emissive ? OUTLINE : color;
     }
   }
 
@@ -234,4 +244,17 @@ export function getFurniSprite(
     cache.set(key, result);
   }
   return result;
+}
+
+/**
+ * Sprite con SOLO las piezas que dan luz de un mueble, o null si no tiene
+ * ninguna. Usa la misma caché que getFurniSprite().
+ */
+export function getEmissiveSprite(
+  defId: FurniId,
+  rotation: Rotation,
+  variant?: string,
+): FurniSprite | null {
+  const hasLights = getModel(defId, variant).boxes.some((b) => b.emissive);
+  return hasLights ? getFurniSprite(defId, rotation, 'emissive', variant) : null;
 }

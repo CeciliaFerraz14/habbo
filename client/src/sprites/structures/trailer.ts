@@ -4,6 +4,8 @@
 import { box, glow, type FurniModel } from '../furniture/model';
 
 export const trailer: FurniModel = {
+  // La lucecita de la puerta ilumina el suelo delante de ella.
+  light: { color: '#ffd36e', radius: 18, dx: 1.9, dy: 0.5 },
   boxes: [
     // Ruedas
     box(36, 14, 0, 42, 26, 8, '#2e2a2a'),

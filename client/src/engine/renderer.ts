@@ -26,8 +26,11 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
-import { getFurniSprite, getModel } from '../sprites/furniture/bake';
-import { PALETTE } from '../sprites/palette';
+import { getEmissiveSprite, getFurniSprite, getModel } from '../sprites/furniture/bake';
+import type { LightPool } from '../sprites/furniture/model';
+import { createBackdrop } from './backdrop';
+import { PHASE_DARKNESS, type DayPhase } from './daylight';
+import { Lighting } from './lighting';
 import { buildRoomSprites, WALL_HEIGHT, type RoomSprites } from '../sprites/room';
 import type { Camera } from './camera';
 import { depthSort, type DepthBox } from './depth';
@@ -59,7 +62,12 @@ export interface RenderInput {
   ghost: Ghost | null;
   /** Tiempo actual en ms, para las animaciones. */
   now: number;
+  /** Momento del día (día, atardecer, noche...). */
+  phase: DayPhase;
 }
+
+/** Fracción de la oscuridad nocturna que se aplica dentro de los interiores. */
+const INTERIOR_DARKNESS = 0.55;
 
 /** Algo de la escena en lo que se puede hacer clic. */
 export type PickTarget = { kind: 'furni'; item: FurniItem } | { kind: 'door'; door: Door };
@@ -74,7 +82,11 @@ interface DrawnPickable {
 
 export class Renderer {
   private drawn: DrawnPickable[] = [];
-  private backdrop: HTMLCanvasElement | null = null;
+  private backdrop: { key: string; canvas: HTMLCanvasElement } | null = null;
+  /** Capas de escena y de luces (ver lighting.ts). */
+  private readonly lighting = new Lighting();
+  /** Dónde se dibuja la escena: la capa de escena de `lighting`, no el canvas visible. */
+  private ctx: CanvasRenderingContext2D;
   private readonly alphaCache = new WeakMap<Sprite, Uint8ClampedArray>();
 
   /** Sprites de suelo y paredes de la escena que se está dibujando. */
@@ -82,7 +94,9 @@ export class Renderer {
   /** Un juego de sprites por estilo de interior, generado la primera vez que hace falta. */
   private readonly spritesByTheme = new Map<InteriorTheme, RoomSprites>();
 
-  constructor(private readonly ctx: CanvasRenderingContext2D) {
+  /** @param output contexto del canvas visible, donde se combinan las capas al final. */
+  constructor(private readonly output: CanvasRenderingContext2D) {
+    this.ctx = this.lighting.context;
     this.sprites = this.spritesFor('adobe');
   }
 
@@ -95,10 +109,12 @@ export class Renderer {
     return sprites;
   }
 
-  render({ state, sceneId, views, camera, hoverTile, selectedId, ghost, now }: RenderInput): void {
+  render(input: RenderInput): void {
+    const { state, sceneId, views, camera, hoverTile, selectedId, ghost, now, phase } = input;
     const { ctx } = this;
+    const { width, height } = this.output.canvas;
     const scene = state.scenes[sceneId];
-    ctx.drawImage(this.getBackdrop(ctx.canvas.width, ctx.canvas.height), 0, 0);
+    this.lighting.begin(width, height);
     this.drawn = [];
     if (!scene) return;
     this.sprites = this.spritesFor(scene.theme ?? 'adobe');
@@ -127,6 +143,10 @@ export class Renderer {
       this.drawAtTile(sprite, ghost.x, ghost.y, camera, offsetX, offsetY);
       ctx.globalAlpha = 1;
     }
+
+    // Dentro de un interior la noche se nota menos (hay luz dentro).
+    const darkness = PHASE_DARKNESS[phase] * (scene.kind === 'interior' ? INTERIOR_DARKNESS : 1);
+    this.lighting.compose(this.output, this.getBackdrop(width, height, phase), darkness);
   }
 
   /**
@@ -167,41 +187,13 @@ export class Renderer {
     return { x: centerX, y: centerY + 2 - standHeight };
   }
 
-  /**
-   * Fondo del desierto: cielo en franjas de color (sin degradado suave, que no
-   * sería pixel art) y una línea de dunas en el horizonte. Solo se dibuja de
-   * nuevo cuando cambia el tamaño del canvas.
-   */
-  private getBackdrop(width: number, height: number): HTMLCanvasElement {
-    if (this.backdrop?.width === width && this.backdrop.height === height) return this.backdrop;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext('2d')!;
-
-    // Cielo: 4 franjas horizontales, más claras cerca del horizonte.
-    const horizon = Math.round(height * 0.62);
-    const bands = PALETTE.sky;
-    const bandHeight = Math.ceil(horizon / bands.length);
-    bands.forEach((color, i) => {
-      g.fillStyle = color;
-      g.fillRect(0, i * bandHeight, width, bandHeight);
-    });
-
-    // Dunas: para cada columna calculamos una altura con dos ondas (seno) de
-    // distinto tamaño, redondeada a múltiplos de 2 para que tenga escalones pixel.
-    for (let x = 0; x < width; x++) {
-      const wave = Math.sin(x / 37) * 8 + Math.sin(x / 13) * 3;
-      const top = horizon - 6 + Math.round(wave / 2) * 2;
-      g.fillStyle = PALETTE.dunes;
-      g.fillRect(x, top, 1, height - top);
-      g.fillStyle = PALETTE.dunesShade;
-      g.fillRect(x, top + 10, 1, height - top - 10);
+  /** Fondo del momento del día. Solo se regenera si cambia el tamaño o la fase. */
+  private getBackdrop(width: number, height: number, phase: DayPhase): HTMLCanvasElement {
+    const key = `${width}x${height}:${phase}`;
+    if (this.backdrop?.key !== key) {
+      this.backdrop = { key, canvas: createBackdrop(width, height, phase) };
     }
-
-    this.backdrop = canvas;
-    return canvas;
+    return this.backdrop.canvas;
   }
 
   /** Lee (una sola vez por sprite) los píxeles del sprite para consultar su transparencia. */
@@ -313,9 +305,38 @@ export class Renderer {
   }
 
   private drawFurni(item: FurniItem, camera: Camera): void {
-    const { sprite, offsetX, offsetY } = getFurniSprite(item.defId, item.rotation, 'all', item.variant);
+    const { defId, rotation, variant } = item;
+    const { sprite, offsetX, offsetY } = getFurniSprite(defId, rotation, 'all', variant);
     const at = this.drawAtTile(sprite, item.x, item.y, camera, offsetX, offsetY);
     this.drawn.push({ target: { kind: 'furni', item }, sprite, ...at });
+
+    // Capa de luces: el mueble tapa lo que tenga detrás y añade sus luces.
+    this.lighting.occlude(sprite, at.x, at.y);
+    const lit = getEmissiveSprite(defId, rotation, variant);
+    if (lit) {
+      const p = tileToScreen(item.x, item.y);
+      this.lighting.emit(
+        lit.sprite,
+        Math.round(camera.originX + p.x + lit.offsetX),
+        Math.round(camera.originY + p.y + lit.offsetY),
+      );
+    }
+    const light = getModel(defId, variant).light;
+    if (light) this.addLightPool(item, light, camera);
+  }
+
+  /**
+   * Charco de luz en el suelo de un mueble. Su desplazamiento está definido
+   * con el mueble en rotación 0, así que lo giramos igual que el mueble: cada
+   * cuarto de vuelta convierte (dx, dy) en (-dy, dx).
+   */
+  private addLightPool(item: FurniItem, light: LightPool, camera: Camera): void {
+    let dx = light.dx ?? 0;
+    let dy = light.dy ?? 0;
+    for (let r = 0; r < item.rotation; r++) [dx, dy] = [-dy, dx];
+    const f = getFootprint(item);
+    const p = tileToScreen(f.x + f.width / 2 + dx, f.y + f.depth / 2 + dy);
+    this.lighting.addPool(camera.originX + p.x, camera.originY + p.y, light.color, light.radius);
   }
 
   /**
@@ -383,13 +404,15 @@ export class Renderer {
       const seat = getSeatAt(state, avatar.sceneId, avatar.x, avatar.y);
       const seatHeight = (seat && getModel(seat.defId, seat.variant).seatHeight) ?? 0;
       const sprite = frames[FRAME_SIT];
-      this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H - seatHeight - HIP_ROW);
+      const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H - seatHeight - HIP_ROW);
+      this.lighting.occlude(sprite, at.x, at.y);
 
       // Si el asiento mira hacia el fondo (NW o NE), su respaldo está entre la
       // cámara y el avatar: lo repintamos encima para que tape su espalda.
       if (seat && seat.rotation >= 2) {
-        const back = getFurniSprite(seat.defId, seat.rotation, 'backrest');
-        this.drawAtTile(back.sprite, seat.x, seat.y, camera, back.offsetX, back.offsetY);
+        const back = getFurniSprite(seat.defId, seat.rotation, 'backrest', seat.variant);
+        const b = this.drawAtTile(back.sprite, seat.x, seat.y, camera, back.offsetX, back.offsetY);
+        this.lighting.occlude(back.sprite, b.x, b.y);
       }
       return;
     }
@@ -401,7 +424,9 @@ export class Renderer {
       : FRAME_STAND;
     const sprite = frames[frameIndex];
     this.drawAtTile(SHADOW, view.x, view.y, camera, -SHADOW.width / 2, HALF_H - 2);
-    this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H + 2 - sprite.height);
+    const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H + 2 - sprite.height);
+    // Los avatares no dan luz, pero tapan las luces que tengan detrás.
+    this.lighting.occlude(sprite, at.x, at.y);
   }
 }
 

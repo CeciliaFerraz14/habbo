@@ -4,6 +4,8 @@ import { box, glow, type FurniModel } from '../furniture/model';
 const METAL = '#4a4a5a';
 
 export const streetLamp: FurniModel = {
+  // Charco de luz bajo la bombilla, que cuelga hacia +y.
+  light: { color: '#ffd36e', radius: 32, dy: 0.5 },
   boxes: [
     box(6, 6, 0, 10, 10, 3, METAL),
     box(7, 7, 3, 9, 9, 52, METAL),

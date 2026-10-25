@@ -11,6 +11,7 @@ import {
   type GameState,
 } from '@juego/shared';
 import { centerCamera, followCamera, type Camera } from './engine/camera';
+import { DayClock, PHASE_NAMES } from './engine/daylight';
 import { attachInput } from './engine/input';
 import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
@@ -113,6 +114,7 @@ const controller = new GameController(
   showToast,
 );
 
+const clock = new DayClock();
 let camera: Camera = { originX: 0, originY: 0 };
 let hoverTile: Point | null = null;
 /** Escena que se está mostrando; cuando el jugador cambia de escena, recolocamos la cámara. */
@@ -156,7 +158,7 @@ function refreshUi(): void {
     shownSceneId = sceneId;
     resize(); // recentra la cámara en la escena nueva
   }
-  locationSign.textContent = state.scenes[sceneId]?.name ?? '';
+  updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look);
@@ -230,6 +232,7 @@ function frame(now: number): void {
     selectedId: controller.selected,
     ghost: controller.getGhost(hoverTile),
     now,
+    phase: clock.phase(),
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
@@ -253,6 +256,24 @@ if (import.meta.env.DEV) {
     },
   });
 }
+
+/** Cartel bajo la marquesina: dónde estás y qué hora es. */
+function updateLocationSign(): void {
+  const scene = state.scenes[playerSceneId()];
+  const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const forced = clock.isForced ? ` (${PHASE_NAMES[clock.phase()]})` : '';
+  locationSign.textContent = `${scene?.name ?? ''} · ${time}${forced}`;
+}
+setInterval(updateLocationSign, 10_000);
+
+// Tecla N (depuración): fuerza día, atardecer, noche, amanecer o vuelve a la hora real.
+window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement) return;
+  if (e.key !== 'n' && e.key !== 'N') return;
+  const forced = clock.cycleOverride();
+  showToast(forced ? `Forzado: ${PHASE_NAMES[forced]}` : 'Hora real del sistema');
+  updateLocationSign();
+});
 
 window.addEventListener('resize', resize);
 resize();

@@ -5,6 +5,7 @@ import { PALETTE } from '../palette';
 const BASE = '#3a3440';
 
 export const neonLamp: FurniModel = {
+  light: { color: PALETTE.neonPink, radius: 20 },
   boxes: [
     box(5, 5, 0, 11, 11, 3, BASE),
     glow(7, 7, 3, 9, 9, 34, PALETTE.neonPink),

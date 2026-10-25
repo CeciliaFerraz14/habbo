@@ -6,6 +6,8 @@ import { PALETTE } from '../palette';
 const WOOD = '#8a3a2a';
 
 export const jukebox: FurniModel = {
+  // Ilumina el suelo delante del frontal.
+  light: { color: PALETTE.neonCyan, radius: 14, dx: 0.7 },
   boxes: [
     box(3, 2, 0, 13, 14, 30, WOOD), // cuerpo
     // Arco: dos cajas cada vez más estrechas

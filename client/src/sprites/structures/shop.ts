@@ -55,5 +55,6 @@ export function shop(variant: string | undefined): FurniModel {
       box(63, 36, 25, 64, 62, 28, PLANK),
     );
   }
-  return { boxes };
+  // Abierto, el neón tiñe la acera delante de la fachada.
+  return { boxes, light: open ? { color: neonColor, radius: 36, dx: 2.4 } : undefined };
 }

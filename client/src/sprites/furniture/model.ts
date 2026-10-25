@@ -49,6 +49,20 @@ export interface FurniModel {
   decals?: Decal[];
   /** Solo muebles sentables: altura en píxeles del asiento, donde se apoya el avatar. */
   seatHeight?: number;
+  /** Charco de luz que proyecta en el suelo de noche. */
+  light?: LightPool;
+}
+
+/**
+ * Luz en el suelo. (dx, dy) es su desplazamiento en baldosas desde el CENTRO
+ * del mueble, con el mueble en rotación 0 (se gira con él).
+ */
+export interface LightPool {
+  color: string;
+  /** Radio horizontal en píxeles (la elipse es la mitad de alta). */
+  radius: number;
+  dx?: number;
+  dy?: number;
 }
 
 /** Atajo para crear una caja. x e y en dieciseisavos de baldosa, z en píxeles. */
