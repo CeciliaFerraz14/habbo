@@ -15,7 +15,7 @@
 // estado si la acción no es válida (no eres el dueño, no tienes dinero...).
 // =============================================================================
 
-import { DECOR_IDS, type DecorId, type FurniId, type Rotation } from './catalog';
+import { CATALOG, DECOR_IDS, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
   MATERIAL_IDS,
@@ -54,6 +54,8 @@ export interface Lot {
   jobs: CraftJob[];
   /** Tienda de un NPC: tick en el que repondrá género. */
   nextRestockAt: number;
+  /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
+  nextRentAt: number;
 }
 
 /** Convierte segundos de la configuración a ticks de simulación. */
@@ -72,6 +74,7 @@ export function createLot(id: string, label: string): Lot {
     nextProductionAt: 0,
     jobs: [],
     nextRestockAt: 0,
+    nextRentAt: 0,
   };
 }
 
@@ -125,12 +128,18 @@ const DISPLAY_SLOTS = [
 /** Los productos se exponen mirando a SW (hacia la cámara). */
 const DISPLAY_ROTATION: Rotation = 1;
 
-/** Id del mueble-puesto de un local (para saber a qué local pertenece al hacer clic). */
-export const stationId = (lotId: string) => `${lotId}-station`;
+/**
+ * Id del mueble-puesto de un local (para saber a qué local pertenece al hacer
+ * clic). Usamos un prefijo que ningún otro mueble tiene ("station:lot1"): con
+ * un sufijo como "-station", la gasolinera ("gas-station") se confundía con un
+ * puesto de trabajo.
+ */
+const STATION_PREFIX = 'station:';
+export const stationId = (lotId: string) => `${STATION_PREFIX}${lotId}`;
 
 /** Si el mueble es el puesto de trabajo de un local, devuelve el id del local. */
 export function lotOfStation(itemId: string): string | null {
-  return itemId.endsWith('-station') ? itemId.slice(0, -'-station'.length) : null;
+  return itemId.startsWith(STATION_PREFIX) ? itemId.slice(STATION_PREFIX.length) : null;
 }
 
 /**
@@ -193,6 +202,7 @@ function openBusiness(
     storage: {},
     nextProductionAt: state.tick + secondsToTicks(ECONOMY.scrapyard.productionSeconds),
     jobs: [],
+    nextRentAt: state.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
   };
 
   // El edificio de la calle pasa a mostrarse abierto, con el neón del negocio.
@@ -307,7 +317,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return restockNpcStores(produced);
+  return chargeRent(restockNpcStores(produced));
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -421,11 +431,15 @@ export function sellProduct(
   const price = item.price ?? 0;
   const commission = Math.round(price * ECONOMY.store.commissionRate);
   const { [item.id]: _sold, ...furniture } = state.furniture;
-  const paid: GameState = {
+  const earned = price - commission;
+  let paid: GameState = {
     ...state,
     furniture,
-    money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + price - commission },
+    money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + earned },
   };
+  if (!isNpcId(ownerId)) {
+    paid = addNotice(paid, ownerId, `Has vendido ${CATALOG[item.defId].name} por ${ECONOMY.currency}${earned}`);
+  }
   return deliver(paid);
 }
 
@@ -482,4 +496,114 @@ function restockNpcStores(state: GameState): GameState {
     next = withRestockTimer(next, npc.lotId);
   }
   return next;
+}
+
+// --- Avisos -----------------------------------------------------------------------
+
+/** Cuántos avisos se guardan como mucho (los más antiguos se olvidan). */
+const MAX_NOTICES = 30;
+
+/** Añade un aviso para un jugador. */
+export function addNotice(state: GameState, avatarId: string, text: string): GameState {
+  const notice = { id: `n${state.nextId}`, avatarId, text };
+  return {
+    ...state,
+    notices: [...state.notices, notice].slice(-MAX_NOTICES),
+    nextId: state.nextId + 1,
+  };
+}
+
+// --- Alquiler periódico -------------------------------------------------------
+
+/**
+ * Cobra el alquiler de los locales de los jugadores cuando toca. Si el dueño
+ * no tiene dinero suficiente, pierde el local.
+ * (Los NPC no pagan alquiler: son parte del "decorado" del pueblo.)
+ */
+function chargeRent(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    if (!lot.ownerId || !lot.business || isNpcId(lot.ownerId) || next.tick < lot.nextRentAt) continue;
+    const rent = ECONOMY.businesses[lot.business].rent;
+    const money = next.money[lot.ownerId] ?? 0;
+
+    if (money < rent) {
+      next = addNotice(next, lot.ownerId, `No has podido pagar el alquiler: has perdido el ${lot.label}.`);
+      next = closeLot(next, lot.id);
+      continue;
+    }
+    next = {
+      ...next,
+      money: { ...next.money, [lot.ownerId]: money - rent },
+      lots: {
+        ...next.lots,
+        [lot.id]: { ...lot, nextRentAt: next.tick + secondsToTicks(ECONOMY.rent.periodSeconds) },
+      },
+    };
+    next = addNotice(next, lot.ownerId, `Alquiler del ${lot.label}: -${ECONOMY.currency}${rent}`);
+  }
+  return next;
+}
+
+/**
+ * Cierra un local (vuelve a estar en alquiler): los muebles que había dentro
+ * (productos incluidos) vuelven al inventario del dueño, desaparece el puesto
+ * de trabajo y el edificio vuelve a tener tablones.
+ */
+function closeLot(state: GameState, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  if (!lot?.ownerId) return state;
+  const ownerId = lot.ownerId;
+
+  const furniture = { ...state.furniture };
+  const returned: InventoryItem[] = [];
+  for (const item of Object.values(state.furniture)) {
+    if (item.sceneId !== lotId) continue;
+    delete furniture[item.id];
+    if (!CATALOG[item.defId].fixed) returned.push({ id: item.id, defId: item.defId });
+  }
+  const building = furniture[`${lotId}-building`];
+  if (building) furniture[building.id] = { ...building, variant: 'closed' };
+
+  const scene = state.scenes[lotId];
+  return {
+    ...state,
+    furniture,
+    lots: { ...state.lots, [lotId]: createLot(lot.id, lot.label) },
+    inventories: {
+      ...state.inventories,
+      [ownerId]: [...(state.inventories[ownerId] ?? []), ...returned],
+    },
+    scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lot.label } } : state.scenes,
+  };
+}
+
+// --- Proveedor de materiales --------------------------------------------------
+
+/**
+ * Comprar materiales al proveedor. Está en la gasolinera, así que hay que
+ * estar en la calle. Es una salida de dinero: lo pagado desaparece del pueblo.
+ */
+export function buyMaterial(
+  state: GameState,
+  avatarId: string,
+  material: MaterialId,
+  quantity: number,
+): GameState {
+  const avatar = state.avatars[avatarId];
+  const unitPrice = ECONOMY.supplier.prices[material];
+  if (!avatar || avatar.sceneId !== 'street' || unitPrice === undefined) return state;
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > ECONOMY.supplier.maxPerPurchase) {
+    return state;
+  }
+  const cost = unitPrice * quantity;
+  const money = state.money[avatarId] ?? 0;
+  if (money < cost) return state;
+
+  const mine = state.materials[avatarId] ?? {};
+  return {
+    ...state,
+    money: { ...state.money, [avatarId]: money - cost },
+    materials: { ...state.materials, [avatarId]: addMaterials(mine, { [material]: quantity }) },
+  };
 }

@@ -1,6 +1,7 @@
 // Registro de modelos: relaciona cada mueble (y cada estructura de la calle)
 // del catálogo con su dibujo.
 import type { FurniId } from '@juego/shared';
+import { car } from '../structures/car';
 import { gasStation } from '../structures/gasStation';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
@@ -43,4 +44,5 @@ export const MODELS: Record<FurniId, ModelSource> = {
   scrap_pile: scrapPile,
   workbench,
   shop_counter: shopCounter,
+  car,
 };

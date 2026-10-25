@@ -1,0 +1,318 @@
+// =============================================================================
+//  VIAJEROS Y COCHES
+// =============================================================================
+//
+// Los viajeros son la ENTRADA de dinero al pueblo: traen dinero de fuera y lo
+// gastan en las tiendas. Su ciclo de vida:
+//
+//   1. Cada cierto tiempo pasa un coche por la carretera.
+//   2. Puede PARAR o seguir de largo. La probabilidad de parar crece con los
+//      negocios abiertos: cuanto más vivo está el pueblo, más gente para.
+//   3. Si para, aparca frente a una tienda abierta y se baja el viajero.
+//   4. El viajero entra, mira los productos y decide si compra algo según el
+//      precio (comparado con el valor de referencia) y la variedad.
+//   5. Vuelve al coche, desaparece y el coche se va.
+//
+// Todo es determinista (semilla del estado) y ocurre dentro del tick, así que
+// en la fase 2 lo hará el servidor igual que aquí.
+// =============================================================================
+
+import { getListings, secondsToTicks, sellProduct } from './economy';
+import { ECONOMY } from './economy.config';
+import { randomLook } from './looks';
+import { isDoorLocked } from './movement';
+import { move, say, updateBrain, wander } from './npcs';
+import { createRandom } from './random';
+import type { Avatar, FurniItem, GameState } from './types';
+import { SCENES } from './world.ids';
+
+/** Un coche en la carretera. Circulan todos hacia +x (calle de sentido único). */
+export interface Vehicle {
+  id: string;
+  /** Baldosa de la parte trasera del coche (ocupa 2 baldosas en x). */
+  x: number;
+  y: number;
+  color: string;
+  /** passing: sigue de largo · arriving: va a aparcar · parked · leaving: se va. */
+  mode: 'passing' | 'arriving' | 'parked' | 'leaving';
+  /** Dónde aparcará (x de la parte trasera). */
+  parkX: number;
+}
+
+/** Lo que recuerda un viajero. */
+export interface TravelerBrain {
+  id: string;
+  role: 'traveler';
+  vehicleId: string;
+  /** Tienda que ha venido a visitar. */
+  lotId: string;
+  /** toStore: va a la tienda · shopping: dentro · toCar: vuelve al coche. */
+  phase: 'toStore' | 'shopping' | 'toCar';
+  nextThinkAt: number;
+  /** Dinero que trae (viene de fuera del pueblo). */
+  budget: number;
+  /** Vueltas que ha dado mirando dentro de la tienda. */
+  looked: number;
+  /** Decisiones que le quedan antes de rendirse (por si se queda atascado). */
+  patience: number;
+}
+
+/** Carril de los coches que van a aparcar (el más cercano a la acera). */
+const LANE_Y = 7;
+/** Carril de los que siguen de largo, para que no atraviesen a los aparcados. */
+const PASSING_LANE_Y = 9;
+/** Fila de la acera donde se baja el viajero (junto al bordillo). */
+const CURB_Y = 6;
+/** Los coches aparecen y desaparecen fuera de la calle. */
+const SPAWN_X = -3;
+
+const CAR_COLORS = ['#c83c3c', '#2f8f8a', '#f2b134', '#6a4a8a', '#e8e0d0', '#4a78ab'];
+const TRAVELER_NAMES = ['Hank', 'Lupe', 'Moe', 'Irene', 'Sal', 'Trudy', 'Bo', 'Carmen', 'Walt', 'Rita'];
+
+const PHRASES = {
+  bought: ['¡Me lo llevo!', 'Esto quedará genial en casa.', 'Buen precio, sí señor.'],
+  nothing: ['Todo está carísimo...', 'No veo nada para mí.', 'Volveré otro día.'],
+};
+
+/** Un paso de la simulación de coches y viajeros. Se llama en cada tick. */
+export function travelerTick(state: GameState): GameState {
+  let next = moveVehicles(state);
+  next = maybeSpawnCar(next);
+  for (const brain of Object.values(next.npcs)) {
+    if (brain.role === 'traveler') next = thinkTraveler(next, brain);
+  }
+  return next;
+}
+
+// --- Coches -------------------------------------------------------------------
+
+/** Puertas de la calle que dan a tiendas abiertas. */
+function openStoreDoors(state: GameState) {
+  return state.scenes[SCENES.street].doors.filter((d) => {
+    const lot = d.lotId ? state.lots[d.lotId] : undefined;
+    return lot?.business === 'store' && !isDoorLocked(state, d);
+  });
+}
+
+/** Probabilidad de que un coche pare, según los negocios abiertos. */
+export function stopChance(state: GameState): number {
+  const t = ECONOMY.travelers;
+  const open = Object.values(state.lots).filter((l) => l.ownerId !== null).length;
+  return Math.min(t.maxStopChance, t.baseStopChance + t.stopChancePerBusiness * open);
+}
+
+/** Si toca, aparece un coche nuevo por el principio de la carretera. */
+function maybeSpawnCar(state: GameState): GameState {
+  if (state.tick < state.nextCarAt) return state;
+  const t = ECONOMY.travelers;
+  const rng = createRandom(state.seed);
+
+  const travelers = Object.values(state.npcs).filter((b) => b.role === 'traveler').length;
+  const doors = openStoreDoors(state);
+  // ¿Para? Solo si hay alguna tienda abierta y no hay demasiados viajeros.
+  const stops = doors.length > 0 && travelers < t.maxActive && rng.random() < stopChance(state);
+  const door = stops ? doors[Math.floor(rng.random() * doors.length)] : null;
+
+  const vehicle: Vehicle = {
+    id: `car${state.nextId}`,
+    x: SPAWN_X,
+    y: door ? LANE_Y : PASSING_LANE_Y,
+    color: CAR_COLORS[Math.floor(rng.random() * CAR_COLORS.length)],
+    mode: door ? 'arriving' : 'passing',
+    // Aparca con la parte delantera justo frente a la puerta.
+    parkX: door ? door.x - 1 : 0,
+  };
+  // El siguiente coche llega dentro de carIntervalSeconds ± 30 %.
+  const interval = t.carIntervalSeconds * (0.7 + rng.random() * 0.6);
+  const next: GameState = {
+    ...state,
+    vehicles: { ...state.vehicles, [vehicle.id]: vehicle },
+    nextCarAt: state.tick + secondsToTicks(interval),
+    nextId: state.nextId + 1,
+    seed: rng.seed(),
+  };
+  // Si va a parar, apuntamos ya a qué tienda va (el viajero se baja al aparcar).
+  return door?.lotId ? withPendingLot(next, vehicle.id, door.lotId) : next;
+}
+
+/**
+ * Guarda a qué tienda va un coche que viene a aparcar. Lo apuntamos en un
+ * "cerebro" provisional del viajero, que aún no tiene avatar.
+ */
+function withPendingLot(state: GameState, vehicleId: string, lotId: string): GameState {
+  const rng = createRandom(state.seed);
+  const { min, max } = ECONOMY.travelers.budget;
+  const brain: TravelerBrain = {
+    id: `trav${state.nextId}`,
+    role: 'traveler',
+    vehicleId,
+    lotId,
+    phase: 'toStore',
+    nextThinkAt: Number.MAX_SAFE_INTEGER, // no piensa hasta que se baje del coche
+    budget: Math.round(min + rng.random() * (max - min)),
+    looked: 0,
+    patience: 20,
+  };
+  return {
+    ...state,
+    npcs: { ...state.npcs, [brain.id]: brain },
+    nextId: state.nextId + 1,
+    seed: rng.seed(),
+  };
+}
+
+/** Mueve los coches una baldosa por tick y gestiona aparcar y marcharse. */
+function moveVehicles(state: GameState): GameState {
+  const width = state.scenes[SCENES.street].width;
+  let next = state;
+  for (const car of Object.values(state.vehicles)) {
+    if (car.mode === 'parked') continue;
+
+    // Llega a su plaza: aparca y se baja el viajero.
+    if (car.mode === 'arriving' && car.x + 1 >= car.parkX) {
+      next = setVehicle(next, { ...car, x: car.parkX, mode: 'parked' });
+      next = dropOffTraveler(next, car.id);
+      continue;
+    }
+    // Sale por el final de la calle: desaparece.
+    if (car.x > width + 2) {
+      const { [car.id]: _gone, ...vehicles } = next.vehicles;
+      next = { ...next, vehicles };
+      continue;
+    }
+    next = setVehicle(next, { ...car, x: car.x + 1 });
+  }
+  return next;
+}
+
+function setVehicle(state: GameState, car: Vehicle): GameState {
+  return { ...state, vehicles: { ...state.vehicles, [car.id]: car } };
+}
+
+/** El viajero aparece en la acera junto a su coche y va hacia la tienda. */
+function dropOffTraveler(state: GameState, vehicleId: string): GameState {
+  const brain = Object.values(state.npcs).find(
+    (b): b is TravelerBrain => b.role === 'traveler' && b.vehicleId === vehicleId,
+  );
+  const car = state.vehicles[vehicleId];
+  if (!brain || !car) return state;
+
+  const rng = createRandom(state.seed);
+  const avatar: Avatar = {
+    id: brain.id,
+    name: TRAVELER_NAMES[Math.floor(rng.random() * TRAVELER_NAMES.length)],
+    sceneId: SCENES.street,
+    x: car.parkX + 1,
+    y: CURB_Y,
+    direction: 'NE',
+    path: [],
+    look: randomLook(rng.random),
+    isBot: true,
+    sitting: false,
+  };
+  let next: GameState = { ...state, avatars: { ...state.avatars, [avatar.id]: avatar }, seed: rng.seed() };
+  const door = next.scenes[SCENES.street].doors.find((d) => d.lotId === brain.lotId);
+  if (door) next = move(next, avatar.id, door);
+  return updateBrain<TravelerBrain>(next, brain.id, { nextThinkAt: next.tick + 1 });
+}
+
+// --- Viajeros -----------------------------------------------------------------
+
+function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
+  const avatar = state.avatars[brain.id];
+  if (!avatar || avatar.path.length > 0 || state.tick < brain.nextThinkAt) return state;
+
+  // Si lleva demasiado tiempo sin conseguir nada (camino bloqueado, tienda
+  // cerrada...), se rinde y se va.
+  if (brain.patience <= 0) return leaveTown(state, brain);
+
+  const rng = createRandom(state.seed);
+  let next: GameState = { ...state };
+  const changes: Partial<TravelerBrain> = { patience: brain.patience - 1 };
+
+  if (brain.phase === 'toStore') {
+    if (avatar.sceneId === brain.lotId) {
+      changes.phase = 'shopping';
+      next = wander(next, avatar, rng.random);
+    } else {
+      // No ha llegado (¿la tienda ha cerrado?): vuelve al coche.
+      changes.phase = 'toCar';
+    }
+  } else if (brain.phase === 'shopping') {
+    if (brain.looked < 2) {
+      // Da un par de vueltas mirando los productos.
+      next = wander(next, avatar, rng.random);
+      changes.looked = brain.looked + 1;
+    } else {
+      next = decideAndBuy(next, brain, avatar, rng.random);
+      next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
+      changes.phase = 'toCar';
+    }
+  } else {
+    // Volviendo al coche: primero sale de la tienda, luego va al bordillo.
+    const car = next.vehicles[brain.vehicleId];
+    if (avatar.sceneId !== SCENES.street) {
+      next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
+    } else if (!car || (avatar.x === car.parkX + 1 && avatar.y === CURB_Y)) {
+      return leaveTown({ ...next, seed: rng.seed() }, brain);
+    } else {
+      next = move(next, avatar.id, { x: car.parkX + 1, y: CURB_Y });
+    }
+  }
+
+  const wait = 1.5 + rng.random() * 2;
+  changes.nextThinkAt = next.tick + secondsToTicks(wait);
+  return updateBrain<TravelerBrain>({ ...next, seed: rng.seed() }, brain.id, changes);
+}
+
+/**
+ * Elige un producto y decide si lo compra.
+ *
+ * - Descarta lo que no puede pagar y lo que considera un abuso (más de
+ *   maxPriceRatio veces su valor de referencia).
+ * - De lo que queda, elige la mejor ganga (precio más bajo comparado con su valor).
+ * - Probabilidad de comprarlo = base + variedad + lo buena que sea la ganga.
+ */
+export function chooseProduct(
+  state: GameState,
+  lotId: string,
+  budget: number,
+  random: () => number,
+): FurniItem | null {
+  const t = ECONOMY.travelers;
+  const listings = getListings(state, lotId);
+  const ratio = (item: FurniItem) => item.price! / ECONOMY.baseValue[item.defId as keyof typeof ECONOMY.baseValue];
+  const candidates = listings.filter((item) => item.price! <= budget && ratio(item) <= t.maxPriceRatio);
+  if (candidates.length === 0) return null;
+
+  const best = candidates.reduce((a, b) => (ratio(b) < ratio(a) ? b : a));
+  const variety = new Set(listings.map((l) => l.defId)).size;
+  const chance = t.baseBuyChance + t.varietyBonus * variety + t.bargainBonus * (1 - ratio(best));
+  return random() < Math.min(0.95, Math.max(0.05, chance)) ? best : null;
+}
+
+function decideAndBuy(
+  state: GameState,
+  brain: TravelerBrain,
+  avatar: Avatar,
+  random: () => number,
+): GameState {
+  const lot = state.lots[brain.lotId];
+  const product = lot?.ownerId ? chooseProduct(state, brain.lotId, brain.budget, random) : null;
+  if (!product || !lot?.ownerId) return say(state, avatar.id, PHRASES.nothing, random);
+
+  // El viajero se lleva el mueble fuera del pueblo: no va a ningún inventario.
+  // (Si el dueño es un jugador, sellProduct ya le deja un aviso de la venta.)
+  let next = sellProduct(state, product, lot.ownerId, (s) => s);
+  next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - product.price! });
+  return say(next, avatar.id, PHRASES.bought, random);
+}
+
+/** El viajero desaparece y su coche se marcha. */
+function leaveTown(state: GameState, brain: TravelerBrain): GameState {
+  const { [brain.id]: _avatar, ...avatars } = state.avatars;
+  const { [brain.id]: _brain, ...npcs } = state.npcs;
+  const car = state.vehicles[brain.vehicleId];
+  const vehicles = car ? { ...state.vehicles, [car.id]: { ...car, mode: 'leaving' as const } } : state.vehicles;
+  return { ...state, avatars, npcs, vehicles };
+}

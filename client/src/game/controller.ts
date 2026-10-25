@@ -47,6 +47,8 @@ export interface ControllerEvents {
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
   openShop: (lotId: string) => void;
+  /** Abre el proveedor de materiales de la gasolinera. */
+  openSupplier: () => void;
 }
 
 export class GameController {
@@ -235,6 +237,11 @@ export class GameController {
           if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
           else if (lot?.business === 'store') this.events.openShop(lotId);
           else this.events.notify('Este negocio no es tuyo.');
+          return;
+        }
+        // La gasolinera es el proveedor de materiales.
+        if (item.defId === 'gas_station') {
+          this.events.openSupplier();
           return;
         }
         // Edificio con puerta: el clic nos lleva hasta ella.

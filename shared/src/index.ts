@@ -14,5 +14,6 @@ export * from './random';
 export * from './reducer';
 export * from './scene';
 export * from './simulation';
+export * from './travelers';
 export * from './types';
 export * from './world';

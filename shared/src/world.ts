@@ -204,6 +204,9 @@ export function createInitialState(): GameState {
     tick: 0,
     seed: 20240917,
     npcs: {},
+    vehicles: {},
+    nextCarAt: 0,
+    notices: [],
     nextId: 100,
   };
   // Las tiendas de los NPC abren desde el principio y los vecinos salen a la calle.

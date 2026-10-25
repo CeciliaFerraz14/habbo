@@ -17,6 +17,7 @@ import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
 import { GameController } from './game/controller';
+import { VehicleViews } from './game/vehicleViews';
 import { LocalTransport, type Transport } from './game/transport';
 import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
@@ -30,6 +31,7 @@ import { createInventoryWindow } from './ui/inventoryWindow';
 import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
+import { createSupplierWindow } from './ui/supplierWindow';
 import { showToast } from './ui/toast';
 import './ui/styles.css';
 
@@ -110,6 +112,7 @@ let state!: GameState;
 
 const renderer = new Renderer(ctx);
 const views = new AvatarViews();
+const vehicleViews = new VehicleViews();
 const controller = new GameController(
   transport,
   PLAYER_ID,
@@ -125,6 +128,10 @@ const controller = new GameController(
     openShop: (lotId) => {
       shopWindow.open(lotId);
       shopWindow.update(state, PLAYER_ID);
+    },
+    openSupplier: () => {
+      supplierWindow.open();
+      supplierWindow.update(state, PLAYER_ID);
     },
   },
 );
@@ -165,7 +172,26 @@ const shopWindow = createShopWindow((itemId) => {
   transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
   if (state.money[PLAYER_ID] !== before) showToast('¡Comprado! Está en tu inventario.');
 });
+const supplierWindow = createSupplierWindow((material, quantity) =>
+  transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+);
 const priceTags = new PriceTags();
+
+/**
+ * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
+ * Viven en el estado; aquí recordamos cuáles hemos enseñado ya.
+ */
+const seenNotices = new Set<string>();
+let noticesReady = false;
+function showNewNotices(): void {
+  for (const notice of state.notices) {
+    if (seenNotices.has(notice.id)) continue;
+    seenNotices.add(notice.id);
+    // Los que ya existían al arrancar no se muestran.
+    if (noticesReady && notice.avatarId === PLAYER_ID) showToast(notice.text);
+  }
+  noticesReady = true;
+}
 const inventory = createInventoryWindow((itemId) => controller.startPlacing(itemId));
 const furniPanel = createFurniPanel({
   onMove: () => controller.startMovingSelected(),
@@ -201,6 +227,8 @@ function refreshUi(): void {
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
+  supplierWindow.update(state, PLAYER_ID);
+  showNewNotices();
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look);
   chatHistory.update(state.messages, sceneId);
@@ -263,11 +291,13 @@ function frame(now: number): void {
 
   const sceneId = playerSceneId();
   views.update(state, dt);
+  vehicleViews.update(state, dt);
   updateCamera();
   renderer.render({
     state,
     sceneId,
     views,
+    vehicles: vehicleViews,
     camera,
     hoverTile,
     selectedId: controller.selected,

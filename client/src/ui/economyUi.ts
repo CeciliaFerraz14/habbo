@@ -19,7 +19,7 @@ export function formatMoney(amount: number): string {
  */
 export function materialChips(
   materials: Materials,
-  options: { max?: number; showZero?: boolean; have?: Materials } = {},
+  options: { max?: number; showZero?: boolean; have?: Materials; nameOnly?: boolean } = {},
 ): HTMLDivElement {
   const row = document.createElement('div');
   row.className = 'chips';
@@ -33,7 +33,8 @@ export function materialChips(
     const swatch = document.createElement('i');
     swatch.style.background = MATERIAL_COLORS[id];
     const label = options.max !== undefined ? `${qty}/${options.max}` : String(qty);
-    chip.append(swatch, `${ECONOMY.materials[id].name} ${label}`);
+    const name = ECONOMY.materials[id].name;
+    chip.append(swatch, options.nameOnly ? name : `${name} ${label}`);
     row.append(chip);
   }
   return row;

@@ -11,6 +11,7 @@ import { CATALOG } from './catalog';
 import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
 import {
   buyItem,
+  buyMaterial,
   canEditScene,
   collectCrafted,
   collectMaterials,
@@ -125,6 +126,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setPrice(state, action.avatarId, action.itemId, action.price);
     case 'BUY_ITEM':
       return buyItem(state, action.avatarId, action.itemId);
+    case 'BUY_MATERIAL':
+      return buyMaterial(state, action.avatarId, action.material, action.quantity);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];

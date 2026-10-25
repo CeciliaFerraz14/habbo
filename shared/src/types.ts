@@ -4,6 +4,7 @@ import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
 import type { NpcBrain } from './npcs';
+import type { Vehicle } from './travelers';
 import type { Scene } from './scene';
 
 /** Una baldosa de la sala. */
@@ -52,6 +53,13 @@ export interface ChatMessage {
   avatarId: string;
   /** Guardamos el nombre por si el avatar se va de la sala y queda en el historial. */
   name: string;
+  text: string;
+}
+
+/** Un aviso para un jugador concreto. El cliente los muestra y los olvida. */
+export interface Notice {
+  id: string;
+  avatarId: string;
   text: string;
 }
 
@@ -108,8 +116,14 @@ export interface GameState {
   tick: number;
   /** Semilla del generador aleatorio determinista (ver random.ts). */
   seed: number;
-  /** "Cerebro" de cada NPC (vecinos y, más adelante, viajeros). */
+  /** "Cerebro" de cada NPC (vecinos y viajeros). */
   npcs: Record<string, NpcBrain>;
+  /** Coches que circulan por la carretera. */
+  vehicles: Record<string, Vehicle>;
+  /** Tick en el que pasará el próximo coche. */
+  nextCarAt: number;
+  /** Avisos para los jugadores ("Has vendido...", "Alquiler pagado..."). */
+  notices: Notice[];
   /**
    * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
    * (en vez de usar Math.random) para que el reducer siga siendo puro.

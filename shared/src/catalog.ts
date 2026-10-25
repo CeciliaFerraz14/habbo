@@ -29,7 +29,9 @@ export type StructureId =
   // Puestos de trabajo de los negocios (dentro de los locales)
   | 'scrap_pile'
   | 'workbench'
-  | 'shop_counter';
+  | 'shop_counter'
+  // Vehículos (no se colocan como muebles, pero se dibujan igual)
+  | 'car';
 
 export type FurniId = DecorId | StructureId;
 
@@ -101,6 +103,7 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
   workbench: structure('workbench', 'Banco de trabajo', 1, 2),
   shop_counter: structure('shop_counter', 'Mostrador', 1, 2),
+  car: structure('car', 'Coche', 2, 1),
 };
 
 /** Muebles que se pueden tener (excluye las estructuras fijas). */

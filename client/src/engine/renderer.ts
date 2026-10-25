@@ -14,8 +14,10 @@ import {
   type GroundChar,
   type InteriorTheme,
   type Scene,
+  type Vehicle,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
+import type { VehicleView, VehicleViews } from '../game/vehicleViews';
 import {
   AVATAR_WIDTH,
   FRAME_SIT,
@@ -53,6 +55,8 @@ export interface RenderInput {
   /** Escena que se dibuja (la del jugador). */
   sceneId: string;
   views: AvatarViews;
+  /** Posiciones visuales de los coches. */
+  vehicles: VehicleViews;
   camera: Camera;
   /** Baldosa bajo el ratón, o null si el ratón está fuera de la sala. */
   hoverTile: Point | null;
@@ -110,7 +114,7 @@ export class Renderer {
   }
 
   render(input: RenderInput): void {
-    const { state, sceneId, views, camera, hoverTile, selectedId, ghost, now, phase } = input;
+    const { state, sceneId, views, vehicles, camera, hoverTile, selectedId, ghost, now, phase } = input;
     const { ctx } = this;
     const { width, height } = this.output.canvas;
     const scene = state.scenes[sceneId];
@@ -134,7 +138,7 @@ export class Renderer {
       this.drawAtTile(this.sprites.hover, hoverTile.x, hoverTile.y, camera, -HALF_W, 0);
     }
 
-    this.drawScene(state, sceneId, views, camera, now);
+    this.drawScene(state, sceneId, views, vehicles, camera, now);
 
     // El fantasma va encima de todo y semitransparente.
     if (ghost) {
@@ -339,7 +343,7 @@ export class Renderer {
    * con el mueble en rotación 0, así que lo giramos igual que el mueble: cada
    * cuarto de vuelta convierte (dx, dy) en (-dy, dx).
    */
-  private addLightPool(item: FurniItem, light: LightPool, camera: Camera): void {
+  private addLightPool(item: FurniPlacement, light: LightPool, camera: Camera): void {
     let dx = light.dx ?? 0;
     let dy = light.dy ?? 0;
     for (let r = 0; r < item.rotation; r++) [dx, dy] = [-dy, dx];
@@ -356,6 +360,7 @@ export class Renderer {
     state: GameState,
     sceneId: string,
     views: AvatarViews,
+    vehicles: VehicleViews,
     camera: Camera,
     now: number,
   ): void {
@@ -388,6 +393,19 @@ export class Renderer {
       });
     }
 
+    // Los coches solo circulan por la calle. Ocupan 2 baldosas a lo largo de x.
+    if (state.scenes[sceneId]?.kind === 'street') {
+      for (const car of Object.values(state.vehicles)) {
+        const view = vehicles.get(car.id);
+        if (!view) continue;
+        drawables.push({
+          box: { x0: view.x, y0: view.y, x1: view.x + 2, y1: view.y + 1 },
+          tie: 0,
+          draw: () => this.drawVehicle(car, view, camera),
+        });
+      }
+    }
+
     flat.sort((a, b) => a.x + a.y - (b.x + b.y)).forEach((item) => this.drawFurni(item, camera));
 
     const sorted = depthSort(
@@ -396,6 +414,29 @@ export class Renderer {
       (d) => d.box.x0 + d.box.x1 + d.box.y0 + d.box.y1 + d.tie,
     );
     for (const d of sorted) d.draw();
+  }
+
+  /**
+   * Un coche se dibuja como un mueble 'car' (con su color como variante),
+   * pero en su posición VISUAL, para que avance suave entre baldosas.
+   */
+  private drawVehicle(car: Vehicle, view: VehicleView, camera: Camera): void {
+    const { sprite, offsetX, offsetY } = getFurniSprite('car', 0, 'all', car.color);
+    const at = this.drawAtTile(sprite, view.x, view.y, camera, offsetX, offsetY);
+    this.lighting.occlude(sprite, at.x, at.y);
+    const lit = getEmissiveSprite('car', 0, car.color);
+    if (lit) {
+      const p = tileToScreen(view.x, view.y);
+      this.lighting.emit(
+        lit.sprite,
+        Math.round(camera.originX + p.x + lit.offsetX),
+        Math.round(camera.originY + p.y + lit.offsetY),
+      );
+    }
+    const light = getModel('car', car.color).light;
+    if (light) {
+      this.addLightPool({ defId: 'car', x: view.x, y: view.y, rotation: 0 }, light, camera);
+    }
   }
 
   private drawAvatar(

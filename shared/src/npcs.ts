@@ -22,11 +22,12 @@ import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
 import { createRandom } from './random';
 import { applyAction } from './reducer';
+import type { TravelerBrain } from './travelers';
 import type { Avatar, GameState, TilePoint } from './types';
 import { SCENES } from './world.ids';
 
-/** Lo que recuerda cada NPC entre una decisión y la siguiente. */
-export interface NpcBrain {
+/** Lo que recuerda un vecino entre una decisión y la siguiente. */
+export interface NeighborBrain {
   id: string;
   role: 'neighbor';
   /** Tick a partir del cual volverá a pensar. */
@@ -36,6 +37,9 @@ export interface NpcBrain {
   /** Último mensaje del chat que ha "oído" (para no contestar dos veces). */
   lastHeardId: string | null;
 }
+
+/** Cerebro de cualquier NPC: vecino o viajero (ver travelers.ts). */
+export type NpcBrain = NeighborBrain | TravelerBrain;
 
 /** Los vecinos del pueblo y dónde aparecen. */
 const NEIGHBORS = [
@@ -98,13 +102,15 @@ export function npcTick(state: GameState): GameState {
   let someoneGreeted = false;
 
   for (const brain of Object.values(state.npcs)) {
+    // Los viajeros tienen su propia lógica (travelers.ts).
+    if (brain.role !== 'neighbor') continue;
     const avatar = next.avatars[brain.id];
     if (!avatar) continue;
 
     // 1. ¿Un jugador ha saludado en su escena? Contesta uno solo de los vecinos.
     const heard = lastPlayerMessage(next, avatar.sceneId);
     if (heard && heard.id !== brain.lastHeardId) {
-      next = updateBrain(next, brain.id, { lastHeardId: heard.id });
+      next = updateBrain<NeighborBrain>(next, brain.id, { lastHeardId: heard.id });
       if (!someoneGreeted && GREETING.test(heard.text)) {
         someoneGreeted = true;
         // La frase depende del tick: variada pero determinista.
@@ -115,13 +121,13 @@ export function npcTick(state: GameState): GameState {
 
     // 2. Solo piensan si están quietos y les toca.
     if (avatar.path.length > 0 || next.tick < next.npcs[brain.id].nextThinkAt) continue;
-    next = think(next, next.npcs[brain.id], avatar);
+    next = think(next, next.npcs[brain.id] as NeighborBrain, avatar);
   }
   return next;
 }
 
 /** Decide y hace UNA cosa, y programa cuándo volverá a pensar. */
-function think(state: GameState, brain: NpcBrain, avatar: Avatar): GameState {
+function think(state: GameState, brain: NeighborBrain, avatar: Avatar): GameState {
   const rng = createRandom(state.seed);
   let next: GameState = state;
   const lot = state.lots[avatar.sceneId];
@@ -130,7 +136,7 @@ function think(state: GameState, brain: NpcBrain, avatar: Avatar): GameState {
     // Dentro de una tienda: curiosea unas vueltas y luego se va.
     if (brain.visitLeft > 0 && rng.random() < 0.8) {
       next = rng.random() < 0.3 ? say(next, avatar.id, PHRASES.store, rng.random) : wander(next, avatar, rng.random);
-      next = updateBrain(next, brain.id, { visitLeft: brain.visitLeft - 1 });
+      next = updateBrain<NeighborBrain>(next, brain.id, { visitLeft: brain.visitLeft - 1 });
     } else {
       const exit = state.scenes[avatar.sceneId].doors[0];
       next = move(next, avatar.id, exit);
@@ -141,7 +147,7 @@ function think(state: GameState, brain: NpcBrain, avatar: Avatar): GameState {
     if (store) {
       // Entrar a curiosear: dará entre 2 y 4 vueltas antes de salir.
       next = move(next, avatar.id, store);
-      next = updateBrain(next, brain.id, { visitLeft: 2 + Math.floor(rng.random() * 3) });
+      next = updateBrain<NeighborBrain>(next, brain.id, { visitLeft: 2 + Math.floor(rng.random() * 3) });
     } else if (roll < 0.5) {
       next = say(next, avatar.id, streetPhrases(state), rng.random);
     } else {
@@ -150,21 +156,28 @@ function think(state: GameState, brain: NpcBrain, avatar: Avatar): GameState {
   }
 
   const wait = THINK_SECONDS.min + rng.random() * (THINK_SECONDS.max - THINK_SECONDS.min);
-  next = updateBrain(next, brain.id, { nextThinkAt: next.tick + secondsToTicks(wait) });
+  next = updateBrain<NeighborBrain>(next, brain.id, { nextThinkAt: next.tick + secondsToTicks(wait) });
   return { ...next, seed: rng.seed() };
 }
 
 // --- Ayudantes ----------------------------------------------------------------
 
-function updateBrain(state: GameState, id: string, changes: Partial<NpcBrain>): GameState {
-  return { ...state, npcs: { ...state.npcs, [id]: { ...state.npcs[id], ...changes } } };
+export function updateBrain<B extends NpcBrain>(
+  state: GameState,
+  id: string,
+  changes: Partial<B>,
+): GameState {
+  return {
+    ...state,
+    npcs: { ...state.npcs, [id]: { ...state.npcs[id], ...changes } as NpcBrain },
+  };
 }
 
-function move(state: GameState, avatarId: string, to: TilePoint): GameState {
+export function move(state: GameState, avatarId: string, to: TilePoint): GameState {
   return applyAction(state, { type: 'MOVE', avatarId, x: to.x, y: to.y });
 }
 
-function say(
+export function say(
   state: GameState,
   avatarId: string,
   phrases: readonly string[],
@@ -175,7 +188,7 @@ function say(
 }
 
 /** Camina a una baldosa libre al azar (en la calle, solo por la acera y la carretera). */
-function wander(state: GameState, avatar: Avatar, random: () => number): GameState {
+export function wander(state: GameState, avatar: Avatar, random: () => number): GameState {
   const scene = state.scenes[avatar.sceneId];
   const walkable = createWalkableCheck(state, scene.id);
   const street = scene.kind === 'street';
