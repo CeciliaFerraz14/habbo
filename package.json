@@ -1,0 +1,15 @@
+{
+  "name": "juego-isometrico",
+  "private": true,
+  "description": "Juego social isométrico en pixel art (monorepo: client, server, shared)",
+  "workspaces": [
+    "shared",
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "typecheck": "npm run typecheck -w client"
+  }
+}
