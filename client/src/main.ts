@@ -1,12 +1,9 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
 import {
-  createInitialState,
   DEFAULT_LOOK,
   GAME_NAME,
   isValidLook,
   START_SCENE,
-  START_TILE,
-  type Avatar,
   type AvatarLook,
   type GameState,
 } from '@juego/shared';
@@ -16,10 +13,10 @@ import { attachInput } from './engine/input';
 import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
+import { connect, type Connection } from './game/connection';
 import { GameController } from './game/controller';
 import { DoorStates } from './game/doorStates';
 import { VehicleViews } from './game/vehicleViews';
-import { LocalTransport, type Transport } from './game/transport';
 import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
 import { createBusinessWindow } from './ui/businessWindow';
@@ -49,9 +46,6 @@ let scale = 2;
 
 /** Altura que asoman los edificios más altos de la calle por encima del suelo. */
 const STREET_EXTRA_TOP = 90;
-
-/** Id del avatar que controla este jugador. En la fase 2 lo asignará el servidor. */
-const PLAYER_ID = 'player';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = canvas.getContext('2d')!;
@@ -94,22 +88,25 @@ function saveLook(look: AvatarLook): void {
   }
 }
 
-const player: Avatar = {
-  id: PLAYER_ID,
-  name: 'Tú',
-  sceneId: START_SCENE,
-  ...START_TILE,
-  direction: 'SE',
-  path: [],
-  look: loadLook(),
-  isBot: false,
-  sitting: false,
-};
+// --- Conexión ---------------------------------------------------------------
+
+/**
+ * Antes de nada, nos conectamos: al servidor (multijugador) o a la simulación
+ * local, según la configuración (ver game/connection.ts). Usamos `await` en lo
+ * alto del módulo: el resto del juego no arranca hasta tener conexión.
+ */
+let connection: Connection;
+try {
+  connection = await connect(loadLook());
+} catch (error) {
+  locationSign.textContent = 'No se puede conectar con el servidor';
+  throw error;
+}
+const { transport } = connection;
+/** Id del avatar que controla este jugador (en multijugador lo asigna el servidor). */
+const PLAYER_ID = connection.playerId;
 
 // --- Piezas del juego ---------------------------------------------------------
-
-const transport: Transport = new LocalTransport(createInitialState());
-transport.dispatch({ type: 'JOIN', avatar: player });
 
 // Copia local del último estado recibido. El renderer y la interfaz leen de aquí.
 // subscribe() llama enseguida con el estado actual, así que nunca queda sin asignar.

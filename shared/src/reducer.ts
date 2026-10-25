@@ -49,6 +49,12 @@ export function applyAction(state: GameState, action: Action): GameState {
       return updateSitting(next);
     }
 
+    case 'LEAVE': {
+      if (!state.avatars[action.avatarId]) return state;
+      const { [action.avatarId]: _gone, ...avatars } = state.avatars;
+      return { ...state, avatars };
+    }
+
     case 'MOVE': {
       const avatar = state.avatars[action.avatarId];
       if (!avatar) return state;

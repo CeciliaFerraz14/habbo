@@ -11,8 +11,10 @@ import type { BusinessType, FacadeId, MaterialId } from './economy.config';
 import type { Avatar, AvatarLook } from './types';
 
 export type Action =
-  /** Un avatar entra en la sala. */
+  /** Un avatar entra en el mundo. (Solo la usa el servidor, nunca un cliente.) */
   | { type: 'JOIN'; avatar: Avatar }
+  /** Un avatar sale del mundo (se desconecta). Su dinero e inventario se conservan. */
+  | { type: 'LEAVE'; avatarId: string }
   /**
    * Un avatar quiere ir a una baldosa. El camino lo calcula quien aplica la
    * acción (el servidor en la fase 2), no quien la envía: así nadie puede

@@ -8,8 +8,12 @@
     "server"
   ],
   "scripts": {
-    "dev": "npm run dev -w client",
+    "dev": "concurrently -n servidor,cliente -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:offline": "npm run dev:offline -w client",
     "build": "npm run build -w client",
-    "typecheck": "npm run typecheck -w client"
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }
