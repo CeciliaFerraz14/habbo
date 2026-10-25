@@ -68,6 +68,8 @@ export interface RenderInput {
   now: number;
   /** Momento del día (día, atardecer, noche...). */
   phase: DayPhase;
+  /** Ids de las puertas que se ven abiertas ahora mismo (animación, ver doorStates.ts). */
+  openDoors: ReadonlySet<string>;
 }
 
 /** Fracción de la oscuridad nocturna que se aplica dentro de los interiores. */
@@ -87,6 +89,8 @@ interface DrawnPickable {
 export class Renderer {
   private drawn: DrawnPickable[] = [];
   private backdrop: { key: string; canvas: HTMLCanvasElement } | null = null;
+  /** Edificios cuya puerta está abierta en este fotograma. */
+  private openBuildings = new Set<string>();
   /** Capas de escena y de luces (ver lighting.ts). */
   private readonly lighting = new Lighting();
   /** Dónde se dibuja la escena: la capa de escena de `lighting`, no el canvas visible. */
@@ -115,6 +119,7 @@ export class Renderer {
 
   render(input: RenderInput): void {
     const { state, sceneId, views, vehicles, camera, hoverTile, selectedId, ghost, now, phase } = input;
+    const { openDoors } = input;
     const { ctx } = this;
     const { width, height } = this.output.canvas;
     const scene = state.scenes[sceneId];
@@ -122,11 +127,14 @@ export class Renderer {
     this.drawn = [];
     if (!scene) return;
     this.sprites = this.spritesFor(scene.theme ?? 'adobe');
+    this.openBuildings = new Set(
+      scene.doors.filter((d) => d.buildingId && openDoors.has(d.id)).map((d) => d.buildingId!),
+    );
 
     this.drawFloor(scene, camera);
     if (scene.kind === 'interior') {
       this.drawWalls(scene, camera);
-      this.drawWallDoors(scene, camera);
+      this.drawWallDoors(scene, camera, openDoors);
     }
 
     // Marcas sobre el suelo (debajo de muebles y avatares).
@@ -308,17 +316,21 @@ export class Renderer {
    * la pared izquierda y una en y = 0, en la derecha (igual que los trozos de
    * pared, así que usan los mismos desplazamientos).
    */
-  private drawWallDoors(scene: Scene, camera: Camera): void {
+  private drawWallDoors(scene: Scene, camera: Camera, openDoors: ReadonlySet<string>): void {
+    const s = this.sprites;
     for (const door of scene.doors) {
       const onLeft = door.x === 0;
-      const sprite = onLeft ? this.sprites.doorLeft : this.sprites.doorRight;
+      const open = openDoors.has(door.id);
+      const sprite = onLeft ? (open ? s.doorLeftOpen : s.doorLeft) : open ? s.doorRightOpen : s.doorRight;
       const at = this.drawAtTile(sprite, door.x, door.y, camera, onLeft ? -HALF_W : 0, -WALL_HEIGHT);
       this.drawn.push({ target: { kind: 'door', door }, sprite, ...at });
     }
   }
 
   private drawFurni(item: FurniItem, camera: Camera): void {
-    const { defId, rotation, variant } = item;
+    const { defId, rotation } = item;
+    // Si es un edificio con la puerta abierta, se lo indicamos al modelo.
+    const variant = this.openBuildings.has(item.id) ? `${item.variant ?? ''}+door` : item.variant;
     const { sprite, offsetX, offsetY } = getFurniSprite(defId, rotation, 'all', variant);
     const at = this.drawAtTile(sprite, item.x, item.y, camera, offsetX, offsetY);
     this.drawn.push({ target: { kind: 'furni', item }, sprite, ...at });

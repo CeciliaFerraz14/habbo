@@ -11,12 +11,15 @@ import {
   CATALOG,
   DECOR_IDS,
   ECONOMY,
+  FACADE_IDS,
+  FACADES,
   getListings,
   hasMaterials,
   MOVE_TICK_MS,
   secondsToTicks,
   totalMaterials,
   type DecorId,
+  type FacadeId,
   type GameState,
   type Lot,
 } from '@juego/shared';
@@ -31,6 +34,7 @@ export interface BusinessActions {
   listItem: (lotId: string, itemId: string, price: number) => void;
   setPrice: (itemId: string, price: number) => void;
   unlist: (itemId: string) => void;
+  setFacade: (lotId: string, facade: FacadeId) => void;
 }
 
 export interface BusinessWindow {
@@ -69,6 +73,31 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     p.className = className;
     p.textContent = content;
     return p;
+  };
+
+  // --- Fachada (todos los negocios) -------------------------------------------
+  /**
+   * Plantillas de fachada: un botón por plantilla con sus dos colores. La
+   * elegida va marcada. El icono del cartel lo pone el tipo de negocio.
+   */
+  const buildFacadePicker = (lot: Lot) => {
+    const row = document.createElement('div');
+    row.className = 'facade-picker';
+    for (const id of FACADE_IDS) {
+      const facade = FACADES[id];
+      const b = document.createElement('button');
+      b.className = 'facade-option';
+      b.classList.toggle('selected', lot.facade === id);
+      b.title = facade.description;
+      const swatch = document.createElement('span');
+      swatch.className = 'facade-swatch';
+      // Dos colores: la mitad de arriba el remate, la de abajo la fachada.
+      swatch.style.background = `linear-gradient(${facade.trim} 50%, ${facade.wall} 50%)`;
+      b.append(swatch, facade.name);
+      b.addEventListener('click', () => actions.setFacade(lot.id, id));
+      row.append(b);
+    }
+    win.body.append(text('Fachada:', 'section-title'), row);
   };
 
   // --- Chatarrería -----------------------------------------------------------
@@ -241,6 +270,11 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       return;
     }
     const inside = state.avatars[playerId]?.sceneId === lot.id;
+    // Al salir del local, la ventana del negocio se cierra sola.
+    if (!inside) {
+      win.close();
+      return;
+    }
     const mine = state.materials[playerId] ?? {};
     // Firma: si nada de esto cambia, no reconstruimos la ventana.
     // (Para el taller, el número de trabajos terminados cambia con el tiempo.)
@@ -253,6 +287,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       timers = [];
       win.setTitle(`${ECONOMY.businesses[lot.business].name} · ${lot.label}`);
       win.body.replaceChildren();
+      buildFacadePicker(lot);
       if (lot.business === 'scrapyard') buildScrapyard(lot, inside);
       else if (lot.business === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);

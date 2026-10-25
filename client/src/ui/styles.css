@@ -30,7 +30,7 @@
   --text: var(--outline);
   --muted: #7a5a40;
   --font-title: 'Press Start 2P', monospace;
-  --font-text: 'VT323', monospace;
+  --font-text: 'Pixelify Sans', 'VT323', monospace;
 }
 
 * {
@@ -116,7 +116,7 @@ body {
   border: 2px solid var(--outline);
   box-shadow: 2px 2px 0 rgba(42, 26, 20, 0.45);
   font-family: var(--font-title);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--terracotta-dark);
   pointer-events: none;
   white-space: nowrap;
@@ -140,7 +140,7 @@ body {
     inset 0 2px 0 #a8754a,
     4px 4px 0 rgba(42, 26, 20, 0.45);
   font-family: var(--font-text);
-  font-size: 22px;
+  font-size: 18px;
   pointer-events: none;
   white-space: nowrap;
 }
@@ -154,7 +154,7 @@ body {
 /* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */
 .btn {
   font-family: var(--font-title);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--outline);
   background: var(--mustard);
   border: 2px solid var(--outline);
@@ -183,7 +183,7 @@ body {
 }
 
 .btn-small {
-  font-size: 8px;
+  font-size: 10px;
   padding: 6px 8px;
 }
 
@@ -228,7 +228,7 @@ body {
   max-width: 40vw;
   padding: 4px 8px;
   font-family: var(--font-text);
-  font-size: 20px;
+  font-size: 17px;
   color: var(--outline);
   background: var(--cream);
   border: 2px solid var(--outline);
@@ -270,7 +270,7 @@ body {
   border: 2px solid var(--outline);
   box-shadow: 2px 2px 0 rgba(42, 26, 20, 0.35);
   font-family: var(--font-text);
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -340,7 +340,7 @@ body {
   border-bottom: 2px solid var(--outline);
   box-shadow: inset 0 -2px 0 var(--terracotta-dark);
   font-family: var(--font-title);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 1px;
   text-shadow: 2px 2px 0 var(--terracotta-dark);
   cursor: move;
@@ -353,7 +353,7 @@ body {
   height: 20px;
   padding: 0;
   font-family: var(--font-title);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   color: var(--cream);
   background: var(--turquoise);
@@ -364,7 +364,7 @@ body {
 
 .win-body {
   padding: 10px;
-  font-size: 20px;
+  font-size: 17px;
 }
 
 /* ---------- Economía ---------- */
@@ -396,7 +396,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 10px;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -438,14 +438,14 @@ body {
   padding: 6px 8px;
   background: var(--sand);
   border: 2px solid var(--outline);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .option-title {
   grid-column: 1 / -1;
   font-family: var(--font-title);
-  font-size: 10px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -474,7 +474,7 @@ body {
   padding: 4px 6px;
   background: var(--sand);
   border: 2px solid var(--outline);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -495,7 +495,7 @@ body {
   grid-template-columns: 1fr 100px 52px;
   gap: 8px;
   align-items: center;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.2;
 }
 
@@ -533,7 +533,7 @@ body {
   color: var(--outline);
   border: 2px solid var(--outline);
   font-family: var(--font-text);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
   white-space: nowrap;
 }
@@ -542,7 +542,7 @@ body {
   width: 70px;
   padding: 2px 4px;
   font-family: var(--font-text);
-  font-size: 18px;
+  font-size: 16px;
   color: var(--outline);
   background: #fffaf0;
   border: 2px solid var(--outline);
@@ -579,7 +579,7 @@ body {
 }
 
 .look-label {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   margin: 4px 0 2px;
 }
@@ -646,7 +646,7 @@ body {
 }
 
 .card-name {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   text-align: center;
 }
@@ -658,7 +658,7 @@ body {
   padding: 0 4px;
   background: var(--terracotta);
   color: var(--cream);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .row {
@@ -670,10 +670,70 @@ body {
 .hint {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.1;
 }
 
 .hint:empty {
   display: none;
+}
+
+/* ---------- Zoom y arrastre del mapa ---------- */
+
+/* Botones de zoom, abajo a la derecha. */
+#zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#zoom .btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 14px;
+}
+
+/* Mientras se arrastra el mapa, el cursor es una mano cerrada. */
+#game.dragging {
+  cursor: grabbing !important;
+}
+
+/* ---------- Plantillas de fachada ---------- */
+
+.facade-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.facade-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--outline);
+  cursor: pointer;
+}
+
+.facade-option:hover {
+  background: var(--mustard-light);
+}
+
+.facade-option.selected {
+  outline: 3px solid var(--mustard);
+}
+
+.facade-swatch {
+  width: 28px;
+  height: 20px;
+  border: 2px solid var(--outline);
 }

@@ -11,12 +11,59 @@
 import type { DecorId } from './catalog';
 
 export type BusinessType = 'scrapyard' | 'workshop' | 'store';
+
+/**
+ * Plantillas de fachada de los locales. El dueño elige una para que se vea
+ * desde la calle qué tipo de local es. Aquí solo se definen nombre y colores;
+ * cómo se dibuja cada una está en client/src/sprites/structures/shop.ts.
+ */
+export type FacadeId = 'classic' | 'diner' | 'garage' | 'boutique';
+
+export interface FacadeConfig {
+  name: string;
+  description: string;
+  /** Color de la fachada. */
+  wall: string;
+  /** Color del remate y los marcos. */
+  trim: string;
+}
+
+export const FACADES: Record<FacadeId, FacadeConfig> = {
+  classic: {
+    name: 'Clásica',
+    description: 'Fachada del oeste con escaparate.',
+    wall: '#e8c48a',
+    trim: '#8a5a34',
+  },
+  diner: {
+    name: 'Diner',
+    description: 'Crema y rojo, con zócalo cromado.',
+    wall: '#f3e6c8',
+    trim: '#c83c3c',
+  },
+  garage: {
+    name: 'Garaje',
+    description: 'Hormigón y persiana metálica.',
+    wall: '#b8b0a0',
+    trim: '#4a4a5a',
+  },
+  boutique: {
+    name: 'Boutique',
+    description: 'Rosa pastel con toldo de rayas.',
+    wall: '#e8a0b4',
+    trim: '#2f8f8a',
+  },
+};
+
+export const FACADE_IDS = Object.keys(FACADES) as FacadeId[];
 export type MaterialId = 'sheet_metal' | 'old_wood' | 'tires';
 /** Cantidades de materiales. Lo que no aparece cuenta como 0. */
 export type Materials = Partial<Record<MaterialId, number>>;
 
 export interface BusinessConfig {
   name: string;
+  /** Plantilla de fachada que se pone al abrir el negocio (luego se puede cambiar). */
+  defaultFacade: FacadeId;
   description: string;
   /** Color del neón del local cuando está abierto. */
   neon: string;
@@ -44,6 +91,7 @@ export const ECONOMY = {
   businesses: {
     scrapyard: {
       name: 'Chatarrería',
+      defaultFacade: 'garage',
       description: 'Produce chapa, madera vieja y neumáticos cada cierto tiempo.',
       neon: '#ffe14d',
       deposit: 80,
@@ -51,6 +99,7 @@ export const ECONOMY = {
     },
     workshop: {
       name: 'Taller de muebles',
+      defaultFacade: 'classic',
       description: 'Convierte materiales en muebles siguiendo recetas.',
       neon: '#39e6ff',
       deposit: 120,
@@ -58,6 +107,7 @@ export const ECONOMY = {
     },
     store: {
       name: 'Tienda de decoración',
+      defaultFacade: 'boutique',
       description: 'Vende muebles al público.',
       neon: '#ff4fa3',
       deposit: 150,

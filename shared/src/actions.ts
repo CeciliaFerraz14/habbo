@@ -7,7 +7,7 @@
 // Sobre `avatarId`: en la fase 2 el servidor lo IGNORARÁ y usará el del
 // usuario conectado a ese socket, para que nadie pueda actuar en nombre de otro.
 import type { DecorId, Rotation } from './catalog';
-import type { BusinessType, MaterialId } from './economy.config';
+import type { BusinessType, FacadeId, MaterialId } from './economy.config';
 import type { Avatar, AvatarLook } from './types';
 
 export type Action =
@@ -44,5 +44,7 @@ export type Action =
   | { type: 'SET_PRICE'; avatarId: string; itemId: string; price: number }
   /** Comprar un producto de una tienda. */
   | { type: 'BUY_ITEM'; avatarId: string; itemId: string }
+  /** Cambiar la plantilla de fachada de un local propio. */
+  | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   /** Comprar materiales al proveedor de la gasolinera. */
   | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number };

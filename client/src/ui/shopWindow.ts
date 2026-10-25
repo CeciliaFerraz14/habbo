@@ -29,6 +29,11 @@ export function createShopWindow(onBuy: (itemId: string) => void): ShopWindow {
     const products = getListings(state, lotId);
     const money = state.money[playerId] ?? 0;
     const inside = state.avatars[playerId]?.sceneId === lotId;
+    // Al salir de la tienda, la ventana se cierra sola.
+    if (!inside) {
+      win.close();
+      return;
+    }
     // Solo reconstruimos si cambian los productos, el dinero o dónde estás.
     const next = JSON.stringify([products, money, inside]);
     if (next === signature) return;

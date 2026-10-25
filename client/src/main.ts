@@ -10,13 +10,14 @@ import {
   type AvatarLook,
   type GameState,
 } from '@juego/shared';
-import { centerCamera, followCamera, type Camera } from './engine/camera';
+import { followCamera, type Camera } from './engine/camera';
 import { DayClock, PHASE_NAMES } from './engine/daylight';
 import { attachInput } from './engine/input';
 import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
 import { GameController } from './game/controller';
+import { DoorStates } from './game/doorStates';
 import { VehicleViews } from './game/vehicleViews';
 import { LocalTransport, type Transport } from './game/transport';
 import { WALL_HEIGHT } from './sprites/room';
@@ -36,11 +37,15 @@ import { showToast } from './ui/toast';
 import './ui/styles.css';
 
 /**
- * Escala de píxel: cada píxel "lógico" del juego ocupa SCALE x SCALE píxeles
- * reales de pantalla. Dibujamos en un canvas pequeño y el navegador lo amplía
- * sin suavizar (image-rendering: pixelated), lo que da el aspecto retro.
+ * Zoom = escala de píxel: cada píxel "lógico" del juego ocupa scale x scale
+ * píxeles reales de pantalla. Dibujamos en un canvas pequeño y el navegador lo
+ * amplía sin suavizar (image-rendering: pixelated), lo que da el aspecto retro.
+ *
+ * Solo permitimos escalas ENTERAS: con x1,5 unos píxeles se verían de 1 y
+ * otros de 2 y el pixel art quedaría deformado.
  */
-const SCALE = 2;
+const ZOOM_LEVELS = [1, 2, 3, 4];
+let scale = 2;
 
 /** Altura que asoman los edificios más altos de la calle por encima del suelo. */
 const STREET_EXTRA_TOP = 90;
@@ -113,6 +118,7 @@ let state!: GameState;
 const renderer = new Renderer(ctx);
 const views = new AvatarViews();
 const vehicleViews = new VehicleViews();
+const doors = new DoorStates();
 const controller = new GameController(
   transport,
   PLAYER_ID,
@@ -138,6 +144,15 @@ const controller = new GameController(
 
 const clock = new DayClock();
 let camera: Camera = { originX: 0, originY: 0 };
+
+/**
+ * Desplazamiento que el jugador ha añadido arrastrando el mapa, en píxeles del
+ * canvas. Se suma a la cámara normal (que sigue al jugador) y vuelve a 0 al
+ * cambiar de escena o al echar a andar.
+ */
+const pan = { x: 0, y: 0 };
+let playerWasWalking = false;
+
 let hoverTile: Point | null = null;
 /** Escena que se está mostrando; cuando el jugador cambia de escena, recolocamos la cámara. */
 let shownSceneId: string | null = null;
@@ -164,6 +179,8 @@ const businessWindow = createBusinessWindow({
     transport.dispatch({ type: 'LIST_ITEM', avatarId: PLAYER_ID, lotId, itemId, price }),
   setPrice: (itemId, price) =>
     transport.dispatch({ type: 'SET_PRICE', avatarId: PLAYER_ID, itemId, price }),
+  setFacade: (lotId, facade) =>
+    transport.dispatch({ type: 'SET_FACADE', avatarId: PLAYER_ID, lotId, facade }),
   // Retirar un producto es recogerlo: vuelve al inventario.
   unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
 });
@@ -219,7 +236,8 @@ function refreshUi(): void {
   const sceneId = playerSceneId();
   if (sceneId !== shownSceneId) {
     shownSceneId = sceneId;
-    resize(); // recentra la cámara en la escena nueva
+    resetPan(); // en una escena nueva, la cámara vuelve al jugador
+    resize();
   }
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
@@ -253,33 +271,86 @@ attachInput(canvas, () => camera, {
   },
   onClick: (pointer) => controller.handleClick(pointer),
   onRightClick: () => controller.handleRightClick(),
+  onPan: (dx, dy) => {
+    pan.x += dx;
+    pan.y += dy;
+  },
+  onZoom: (direction) => setZoom(direction),
 });
 
-/** Ajusta la resolución interna del canvas al tamaño de la ventana y recentra la escena. */
+// --- Zoom y desplazamiento manual de la cámara ------------------------------
+
+function resetPan(): void {
+  pan.x = 0;
+  pan.y = 0;
+}
+
+/** Acerca (+1) o aleja (-1) un nivel de zoom. */
+function setZoom(direction: 1 | -1): void {
+  const i = ZOOM_LEVELS.indexOf(scale);
+  const next = ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length - 1, i + direction))];
+  if (next === scale) return;
+  // Al cambiar de escala, el canvas cambia de tamaño: el desplazamiento
+  // manual se ajusta en proporción para que no salte la vista.
+  pan.x = (pan.x * scale) / next;
+  pan.y = (pan.y * scale) / next;
+  scale = next;
+  resize();
+}
+
+// Botones de zoom (abajo a la derecha) y teclas + y -.
+const zoomBar = document.createElement('div');
+zoomBar.id = 'zoom';
+for (const [label, direction, hint] of [
+  ['+', 1, 'Acercar (rueda o tecla +)'],
+  ['−', -1, 'Alejar (rueda o tecla -)'],
+] as const) {
+  const button = document.createElement('button');
+  button.className = 'btn';
+  button.textContent = label;
+  button.title = hint;
+  button.addEventListener('click', () => setZoom(direction));
+  zoomBar.append(button);
+}
+uiRoot.append(zoomBar);
+window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement) return;
+  if (e.key === '+') setZoom(1);
+  if (e.key === '-') setZoom(-1);
+});
+
+/** Ajusta la resolución interna del canvas al tamaño de la ventana y al zoom. */
 function resize(): void {
-  canvas.width = Math.floor(window.innerWidth / SCALE);
-  canvas.height = Math.floor(window.innerHeight / SCALE);
+  canvas.width = Math.floor(window.innerWidth / scale);
+  canvas.height = Math.floor(window.innerHeight / scale);
   // Al cambiar el tamaño, el contexto se reinicia: hay que volver a desactivar el suavizado.
   ctx.imageSmoothingEnabled = false;
   updateCamera();
 }
 
 /**
- * Los interiores caben en pantalla: se centran. La calle es más grande que la
- * pantalla: la cámara sigue la posición VISUAL del jugador (la interpolada),
- * así se mueve suave mientras camina.
+ * La cámara sigue la posición VISUAL del jugador (la interpolada), así se
+ * mueve suave mientras camina. followCamera() centra la escena si cabe entera
+ * en pantalla (un interior con poco zoom) y si no, la sigue sin enseñar
+ * demasiado vacío por los bordes. Encima sumamos el desplazamiento manual.
  */
 function updateCamera(): void {
   const scene = state.scenes[playerSceneId()];
-  if (scene.kind === 'interior') {
-    camera = centerCamera(scene, canvas.width, canvas.height, WALL_HEIGHT);
-    return;
-  }
   const view = views.get(PLAYER_ID);
   const player = state.avatars[PLAYER_ID];
   const focus = view ?? player ?? { x: 0, y: 0 };
   const p = tileToScreen(focus.x + 0.5, focus.y + 0.5);
-  camera = followCamera(scene, p.x, p.y, canvas.width, canvas.height, STREET_EXTRA_TOP);
+  // Las paredes de los interiores y los edificios de la calle asoman por arriba.
+  const extraTop = scene.kind === 'interior' ? WALL_HEIGHT : STREET_EXTRA_TOP;
+  const base = followCamera(scene, p.x, p.y, canvas.width, canvas.height, extraTop);
+
+  // El arrastre no puede llevarse la escena más de media pantalla.
+  pan.x = Math.max(-canvas.width / 2, Math.min(canvas.width / 2, pan.x));
+  pan.y = Math.max(-canvas.height / 2, Math.min(canvas.height / 2, pan.y));
+  camera = {
+    originX: Math.round(base.originX + pan.x),
+    originY: Math.round(base.originY + pan.y),
+  };
 }
 
 /** Bucle principal: se ejecuta en cada fotograma (normalmente 60 veces por segundo). */
@@ -291,6 +362,10 @@ function frame(now: number): void {
 
   const sceneId = playerSceneId();
   views.update(state, dt);
+  // Si el jugador echa a andar, la cámara deja de estar desplazada a mano.
+  const walking = (state.avatars[PLAYER_ID]?.path.length ?? 0) > 0;
+  if (walking && !playerWasWalking) resetPan();
+  playerWasWalking = walking;
   vehicleViews.update(state, dt);
   updateCamera();
   renderer.render({
@@ -298,6 +373,7 @@ function frame(now: number): void {
     sceneId,
     views,
     vehicles: vehicleViews,
+    openDoors: doors.update(state, sceneId, views, now),
     camera,
     hoverTile,
     selectedId: controller.selected,

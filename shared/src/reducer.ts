@@ -17,6 +17,7 @@ import {
   collectMaterials,
   listItem,
   rentLot,
+  setFacade,
   setPrice,
   startCraft,
 } from './economy';
@@ -126,6 +127,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setPrice(state, action.avatarId, action.itemId, action.price);
     case 'BUY_ITEM':
       return buyItem(state, action.avatarId, action.itemId);
+    case 'SET_FACADE':
+      return setFacade(state, action.avatarId, action.lotId, action.facade);
     case 'BUY_MATERIAL':
       return buyMaterial(state, action.avatarId, action.material, action.quantity);
 

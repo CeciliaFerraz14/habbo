@@ -18,8 +18,10 @@
 import { CATALOG, DECOR_IDS, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
+  FACADES,
   MATERIAL_IDS,
   type BusinessType,
+  type FacadeId,
   type Materials,
   type MaterialId,
 } from './economy.config';
@@ -46,6 +48,8 @@ export interface Lot {
   /** Nombre del dueño, para mostrarlo en la tienda. */
   ownerName: string | null;
   business: BusinessType | null;
+  /** Plantilla de fachada elegida (null si el local está en alquiler). */
+  facade: FacadeId | null;
   /** Chatarrería: materiales producidos pendientes de recoger. */
   storage: Materials;
   /** Chatarrería: tick de la próxima producción. */
@@ -70,6 +74,7 @@ export function createLot(id: string, label: string): Lot {
     ownerId: null,
     ownerName: null,
     business: null,
+    facade: null,
     storage: {},
     nextProductionAt: 0,
     jobs: [],
@@ -199,6 +204,7 @@ function openBusiness(
     ownerId,
     ownerName,
     business,
+    facade: config.defaultFacade,
     storage: {},
     nextProductionAt: state.tick + secondsToTicks(ECONOMY.scrapyard.productionSeconds),
     jobs: [],
@@ -209,7 +215,7 @@ function openBusiness(
   const buildingId = `${lotId}-building`;
   const furniture = { ...state.furniture };
   const building = furniture[buildingId];
-  if (building) furniture[buildingId] = { ...building, variant: `open:${config.neon}` };
+  if (building) furniture[buildingId] = { ...building, variant: buildingVariant(rented) };
 
   // Puesto de trabajo dentro del local.
   const station = STATIONS[business];
@@ -605,5 +611,37 @@ export function buyMaterial(
     ...state,
     money: { ...state.money, [avatarId]: money - cost },
     materials: { ...state.materials, [avatarId]: addMaterials(mine, { [material]: quantity }) },
+  };
+}
+
+// --- Fachadas -----------------------------------------------------------------
+
+/**
+ * Variante de dibujo del edificio de un local: "open:<neón>:<fachada>:<negocio>"
+ * o "closed". El cliente la usa para elegir colores, plantilla e icono del cartel.
+ */
+export function buildingVariant(lot: Lot): string {
+  if (!lot.business || !lot.facade) return 'closed';
+  return `open:${ECONOMY.businesses[lot.business].neon}:${lot.facade}:${lot.business}`;
+}
+
+/** El dueño cambia la plantilla de fachada de su local (puede hacerlo desde cualquier sitio). */
+export function setFacade(
+  state: GameState,
+  avatarId: string,
+  lotId: string,
+  facade: FacadeId,
+): GameState {
+  const lot = state.lots[lotId];
+  if (!lot || lot.ownerId !== avatarId || !lot.business || !FACADES[facade]) return state;
+  const updated: Lot = { ...lot, facade };
+  const buildingId = `${lotId}-building`;
+  const building = state.furniture[buildingId];
+  return {
+    ...state,
+    lots: { ...state.lots, [lotId]: updated },
+    furniture: building
+      ? { ...state.furniture, [buildingId]: { ...building, variant: buildingVariant(updated) } }
+      : state.furniture,
   };
 }

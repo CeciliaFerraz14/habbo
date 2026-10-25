@@ -16,6 +16,8 @@ export interface AvatarView {
   walking: boolean;
   /** Escena en la que estaba la última vez. Si cambia, saltamos sin animar. */
   sceneId: string;
+  /** Momento (performance.now) en que llegó a esta escena cruzando una puerta. */
+  arrivedAt: number;
 }
 
 /** Si la posición visual se queda tan atrás, saltamos directamente (p. ej. tras un lag). */
@@ -39,7 +41,7 @@ export class AvatarViews {
     for (const avatar of Object.values(state.avatars)) {
       let view = this.views.get(avatar.id);
       if (!view) {
-        view = { x: avatar.x, y: avatar.y, walking: false, sceneId: avatar.sceneId };
+        view = { x: avatar.x, y: avatar.y, walking: false, sceneId: avatar.sceneId, arrivedAt: 0 };
         this.views.set(avatar.id, view);
       }
 
@@ -48,6 +50,7 @@ export class AvatarViews {
       // Al cruzar una puerta no tiene sentido "caminar" desde la otra escena:
       // aparecemos directamente en el sitio nuevo.
       if (view.sceneId !== avatar.sceneId || Math.abs(dx) + Math.abs(dy) > SNAP_DISTANCE) {
+        if (view.sceneId !== avatar.sceneId) view.arrivedAt = performance.now();
         view.sceneId = avatar.sceneId;
         view.x = avatar.x;
         view.y = avatar.y;

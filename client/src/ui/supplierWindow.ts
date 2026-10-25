@@ -24,6 +24,11 @@ export function createSupplierWindow(
     if (!win.isOpen) return;
     const money = state.money[playerId] ?? 0;
     const onStreet = state.avatars[playerId]?.sceneId === 'street';
+    // El proveedor está en la calle: si entras en un edificio, se cierra.
+    if (!onStreet) {
+      win.close();
+      return;
+    }
     const next = JSON.stringify([money, onStreet]);
     if (next === signature) return;
     signature = next;

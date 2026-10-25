@@ -34,7 +34,9 @@ Abre http://localhost:5173
    - **Taller de muebles**: convierte materiales en muebles según recetas.
    - **Tienda de decoración**: pones muebles a la venta con el precio que quieras.
 3. Dentro de cada local, haz clic en su **puesto de trabajo** (montón de chatarra,
-   banco de trabajo o mostrador) para gestionarlo.
+   banco de trabajo o mostrador) para gestionarlo. Desde ahí también eliges la
+   **plantilla de fachada** (Clásica, Diner, Garaje o Boutique); el cartel de neón
+   muestra el icono del negocio para que se sepa desde la calle qué es cada local.
 4. Los **viajeros** paran con sus coches, entran en las tiendas abiertas y compran
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Cada 2 minutos se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
@@ -48,6 +50,8 @@ Abre http://localhost:5173
 | Acción | Cómo |
 |---|---|
 | Caminar | Clic en el suelo |
+| Mover el mapa | Arrastrar con el ratón (la cámara vuelve al jugador al caminar) |
+| Zoom | Rueda del ratón, botones `+` / `−` (abajo a la derecha) o teclas `+` y `-` |
 | Entrar en un edificio | Clic en el edificio o en su puerta |
 | Sentarse | Clic en un sillón o taburete |
 | Colocar mueble | Inventario → elegir mueble → clic en la sala (solo en tu caravana y tus locales) |
@@ -69,7 +73,8 @@ escriben en segundos.
 | Quiero cambiar... | Dónde (dentro de `ECONOMY`) |
 |---|---|
 | Dinero inicial / kit de muebles inicial | `startingMoney`, `starterInventory` |
-| Fianza, alquiler y color del neón de cada negocio | `businesses` |
+| Fianza, alquiler, color del neón y fachada inicial de cada negocio | `businesses` |
+| Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
 | Qué y cada cuánto produce la chatarrería | `scrapyard` |
 | Recetas del taller (materiales y tiempo) | `recipes` |

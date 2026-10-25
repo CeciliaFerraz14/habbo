@@ -31,6 +31,7 @@ const C = {
   doorFrame: '#8a5a34',
   doorGlass: '#a6e3d4',
   doorKnob: '#f2b134',
+  doorway: '#1a1414',
   sidewalk: '#cdbb9c',
   sidewalkLine: '#a8987c',
   asphalt: '#5e5450',
@@ -200,7 +201,7 @@ const DOOR_HEIGHT = 46;
  * Es una puerta de madera turquesa con ventanuco y pomo, como las de las
  * caravanas antiguas.
  */
-function doorSegment(side: 'left' | 'right'): Sprite {
+function doorSegment(side: 'left' | 'right', open = false): Sprite {
   return createSprite(HALF_W, WALL_HEIGHT + HALF_H, (px) => {
     const first = 2;
     const last = HALF_W - 3;
@@ -214,6 +215,8 @@ function doorSegment(side: 'left' | 'right'): Sprite {
         let color: string;
         if (c === first || c === last || fromTop === 0) color = C.outline; // marco exterior
         else if (c === first + 1 || c === last - 1 || fromTop === 1) color = C.doorFrame;
+        // Abierta: solo queda el marco y el hueco oscuro.
+        else if (open) color = C.doorway;
         else if (fromTop >= 5 && fromTop <= 14 && c >= first + 3 && c <= last - 3) {
           // Ventanuco con su propio borde.
           const border = fromTop === 5 || fromTop === 14 || c === first + 3 || c === last - 3;
@@ -255,6 +258,8 @@ export interface RoomSprites {
   sandB: Sprite;
   doorLeft: Sprite;
   doorRight: Sprite;
+  doorLeftOpen: Sprite;
+  doorRightOpen: Sprite;
   sidewalk: Sprite;
   asphalt: Sprite;
   asphaltLine: Sprite;
@@ -280,6 +285,8 @@ export function buildRoomSprites(theme: InteriorTheme = 'adobe'): RoomSprites {
     sandB: floorTile(PALETTE.sandDark, C.sandLine),
     doorLeft: doorSegment('left'),
     doorRight: doorSegment('right'),
+    doorLeftOpen: doorSegment('left', true),
+    doorRightOpen: doorSegment('right', true),
     sidewalk: floorTile(C.sidewalk, C.sidewalkLine),
     asphalt: floorTile(C.asphalt, C.asphaltLine),
     asphaltLine: roadLineTile(),
