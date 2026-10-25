@@ -4,7 +4,8 @@ import { PixelWindow } from './window';
 
 export interface ChatHistory {
   win: PixelWindow;
-  update: (messages: readonly ChatMessage[]) => void;
+  /** Muestra los mensajes de la escena `sceneId`. */
+  update: (messages: readonly ChatMessage[], sceneId: string) => void;
 }
 
 export function createChatHistory(): ChatHistory {
@@ -14,10 +15,13 @@ export function createChatHistory(): ChatHistory {
   win.body.append(list);
 
   let last: readonly ChatMessage[] | null = null;
+  let lastScene: string | null = null;
 
-  const update = (messages: readonly ChatMessage[]) => {
-    if (messages === last) return;
-    last = messages;
+  const update = (allMessages: readonly ChatMessage[], sceneId: string) => {
+    if (allMessages === last && sceneId === lastScene) return;
+    last = allMessages;
+    lastScene = sceneId;
+    const messages = allMessages.filter((m) => m.sceneId === sceneId);
     // Solo bajamos el scroll si el usuario ya estaba abajo del todo
     // (si está leyendo mensajes antiguos, no le movemos la vista).
     const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;

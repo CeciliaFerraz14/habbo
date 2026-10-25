@@ -16,6 +16,8 @@ import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from '.
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'JOIN':
+      // Solo se puede entrar en una escena que existe.
+      if (!state.scenes[action.avatar.sceneId]) return state;
       return updateSitting(withAvatar(state, action.avatar));
 
     case 'MOVE': {
@@ -38,13 +40,19 @@ export function applyAction(state: GameState, action: Action): GameState {
     }
 
     case 'PLACE_FURNI': {
+      // El mueble se coloca en la escena donde está quien lo coloca.
+      const avatar = state.avatars[action.avatarId];
       const inventory = state.inventories[action.avatarId] ?? [];
       const item = inventory.find((i) => i.id === action.itemId);
-      if (!item) return state;
-      if (!canPlaceFurni(state, item.defId, action.x, action.y, action.rotation)) return state;
+      if (!avatar || !item) return state;
+      const { sceneId } = avatar;
+      if (!canPlaceFurni(state, sceneId, item.defId, action.x, action.y, action.rotation)) {
+        return state;
+      }
 
       const placed: FurniItem = {
         id: item.id,
+        sceneId,
         defId: item.defId,
         x: action.x,
         y: action.y,
@@ -61,7 +69,8 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'MOVE_FURNI': {
       const item = state.furniture[action.itemId];
       if (!item) return state;
-      if (!canPlaceFurni(state, item.defId, action.x, action.y, action.rotation, item.id)) {
+      const { sceneId, defId, id } = item;
+      if (!canPlaceFurni(state, sceneId, defId, action.x, action.y, action.rotation, id)) {
         return state;
       }
       const moved = { ...item, x: action.x, y: action.y, rotation: action.rotation };
@@ -87,6 +96,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (!avatar || text === '') return state;
       const message: ChatMessage = {
         id: `m${state.nextId}`,
+        sceneId: avatar.sceneId,
         avatarId: avatar.id,
         name: avatar.name,
         text,

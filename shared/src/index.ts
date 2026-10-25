@@ -7,6 +7,7 @@ export * from './furniture';
 export * from './movement';
 export * from './pathfinding';
 export * from './reducer';
-export * from './room';
+export * from './scene';
 export * from './simulation';
 export * from './types';
+export * from './world';

@@ -4,24 +4,28 @@
 // milisegundos, quien tenga camino avanza UNA baldosa. El estado solo guarda
 // posiciones enteras y el cliente se encarga de animar el paso suavemente.
 // En la fase 2 el servidor ejecutará tick() con un setInterval.
+//
+// El tick simula TODAS las escenas a la vez, no solo la que se ve.
 import { createWalkableCheck, getSeatAt } from './furniture';
-import { planPath, updateSitting } from './movement';
-import type { Avatar, Direction, GameState, TilePoint } from './types';
+import { directionTo, planPath, updateDoors, updateSitting } from './movement';
+import type { Avatar, GameState } from './types';
 
 /** Milisegundos que tarda un avatar en avanzar una baldosa. */
 export const MOVE_TICK_MS = 400;
 
-/** Dirección a la que hay que mirar para ir de `from` a una baldosa vecina `to`. */
-export function directionTo(from: TilePoint, to: TilePoint): Direction {
-  if (to.x > from.x) return 'SE';
-  if (to.x < from.x) return 'NW';
-  if (to.y > from.y) return 'SW';
-  return 'NE';
-}
-
 /** Avanza la simulación un turno. Si nada cambia, devuelve el mismo objeto. */
 export function tick(state: GameState): GameState {
-  const walkable = createWalkableCheck(state);
+  // Una comprobación de "se puede pisar" por escena, creada solo si hace falta.
+  const walkableByScene = new Map<string, (x: number, y: number) => boolean>();
+  const walkableIn = (sceneId: string) => {
+    let check = walkableByScene.get(sceneId);
+    if (!check) {
+      check = createWalkableCheck(state, sceneId);
+      walkableByScene.set(sceneId, check);
+    }
+    return check;
+  };
+
   let avatars = state.avatars;
   const update = (avatar: Avatar) => {
     // Copiamos el objeto de avatares solo la primera vez que hace falta.
@@ -36,8 +40,9 @@ export function tick(state: GameState): GameState {
     // Alguien puede haber puesto un mueble en mitad del camino después de
     // calcularlo. Si la siguiente baldosa ya no se puede pisar (y no es la
     // silla de destino), recalculamos la ruta hasta el mismo destino.
-    const isSeatGoal = rest.length === 0 && getSeatAt(state, next.x, next.y) !== undefined;
-    if (!walkable(next.x, next.y) && !isSeatGoal) {
+    const isSeatGoal =
+      rest.length === 0 && getSeatAt(state, avatar.sceneId, next.x, next.y) !== undefined;
+    if (!walkableIn(avatar.sceneId)(next.x, next.y) && !isSeatGoal) {
       const goal = avatar.path[avatar.path.length - 1];
       update({ ...avatar, path: planPath(state, avatar, goal) ?? [] });
       continue;
@@ -54,5 +59,6 @@ export function tick(state: GameState): GameState {
   }
 
   const moved = avatars === state.avatars ? state : { ...state, avatars };
-  return updateSitting(moved);
+  // Primero las puertas (quien llegó a una cambia de escena) y luego sentarse.
+  return updateSitting(updateDoors(moved));
 }

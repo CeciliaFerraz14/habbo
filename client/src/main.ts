@@ -1,5 +1,12 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
-import { createDefaultRoom, GAME_NAME, type Avatar, type FurniItem, type GameState } from '@juego/shared';
+import {
+  createInitialState,
+  GAME_NAME,
+  START_SCENE,
+  START_TILE,
+  type Avatar,
+  type GameState,
+} from '@juego/shared';
 import { centerCamera, type Camera } from './engine/camera';
 import { attachInput } from './engine/input';
 import type { Point } from './engine/iso';
@@ -28,22 +35,25 @@ const PLAYER_ID = 'player';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = canvas.getContext('2d')!;
+const uiRoot = document.querySelector<HTMLDivElement>('#ui')!;
 
 document.title = GAME_NAME;
 
-// Letrero con el nombre del juego.
+// Letrero con el nombre del juego y, debajo, el nombre del sitio donde estás.
 const logo = document.createElement('div');
 logo.id = 'logo';
 logo.textContent = GAME_NAME.toUpperCase();
-document.querySelector('#ui')!.append(logo);
+const locationSign = document.createElement('div');
+locationSign.id = 'location';
+uiRoot.append(logo, locationSign);
 
 // --- Estado inicial ----------------------------------------------------------
 
 const player: Avatar = {
   id: PLAYER_ID,
   name: 'Tú',
-  x: 4,
-  y: 4,
+  sceneId: START_SCENE,
+  ...START_TILE,
   direction: 'SE',
   path: [],
   look: { hair: '#5a3a1e', skin: '#f0c090', shirt: '#d94040', pants: '#3050a0' },
@@ -51,35 +61,14 @@ const player: Avatar = {
   sitting: false,
 };
 
-// Muebles con los que empieza la sala.
-const initialFurniture: FurniItem[] = [
-  { id: 'f1', defId: 'lamp', x: 0, y: 0, rotation: 0 },
-  { id: 'f2', defId: 'shelf', x: 2, y: 0, rotation: 1 },
-  { id: 'f3', defId: 'bed', x: 6, y: 0, rotation: 1 },
-  { id: 'f4', defId: 'plant', x: 9, y: 0, rotation: 0 },
-  { id: 'f5', defId: 'sofa', x: 0, y: 3, rotation: 0 },
-  { id: 'f6', defId: 'table', x: 2, y: 4, rotation: 0 },
-  { id: 'f7', defId: 'chair', x: 3, y: 4, rotation: 2 },
-  { id: 'f8', defId: 'rug', x: 5, y: 5, rotation: 0 },
-  { id: 'f9', defId: 'plant', x: 0, y: 9, rotation: 0 },
-];
-
-const initialState: GameState = {
-  room: createDefaultRoom(),
-  avatars: {},
-  furniture: Object.fromEntries(initialFurniture.map((f) => [f.id, f])),
-  inventories: {},
-  messages: [],
-  nextId: 100,
-};
-
 // --- Piezas del juego ---------------------------------------------------------
 
-const transport: Transport = new LocalTransport(initialState);
+const transport: Transport = new LocalTransport(createInitialState());
 transport.dispatch({ type: 'JOIN', avatar: player });
 
 // Copia local del último estado recibido. El renderer y la interfaz leen de aquí.
-let state = initialState;
+// subscribe() llama enseguida con el estado actual, así que nunca queda sin asignar.
+let state!: GameState;
 
 const renderer = new Renderer(ctx, buildRoomSprites());
 const views = new AvatarViews();
@@ -87,11 +76,18 @@ const controller = new GameController(
   transport,
   PLAYER_ID,
   () => state,
-  (p) => renderer.pickFurniAt(p.x, p.y),
+  (p) => renderer.pickAt(p.x, p.y),
 );
 
 let camera: Camera = { originX: 0, originY: 0 };
 let hoverTile: Point | null = null;
+/** Escena que se está mostrando; cuando el jugador cambia de escena, recolocamos la cámara. */
+let shownSceneId: string | null = null;
+
+/** Escena en la que está el jugador. */
+function playerSceneId(): string {
+  return state.avatars[PLAYER_ID]?.sceneId ?? START_SCENE;
+}
 
 // --- Interfaz -----------------------------------------------------------------
 
@@ -105,26 +101,33 @@ const furniPanel = createFurniPanel({
 });
 
 const chatHistory = createChatHistory();
-const bubbles = new ChatBubbles(state.messages);
+let bubbles: ChatBubbles | null = null;
 
 createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
   { label: 'Catálogo', onClick: () => catalog.toggle() },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
-  { label: 'Avatar', onClick: () => {}, disabled: true, hint: 'Próximamente (paso 7)' },
+  { label: 'Avatar', onClick: () => {}, disabled: true, hint: 'Próximamente' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
 ]);
 
 /** Refleja en la interfaz el estado del juego y la selección actual. */
 function refreshUi(): void {
+  const sceneId = playerSceneId();
+  if (sceneId !== shownSceneId) {
+    shownSceneId = sceneId;
+    resize(); // recentra la cámara en la escena nueva
+  }
+  locationSign.textContent = state.scenes[sceneId]?.name ?? '';
   inventory.update(state.inventories[PLAYER_ID] ?? []);
-  chatHistory.update(state.messages);
-  bubbles.sync(state.messages, performance.now());
+  chatHistory.update(state.messages, sceneId);
+  bubbles?.sync(state.messages, sceneId, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);
   canvas.style.cursor = controller.isPlacing ? 'crosshair' : '';
 }
 
 transport.subscribe((next) => {
   state = next;
+  bubbles ??= new ChatBubbles(state.messages);
   controller.syncWithState(state);
   refreshUi();
 });
@@ -140,13 +143,16 @@ attachInput(canvas, () => camera, {
   onRightClick: () => controller.handleRightClick(),
 });
 
-/** Ajusta la resolución interna del canvas al tamaño de la ventana y recentra la sala. */
+/** Ajusta la resolución interna del canvas al tamaño de la ventana y recentra la escena. */
 function resize(): void {
   canvas.width = Math.floor(window.innerWidth / SCALE);
   canvas.height = Math.floor(window.innerHeight / SCALE);
   // Al cambiar el tamaño, el contexto se reinicia: hay que volver a desactivar el suavizado.
   ctx.imageSmoothingEnabled = false;
-  camera = centerCamera(state.room, canvas.width, canvas.height, WALL_HEIGHT);
+  const scene = state.scenes[playerSceneId()];
+  // Las paredes de los interiores necesitan sitio por arriba; la calle no tiene.
+  const extraTop = scene.kind === 'interior' ? WALL_HEIGHT : 0;
+  camera = centerCamera(scene, canvas.width, canvas.height, extraTop);
 }
 
 /** Bucle principal: se ejecuta en cada fotograma (normalmente 60 veces por segundo). */
@@ -156,9 +162,11 @@ function frame(now: number): void {
   const dt = Math.min(now - lastTime, 100);
   lastTime = now;
 
+  const sceneId = playerSceneId();
   views.update(state, dt);
   renderer.render({
     state,
+    sceneId,
     views,
     camera,
     hoverTile,
@@ -166,7 +174,7 @@ function frame(now: number): void {
     ghost: controller.getGhost(hoverTile),
     now,
   });
-  bubbles.update(state, views, renderer, camera, canvasToScreen, now);
+  bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
 }
 

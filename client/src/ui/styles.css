@@ -105,6 +105,27 @@ body {
   white-space: nowrap;
 }
 
+/* Cartelito colgado bajo la marquesina con el nombre del sitio donde estás. */
+#location {
+  position: absolute;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: 2px 2px 0 rgba(42, 26, 20, 0.45);
+  font-family: var(--font-title);
+  font-size: 8px;
+  color: var(--terracotta-dark);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#location:empty {
+  display: none;
+}
+
 /* ---------- Botones ---------- */
 
 /* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */

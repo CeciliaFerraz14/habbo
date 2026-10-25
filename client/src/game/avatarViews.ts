@@ -14,6 +14,8 @@ export interface AvatarView {
   y: number;
   /** ¿Se está moviendo? Sirve para elegir la animación de caminar o de pie. */
   walking: boolean;
+  /** Escena en la que estaba la última vez. Si cambia, saltamos sin animar. */
+  sceneId: string;
 }
 
 /** Si la posición visual se queda tan atrás, saltamos directamente (p. ej. tras un lag). */
@@ -37,13 +39,16 @@ export class AvatarViews {
     for (const avatar of Object.values(state.avatars)) {
       let view = this.views.get(avatar.id);
       if (!view) {
-        view = { x: avatar.x, y: avatar.y, walking: false };
+        view = { x: avatar.x, y: avatar.y, walking: false, sceneId: avatar.sceneId };
         this.views.set(avatar.id, view);
       }
 
       const dx = avatar.x - view.x;
       const dy = avatar.y - view.y;
-      if (Math.abs(dx) + Math.abs(dy) > SNAP_DISTANCE) {
+      // Al cruzar una puerta no tiene sentido "caminar" desde la otra escena:
+      // aparecemos directamente en el sitio nuevo.
+      if (view.sceneId !== avatar.sceneId || Math.abs(dx) + Math.abs(dy) > SNAP_DISTANCE) {
+        view.sceneId = avatar.sceneId;
         view.x = avatar.x;
         view.y = avatar.y;
       } else {

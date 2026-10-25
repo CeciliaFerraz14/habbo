@@ -1,6 +1,9 @@
-// Lógica de muebles colocados en la sala: qué baldosas ocupan y cuáles bloquean.
+// Lógica de muebles colocados en las escenas: qué baldosas ocupan y cuáles bloquean.
+//
+// Casi todas las funciones reciben un `sceneId`: los muebles de la caravana no
+// bloquean el paso en la calle, aunque estén en las mismas coordenadas.
 import { CATALOG, type FurniId, type Rotation } from './catalog';
-import { isInsideRoom } from './room';
+import { isInsideScene } from './scene';
 import type { FurniItem, GameState } from './types';
 
 /** Rectángulo de baldosas que ocupa un mueble: desde (x, y), `width` x `depth` baldosas. */
@@ -45,10 +48,15 @@ export function tileKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
-/** Conjunto de baldosas bloqueadas por muebles (las alfombras no bloquean). */
-export function getBlockedTiles(state: GameState): Set<string> {
+/** Muebles que hay en una escena. */
+export function furnitureInScene(state: GameState, sceneId: string): FurniItem[] {
+  return Object.values(state.furniture).filter((item) => item.sceneId === sceneId);
+}
+
+/** Conjunto de baldosas de una escena bloqueadas por muebles (las alfombras no bloquean). */
+export function getBlockedTiles(state: GameState, sceneId: string): Set<string> {
   const blocked = new Set<string>();
-  for (const item of Object.values(state.furniture)) {
+  for (const item of furnitureInScene(state, sceneId)) {
     if (CATALOG[item.defId].walkable) continue;
     const f = getFootprint(item);
     for (let dy = 0; dy < f.depth; dy++) {
@@ -61,25 +69,35 @@ export function getBlockedTiles(state: GameState): Set<string> {
 }
 
 /**
- * Crea una función que dice si una baldosa se puede pisar. Calculamos las
- * baldosas bloqueadas UNA vez y no en cada consulta, porque el A* pregunta
- * muchas veces.
+ * Crea una función que dice si una baldosa de una escena se puede pisar.
+ * Calculamos las baldosas bloqueadas UNA vez y no en cada consulta, porque el
+ * A* pregunta muchas veces.
  */
-export function createWalkableCheck(state: GameState): (x: number, y: number) => boolean {
-  const blocked = getBlockedTiles(state);
-  return (x, y) => isInsideRoom(state.room, x, y) && !blocked.has(tileKey(x, y));
+export function createWalkableCheck(
+  state: GameState,
+  sceneId: string,
+): (x: number, y: number) => boolean {
+  const scene = state.scenes[sceneId];
+  const blocked = getBlockedTiles(state, sceneId);
+  return (x, y) => isInsideScene(scene, x, y) && !blocked.has(tileKey(x, y));
 }
 
-/** Mueble sentable que ocupa la baldosa (x, y), si lo hay. */
-export function getSeatAt(state: GameState, x: number, y: number): FurniItem | undefined {
-  return Object.values(state.furniture).find(
+/** Mueble sentable que ocupa la baldosa (x, y) de una escena, si lo hay. */
+export function getSeatAt(
+  state: GameState,
+  sceneId: string,
+  x: number,
+  y: number,
+): FurniItem | undefined {
+  return furnitureInScene(state, sceneId).find(
     (item) => CATALOG[item.defId].sittable && footprintContains(getFootprint(item), x, y),
   );
 }
 
 /**
- * ¿Se puede poner un mueble `defId` en (x, y) con esa rotación?
- * - Todas sus baldosas deben estar dentro de la sala.
+ * ¿Se puede poner un mueble `defId` en (x, y) de la escena con esa rotación?
+ * - Solo se decora en interiores (la calle no se amuebla).
+ * - Todas sus baldosas deben estar dentro de la escena y no tapar una puerta.
  * - No puede solaparse con otro mueble de su misma "capa": las alfombras
  *   chocan con alfombras y el resto con el resto (un sofá SÍ puede ir encima
  *   de una alfombra).
@@ -88,19 +106,24 @@ export function getSeatAt(state: GameState, x: number, y: number): FurniItem | u
  */
 export function canPlaceFurni(
   state: GameState,
+  sceneId: string,
   defId: FurniId,
   x: number,
   y: number,
   rotation: Rotation,
   ignoreId?: string,
 ): boolean {
+  const scene = state.scenes[sceneId];
+  if (!scene || scene.kind !== 'interior') return false;
+
   const def = CATALOG[defId];
   const f = getFootprint({ defId, x, y, rotation });
 
-  if (!isInsideRoom(state.room, f.x, f.y)) return false;
-  if (!isInsideRoom(state.room, f.x + f.width - 1, f.y + f.depth - 1)) return false;
+  if (!isInsideScene(scene, f.x, f.y)) return false;
+  if (!isInsideScene(scene, f.x + f.width - 1, f.y + f.depth - 1)) return false;
+  if (scene.doors.some((d) => footprintContains(f, d.x, d.y))) return false;
 
-  for (const other of Object.values(state.furniture)) {
+  for (const other of furnitureInScene(state, sceneId)) {
     if (other.id === ignoreId) continue;
     if (CATALOG[other.defId].walkable !== def.walkable) continue;
     if (footprintsOverlap(f, getFootprint(other))) return false;
@@ -108,7 +131,7 @@ export function canPlaceFurni(
 
   if (!def.walkable) {
     for (const avatar of Object.values(state.avatars)) {
-      if (footprintContains(f, avatar.x, avatar.y)) return false;
+      if (avatar.sceneId === sceneId && footprintContains(f, avatar.x, avatar.y)) return false;
     }
   }
   return true;

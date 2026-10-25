@@ -10,13 +10,14 @@ import {
   CATALOG,
   footprintContains,
   getFootprint,
-  isInsideRoom,
+  isInsideScene,
   type FurniId,
   type GameState,
   type Rotation,
+  type Scene,
 } from '@juego/shared';
 import type { PointerInfo } from '../engine/input';
-import type { Ghost } from '../engine/renderer';
+import type { Ghost, PickTarget } from '../engine/renderer';
 import type { Point } from '../engine/iso';
 import type { Transport } from './transport';
 
@@ -34,14 +35,16 @@ type Listener = () => void;
 export class GameController {
   private placing: Placing | null = null;
   private selectedId: string | null = null;
+  /** Escena en la que estaba el jugador en el último cambio de estado. */
+  private lastSceneId: string | null = null;
   private readonly listeners = new Set<Listener>();
 
   constructor(
     private readonly transport: Transport,
     private readonly playerId: string,
     private readonly getState: () => GameState,
-    /** Devuelve el mueble dibujado en un punto del canvas (lo resuelve el renderer). */
-    private readonly pickFurniAt: (p: Point) => { id: string } | null,
+    /** Devuelve lo que hay dibujado en un punto del canvas (lo resuelve el renderer). */
+    private readonly pickAt: (p: Point) => PickTarget | null,
   ) {
     window.addEventListener('keydown', (e) => {
       // Si se está escribiendo en un campo de texto, las teclas no son para el juego.
@@ -64,8 +67,22 @@ export class GameController {
     return this.placing !== null;
   }
 
-  /** Comprueba que la selección sigue existiendo tras un cambio de estado. */
+  /** Escena en la que está el jugador ahora mismo. */
+  get scene(): Scene | undefined {
+    const state = this.getState();
+    const player = state.avatars[this.playerId];
+    return player && state.scenes[player.sceneId];
+  }
+
+  /** Comprueba que la selección sigue siendo válida tras un cambio de estado. */
   syncWithState(state: GameState): void {
+    // Al cambiar de escena soltamos lo que tuviéramos en la mano o seleccionado.
+    const sceneId = state.avatars[this.playerId]?.sceneId ?? null;
+    if (sceneId !== this.lastSceneId) {
+      this.lastSceneId = sceneId;
+      this.select(null);
+      this.setPlacing(null);
+    }
     if (this.selectedId && !state.furniture[this.selectedId]) this.select(null);
     if (this.placing?.kind === 'place') {
       const inventory = state.inventories[this.playerId] ?? [];
@@ -108,7 +125,7 @@ export class GameController {
     let rotation = item.rotation;
     for (let i = 0; i < 3; i++) {
       rotation = nextRotation(rotation);
-      if (canPlaceFurni(state, item.defId, item.x, item.y, rotation, item.id)) {
+      if (canPlaceFurni(state, item.sceneId, item.defId, item.x, item.y, rotation, item.id)) {
         this.transport.dispatch({
           type: 'MOVE_FURNI',
           avatarId: this.playerId,
@@ -138,16 +155,17 @@ export class GameController {
   /** El "fantasma" del mueble que llevamos en la mano, colocado en la baldosa del ratón. */
   getGhost(hoverTile: Point | null): Ghost | null {
     if (!this.placing || !hoverTile) return null;
-    const state = this.getState();
-    if (!isInsideRoom(state.room, hoverTile.x, hoverTile.y)) return null;
+    const scene = this.scene;
+    if (!scene || !isInsideScene(scene, hoverTile.x, hoverTile.y)) return null;
     const { defId, rotation, itemId, kind } = this.placing;
     const ignoreId = kind === 'move' ? itemId : undefined;
+    const { x, y } = hoverTile;
     return {
       defId,
       rotation,
-      x: hoverTile.x,
-      y: hoverTile.y,
-      valid: canPlaceFurni(state, defId, hoverTile.x, hoverTile.y, rotation, ignoreId),
+      x,
+      y,
+      valid: canPlaceFurni(this.getState(), scene.id, defId, x, y, rotation, ignoreId),
     };
   }
 
@@ -172,11 +190,21 @@ export class GameController {
       return;
     }
 
-    // 2. ¿Hemos hecho clic sobre un mueble? Lo seleccionamos. Si es sentable o
-    //    pisable, además caminamos hasta él (y si es una silla, nos sentamos).
-    const picked = this.pickFurniAt(pointer.canvas);
-    if (picked) {
-      const item = state.furniture[picked.id];
+    const picked = this.pickAt(pointer.canvas);
+
+    // 2. ¿Clic en una puerta (dibujada en la pared)? Caminamos hasta su
+    //    baldosa; al llegar, la simulación nos pasa a la otra escena.
+    if (picked?.kind === 'door') {
+      this.select(null);
+      this.moveTo(picked.door);
+      return;
+    }
+
+    // 3. ¿Clic sobre un mueble? Lo seleccionamos. Si es sentable o pisable,
+    //    además caminamos hasta él (y si es una silla, nos sentamos).
+    if (picked?.kind === 'furni') {
+      const item = state.furniture[picked.item.id];
+      if (!item) return;
       this.select(item.id);
       const def = CATALOG[item.defId];
       if (def.sittable || def.walkable) {
@@ -189,9 +217,11 @@ export class GameController {
       return;
     }
 
-    // 3. Clic en el suelo: deseleccionamos y caminamos.
+    // 4. Clic en el suelo: deseleccionamos y caminamos (si es una puerta de
+    //    la calle, al llegar cambiaremos de escena).
     this.select(null);
-    if (isInsideRoom(state.room, tile.x, tile.y)) this.moveTo(tile);
+    const scene = this.scene;
+    if (scene && isInsideScene(scene, tile.x, tile.y)) this.moveTo(tile);
   }
 
   /** Clic derecho: gira el mueble que llevamos en la mano. */

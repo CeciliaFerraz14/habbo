@@ -28,6 +28,8 @@ const HEAD_MARGIN = 4;
 interface Bubble {
   el: HTMLDivElement;
   avatarId: string;
+  /** Escena donde se dijo: el bocadillo no "viaja" si el avatar cruza una puerta. */
+  sceneId: string;
   born: number;
   /** Subida acumulada por los bocadillos que han aparecido después. */
   pushed: number;
@@ -47,12 +49,15 @@ export class ChatBubbles {
     for (const m of initialMessages) this.seen.add(m.id);
   }
 
-  /** Crea bocadillos para los mensajes que no habíamos visto todavía. */
-  sync(messages: readonly ChatMessage[], now: number): void {
+  /**
+   * Crea bocadillos para los mensajes nuevos de la escena `sceneId` (la del
+   * jugador). Los de otras escenas se marcan como vistos pero no se muestran.
+   */
+  sync(messages: readonly ChatMessage[], sceneId: string, now: number): void {
     for (const message of messages) {
       if (this.seen.has(message.id)) continue;
       this.seen.add(message.id);
-      this.add(message, now);
+      if (message.sceneId === sceneId) this.add(message, now);
     }
   }
 
@@ -69,7 +74,13 @@ export class ChatBubbles {
     // Empujamos hacia arriba los bocadillos que ya estaban.
     const height = el.offsetHeight + GAP;
     for (const b of this.bubbles) b.pushed += height;
-    this.bubbles.push({ el, avatarId: message.avatarId, born: now, pushed: 0 });
+    this.bubbles.push({
+      el,
+      avatarId: message.avatarId,
+      sceneId: message.sceneId,
+      born: now,
+      pushed: 0,
+    });
   }
 
   /**
@@ -78,6 +89,7 @@ export class ChatBubbles {
    */
   update(
     state: GameState,
+    sceneId: string,
     views: AvatarViews,
     renderer: Renderer,
     camera: Camera,
@@ -88,8 +100,9 @@ export class ChatBubbles {
       const age = now - b.born;
       const avatar = state.avatars[b.avatarId];
       const view = views.get(b.avatarId);
-      // Fuera los bocadillos caducados o de avatares que ya no están.
-      if (age > LIFETIME_MS || !avatar || !view) {
+      // Fuera los bocadillos caducados, de otra escena, o de avatares que se han ido.
+      const gone = !avatar || !view || avatar.sceneId !== b.sceneId;
+      if (age > LIFETIME_MS || b.sceneId !== sceneId || gone) {
         b.el.remove();
         return false;
       }

@@ -2,14 +2,16 @@
 
 import {
   CATALOG,
+  furnitureInScene,
   getFootprint,
   getSeatAt,
-  isInsideRoom,
+  isInsideScene,
   type Avatar,
+  type Door,
   type FurniItem,
   type FurniPlacement,
   type GameState,
-  type Room,
+  type Scene,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
 import {
@@ -45,6 +47,8 @@ export interface Ghost extends FurniPlacement {
 
 export interface RenderInput {
   state: GameState;
+  /** Escena que se dibuja (la del jugador). */
+  sceneId: string;
   views: AvatarViews;
   camera: Camera;
   /** Baldosa bajo el ratón, o null si el ratón está fuera de la sala. */
@@ -57,16 +61,19 @@ export interface RenderInput {
   now: number;
 }
 
-/** Dónde se dibujó cada mueble en el último fotograma, para saber cuál hay bajo el ratón. */
-interface DrawnFurni {
-  item: FurniItem;
+/** Algo de la escena en lo que se puede hacer clic. */
+export type PickTarget = { kind: 'furni'; item: FurniItem } | { kind: 'door'; door: Door };
+
+/** Dónde se dibujó cada cosa "clicable" en el último fotograma, para saber qué hay bajo el ratón. */
+interface DrawnPickable {
+  target: PickTarget;
   sprite: Sprite;
   x: number;
   y: number;
 }
 
 export class Renderer {
-  private drawnFurni: DrawnFurni[] = [];
+  private drawn: DrawnPickable[] = [];
   private backdrop: HTMLCanvasElement | null = null;
   private readonly alphaCache = new WeakMap<Sprite, Uint8ClampedArray>();
 
@@ -75,25 +82,34 @@ export class Renderer {
     private readonly sprites: RoomSprites,
   ) {}
 
-  render({ state, views, camera, hoverTile, selectedId, ghost, now }: RenderInput): void {
+  render({ state, sceneId, views, camera, hoverTile, selectedId, ghost, now }: RenderInput): void {
     const { ctx } = this;
-    const { room } = state;
+    const scene = state.scenes[sceneId];
     ctx.drawImage(this.getBackdrop(ctx.canvas.width, ctx.canvas.height), 0, 0);
-    this.drawnFurni = [];
+    this.drawn = [];
+    if (!scene) return;
 
-    this.drawFloor(room, camera);
-    this.drawWalls(room, camera);
+    this.drawFloor(scene, camera);
+    if (scene.kind === 'interior') {
+      this.drawWalls(scene, camera);
+      this.drawWallDoors(scene, camera);
+    } else {
+      // Provisional hasta que la calle tenga edificios (paso 2b).
+      for (const door of scene.doors) {
+        this.drawAtTile(this.sprites.doormat, door.x, door.y, camera, -HALF_W, 0);
+      }
+    }
 
     // Marcas sobre el suelo (debajo de muebles y avatares).
     const selected = selectedId ? state.furniture[selectedId] : undefined;
     if (selected) this.drawFootprint(selected, this.sprites.selected, camera);
     if (ghost) {
       this.drawFootprint(ghost, ghost.valid ? this.sprites.valid : this.sprites.invalid, camera);
-    } else if (hoverTile && isInsideRoom(room, hoverTile.x, hoverTile.y)) {
+    } else if (hoverTile && isInsideScene(scene, hoverTile.x, hoverTile.y)) {
       this.drawAtTile(this.sprites.hover, hoverTile.x, hoverTile.y, camera, -HALF_W, 0);
     }
 
-    this.drawScene(state, views, camera, now);
+    this.drawScene(state, sceneId, views, camera, now);
 
     // El fantasma va encima de todo y semitransparente.
     if (ghost) {
@@ -105,20 +121,21 @@ export class Renderer {
   }
 
   /**
-   * Devuelve el mueble que hay bajo el punto (x, y) del canvas, o null.
+   * Devuelve lo que hay bajo el punto (x, y) del canvas (un mueble o una
+   * puerta), o null.
    *
-   * Recorremos los muebles en orden INVERSO al de dibujo: el último dibujado
-   * es el que está delante. No basta con mirar el rectángulo del sprite (sería
-   * muy impreciso): comprobamos si el píxel concreto del sprite es opaco.
+   * Recorremos lo dibujado en orden INVERSO: lo último dibujado es lo que está
+   * delante. No basta con mirar el rectángulo del sprite (sería muy
+   * impreciso): comprobamos si el píxel concreto del sprite es opaco.
    */
-  pickFurniAt(x: number, y: number): FurniItem | null {
-    for (let i = this.drawnFurni.length - 1; i >= 0; i--) {
-      const d = this.drawnFurni[i];
+  pickAt(x: number, y: number): PickTarget | null {
+    for (let i = this.drawn.length - 1; i >= 0; i--) {
+      const d = this.drawn[i];
       const sx = Math.floor(x - d.x);
       const sy = Math.floor(y - d.y);
       if (sx < 0 || sy < 0 || sx >= d.sprite.width || sy >= d.sprite.height) continue;
       const alpha = this.getAlpha(d.sprite)[(sy * d.sprite.width + sx) * 4 + 3];
-      if (alpha > 0) return d.item;
+      if (alpha > 0) return d.target;
     }
     return null;
   }
@@ -133,7 +150,7 @@ export class Renderer {
     const centerX = camera.originX + p.x;
     const centerY = camera.originY + p.y + HALF_H;
     if (avatar.sitting) {
-      const seat = getSeatAt(state, avatar.x, avatar.y);
+      const seat = getSeatAt(state, avatar.sceneId, avatar.x, avatar.y);
       const seatHeight = (seat && MODELS[seat.defId].seatHeight) ?? 0;
       return { x: centerX, y: centerY - seatHeight - HIP_ROW };
     }
@@ -221,12 +238,14 @@ export class Renderer {
     }
   }
 
-  private drawFloor(room: Room, camera: Camera): void {
+  private drawFloor(room: Scene, camera: Camera): void {
     const s = this.sprites;
+    // Interiores: baldosa de barro cocido. Calle: arena.
+    const [tileA, tileB] = room.kind === 'interior' ? [s.floorA, s.floorB] : [s.sandA, s.sandB];
     for (let y = 0; y < room.depth; y++) {
       for (let x = 0; x < room.width; x++) {
         // Patrón de ajedrez: alternamos dos tonos según la paridad de x + y.
-        const tile = (x + y) % 2 === 0 ? s.floorA : s.floorB;
+        const tile = (x + y) % 2 === 0 ? tileA : tileB;
         // El sprite del rombo tiene su esquina superior en la columna HALF_W,
         // así que lo desplazamos HALF_W a la izquierda.
         this.drawAtTile(tile, x, y, camera, -HALF_W, 0);
@@ -238,7 +257,7 @@ export class Renderer {
     }
   }
 
-  private drawWalls(room: Room, camera: Camera): void {
+  private drawWalls(room: Scene, camera: Camera): void {
     const s = this.sprites;
     // Pared izquierda: sobre la arista superior-izquierda de las baldosas x = 0.
     for (let y = 0; y < room.depth; y++) {
@@ -252,21 +271,41 @@ export class Renderer {
     }
   }
 
+  /**
+   * Puertas pintadas en las paredes de un interior. Una puerta en x = 0 va en
+   * la pared izquierda y una en y = 0, en la derecha (igual que los trozos de
+   * pared, así que usan los mismos desplazamientos).
+   */
+  private drawWallDoors(scene: Scene, camera: Camera): void {
+    for (const door of scene.doors) {
+      const onLeft = door.x === 0;
+      const sprite = onLeft ? this.sprites.doorLeft : this.sprites.doorRight;
+      const at = this.drawAtTile(sprite, door.x, door.y, camera, onLeft ? -HALF_W : 0, -WALL_HEIGHT);
+      this.drawn.push({ target: { kind: 'door', door }, sprite, ...at });
+    }
+  }
+
   private drawFurni(item: FurniItem, camera: Camera): void {
     const { sprite, offsetX, offsetY } = getFurniSprite(item.defId, item.rotation);
     const at = this.drawAtTile(sprite, item.x, item.y, camera, offsetX, offsetY);
-    this.drawnFurni.push({ item, sprite, ...at });
+    this.drawn.push({ target: { kind: 'furni', item }, sprite, ...at });
   }
 
   /**
-   * Dibuja muebles y avatares en el orden correcto de profundidad.
-   * Las alfombras van antes, a ras de suelo: nunca tapan nada.
+   * Dibuja los muebles y avatares DE ESTA ESCENA en el orden correcto de
+   * profundidad. Las alfombras van antes, a ras de suelo: nunca tapan nada.
    */
-  private drawScene(state: GameState, views: AvatarViews, camera: Camera, now: number): void {
+  private drawScene(
+    state: GameState,
+    sceneId: string,
+    views: AvatarViews,
+    camera: Camera,
+    now: number,
+  ): void {
     const flat: FurniItem[] = [];
     const drawables: Drawable[] = [];
 
-    for (const item of Object.values(state.furniture)) {
+    for (const item of furnitureInScene(state, sceneId)) {
       if (CATALOG[item.defId].walkable) {
         flat.push(item);
         continue;
@@ -277,6 +316,7 @@ export class Renderer {
     }
 
     for (const avatar of Object.values(state.avatars)) {
+      if (avatar.sceneId !== sceneId) continue;
       const view = views.get(avatar.id);
       if (!view) continue;
       // El avatar ocupa una baldosa, pero en su posición VISUAL (con decimales),
@@ -313,7 +353,7 @@ export class Renderer {
     if (avatar.sitting) {
       // Sentado: las caderas (HIP_ROW) se apoyan a la altura del asiento,
       // seatHeight píxeles por encima del centro de la baldosa.
-      const seat = getSeatAt(state, avatar.x, avatar.y);
+      const seat = getSeatAt(state, avatar.sceneId, avatar.x, avatar.y);
       const seatHeight = (seat && MODELS[seat.defId].seatHeight) ?? 0;
       const sprite = frames[FRAME_SIT];
       this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H - seatHeight - HIP_ROW);

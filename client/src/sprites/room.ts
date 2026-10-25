@@ -34,6 +34,12 @@ const C = {
   selected: PALETTE.neonCyan,
   valid: '#7be35b',
   invalid: '#ff4f4f',
+  sandLine: '#c99a5c',
+  door: PALETTE.turquoise,
+  doorFrame: '#8a5a34',
+  doorGlass: '#a6e3d4',
+  doorKnob: '#f2b134',
+  doormat: PALETTE.terracotta,
 };
 
 /**
@@ -57,13 +63,13 @@ function diamondRow(row: number): [number, number] {
 }
 
 /** Rombo de suelo. Los 2 píxeles de cada extremo de fila forman el borde. */
-function floorTile(fill: string): Sprite {
+function floorTile(fill: string, line: string = C.floorLine): Sprite {
   return createSprite(TILE_WIDTH, TILE_HEIGHT, (px) => {
     for (let row = 0; row < TILE_HEIGHT; row++) {
       const [x0, x1] = diamondRow(row);
       for (let x = x0; x <= x1; x++) {
         const isEdge = x <= x0 + 1 || x >= x1 - 1 || row === 0 || row === TILE_HEIGHT - 1;
-        px(x, row, isEdge ? C.floorLine : fill);
+        px(x, row, isEdge ? line : fill);
       }
     }
   });
@@ -142,9 +148,67 @@ function wallSegment(side: 'left' | 'right', end: boolean): Sprite {
   });
 }
 
+/** Altura de las puertas de los interiores, en píxeles. */
+const DOOR_HEIGHT = 46;
+
+/**
+ * Puerta pintada sobre un trozo de pared. Usa la misma geometría que
+ * wallSegment() (mismo tamaño y misma inclinación), así que se dibuja en la
+ * misma posición, encima de la pared.
+ *
+ * Es una puerta de madera turquesa con ventanuco y pomo, como las de las
+ * caravanas antiguas.
+ */
+function doorSegment(side: 'left' | 'right'): Sprite {
+  return createSprite(HALF_W, WALL_HEIGHT + HALF_H, (px) => {
+    const first = 2;
+    const last = HALF_W - 3;
+    // El pomo va en el lado contrario a las bisagras.
+    const knobColumn = side === 'left' ? last - 2 : first + 2;
+    for (let c = first; c <= last; c++) {
+      const edgeRow = side === 'left' ? HALF_H - 1 - Math.floor(c / 2) : Math.floor(c / 2);
+      const top = WALL_HEIGHT - DOOR_HEIGHT; // índice i donde empieza la puerta
+      for (let i = top; i < WALL_HEIGHT - 1; i++) {
+        const fromTop = i - top;
+        let color: string;
+        if (c === first || c === last || fromTop === 0) color = C.outline; // marco exterior
+        else if (c === first + 1 || c === last - 1 || fromTop === 1) color = C.doorFrame;
+        else if (fromTop >= 5 && fromTop <= 14 && c >= first + 3 && c <= last - 3) {
+          // Ventanuco con su propio borde.
+          const border = fromTop === 5 || fromTop === 14 || c === first + 3 || c === last - 3;
+          color = border ? C.outline : C.doorGlass;
+        } else if (c === knobColumn && fromTop === 26) color = C.doorKnob;
+        else color = C.door;
+        px(c, edgeRow + i, color);
+      }
+    }
+  });
+}
+
+/** Felpudo: marca provisional de las puertas de la calle (en el paso 2b serán edificios). */
+function doormat(): Sprite {
+  return createSprite(TILE_WIDTH, TILE_HEIGHT, (px) => {
+    for (let row = 3; row < TILE_HEIGHT - 3; row++) {
+      // Un rombo más pequeño dentro de la baldosa: quitamos 6 px por cada lado.
+      const [x0, x1] = diamondRow(row);
+      const from = x0 + 6;
+      const to = x1 - 6;
+      for (let x = from; x <= to; x++) {
+        const isEdge = x <= from + 1 || x >= to - 1 || row === 3 || row === TILE_HEIGHT - 4;
+        px(x, row, isEdge ? C.outline : C.doormat);
+      }
+    }
+  });
+}
+
 export interface RoomSprites {
   floorA: Sprite;
   floorB: Sprite;
+  sandA: Sprite;
+  sandB: Sprite;
+  doorLeft: Sprite;
+  doorRight: Sprite;
+  doormat: Sprite;
   hover: Sprite;
   selected: Sprite;
   valid: Sprite;
@@ -161,6 +225,11 @@ export function buildRoomSprites(): RoomSprites {
   return {
     floorA: floorTile(C.floorA),
     floorB: floorTile(C.floorB),
+    sandA: floorTile(PALETTE.sand, C.sandLine),
+    sandB: floorTile(PALETTE.sandDark, C.sandLine),
+    doorLeft: doorSegment('left'),
+    doorRight: doorSegment('right'),
+    doormat: doormat(),
     hover: outlineTile(C.hover),
     selected: outlineTile(C.selected),
     valid: outlineTile(C.valid),

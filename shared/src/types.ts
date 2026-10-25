@@ -1,7 +1,7 @@
 // Tipos del estado del juego. Son datos puros (sin métodos ni referencias al
 // canvas) para poder enviarlos tal cual por la red en la fase 2.
 import type { FurniId, Rotation } from './catalog';
-import type { Room } from './room';
+import type { Scene } from './scene';
 
 /** Una baldosa de la sala. */
 export interface TilePoint {
@@ -27,6 +27,8 @@ export interface AvatarLook {
 export interface Avatar {
   id: string;
   name: string;
+  /** Escena en la que está. */
+  sceneId: string;
   /** Baldosa en la que está ahora (lógicamente). El cliente anima el paso entre baldosas. */
   x: number;
   y: number;
@@ -42,6 +44,8 @@ export interface Avatar {
 /** Un mensaje del chat de la sala. */
 export interface ChatMessage {
   id: string;
+  /** Escena donde se dijo: solo lo oyen quienes están en ella. */
+  sceneId: string;
   avatarId: string;
   /** Guardamos el nombre por si el avatar se va de la sala y queda en el historial. */
   name: string;
@@ -54,9 +58,11 @@ export interface InventoryItem {
   defId: FurniId;
 }
 
-/** Un mueble colocado en la sala. */
+/** Un mueble colocado en una escena. */
 export interface FurniItem {
   id: string;
+  /** Escena en la que está colocado. */
+  sceneId: string;
   /** Qué mueble del catálogo es. */
   defId: FurniId;
   /** Baldosa de la esquina con menor x e y que ocupa. */
@@ -65,9 +71,10 @@ export interface FurniItem {
   rotation: Rotation;
 }
 
-/** Todo el estado de una sala. Es lo que en la fase 2 tendrá el servidor. */
+/** Todo el estado del mundo. Es lo que en la fase 2 tendrá el servidor. */
 export interface GameState {
-  room: Room;
+  /** Todas las escenas (calle, caravana, locales...) por id. */
+  scenes: Record<string, Scene>;
   avatars: Record<string, Avatar>;
   furniture: Record<string, FurniItem>;
   /** Inventario de cada usuario (clave: id del avatar). En la fase 2 irá a SQLite. */
