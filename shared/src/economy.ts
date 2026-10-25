@@ -28,6 +28,7 @@ import {
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
 import { createRandom } from './random';
+import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
 
 /** Un mueble en la cola del taller. */
@@ -149,11 +150,10 @@ export function lotOfStation(itemId: string): string | null {
 
 /**
  * ¿Puede este avatar decorar (colocar, mover, recoger muebles) en esta escena?
- * En su caravana sí, y en los locales de los que es dueño. (En la fase 2 cada
- * jugador tendrá su propia caravana; ahora solo hay una.)
+ * En su propia caravana sí, y en los locales de los que es dueño.
  */
 export function canEditScene(state: GameState, avatarId: string, sceneId: string): boolean {
-  if (sceneId === 'trailer') return true;
+  if (sceneId === trailerSceneId(avatarId)) return true;
   return state.lots[sceneId]?.ownerId === avatarId;
 }
 

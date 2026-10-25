@@ -4,6 +4,7 @@ import { createWalkableCheck, getSeatAt } from './furniture';
 import { findPath } from './pathfinding';
 import { getDoorAt, type Door } from './scene';
 import type { Avatar, Direction, GameState, TilePoint } from './types';
+import { SCENES, trailerSceneId } from './world.ids';
 
 /** Dirección a la que hay que mirar para ir de `from` a una baldosa vecina `to`. */
 export function directionTo(from: TilePoint, to: TilePoint): Direction {
@@ -76,13 +77,16 @@ export function updateDoors(state: GameState): GameState {
     const door = scene && getDoorAt(scene, avatar.x, avatar.y);
     if (!door || isDoorLocked(state, door)) continue;
 
-    const target = state.scenes[door.to.sceneId]?.doors.find((d) => d.id === door.to.doorId);
+    // Una puerta que lleva a 'trailer' lleva a la caravana de quien la cruza.
+    const toScene =
+      door.to.sceneId === SCENES.trailer ? trailerSceneId(avatar.id) : door.to.sceneId;
+    const target = state.scenes[toScene]?.doors.find((d) => d.id === door.to.doorId);
     if (!target) continue;
 
     if (avatars === state.avatars) avatars = { ...avatars };
     avatars[avatar.id] = {
       ...avatar,
-      sceneId: door.to.sceneId,
+      sceneId: toScene,
       x: target.spawn.x,
       y: target.spawn.y,
       direction: directionTo(target, target.spawn),

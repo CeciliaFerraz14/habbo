@@ -3,7 +3,8 @@ import {
   DEFAULT_LOOK,
   GAME_NAME,
   isValidLook,
-  START_SCENE,
+  SCENES,
+  trailerSceneId,
   type AvatarLook,
   type GameState,
 } from '@juego/shared';
@@ -156,7 +157,7 @@ let shownSceneId: string | null = null;
 
 /** Escena en la que está el jugador. */
 function playerSceneId(): string {
-  return state.avatars[PLAYER_ID]?.sceneId ?? START_SCENE;
+  return state.avatars[PLAYER_ID]?.sceneId ?? SCENES.street;
 }
 
 // --- Interfaz -----------------------------------------------------------------
@@ -407,7 +408,9 @@ function updateLocationSign(): void {
   const scene = state.scenes[playerSceneId()];
   const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const forced = clock.isForced ? ` (${PHASE_NAMES[clock.phase()]})` : '';
-  locationSign.textContent = `${scene?.name ?? ''} · ${time}${forced}`;
+  // Tu propia caravana se llama "Tu caravana" (para los demás, "Caravana de ...").
+  const name = scene?.id === trailerSceneId(PLAYER_ID) ? 'Tu caravana' : (scene?.name ?? '');
+  locationSign.textContent = `${name} · ${time}${forced}`;
 }
 setInterval(updateLocationSign, 10_000);
 

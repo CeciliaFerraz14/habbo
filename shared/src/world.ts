@@ -15,11 +15,14 @@ import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
 
-import { SCENES } from './world.ids';
+import { SCENES, trailerSceneId } from './world.ids';
 
-export { SCENES };
+export { SCENES, trailerSceneId };
 
-/** Escena en la que aparece un jugador nuevo, y en qué baldosa. */
+/**
+ * Escena en la que aparece un jugador al entrar: su propia caravana (el alias
+ * 'trailer' se resuelve a `trailer:<id>` en el reducer), y en qué baldosa.
+ */
 export const START_SCENE = SCENES.trailer;
 export const START_TILE = { x: 6, y: 3 };
 
@@ -61,6 +64,7 @@ function createScenes(): Scene[] {
       x: 3,
       y: 4,
       spawn: { x: 3, y: 5 },
+      // 'trailer' es un alias: cada uno entra en SU caravana (ver updateDoors).
       to: { sceneId: SCENES.trailer, doorId: 'trailer-exit' },
       buildingId: 'trailer-building',
     },
@@ -111,25 +115,6 @@ function createScenes(): Scene[] {
       doors: streetDoors,
       ground: streetGround(),
     },
-    {
-      // La caravana del jugador: larga y estrecha, con la puerta en mitad de
-      // la pared larga (y = 0), como se ve desde fuera.
-      id: SCENES.trailer,
-      name: 'Tu caravana',
-      kind: 'interior',
-      theme: 'trailer',
-      width: 12,
-      depth: 5,
-      doors: [
-        {
-          id: 'trailer-exit',
-          x: 6,
-          y: 0,
-          spawn: { x: 6, y: 1 },
-          to: { sceneId: s, doorId: 'street-trailer' },
-        },
-      ],
-    },
     ...lotInteriors,
   ];
 }
@@ -173,25 +158,55 @@ function createStreetStructures(): FurniItem[] {
 }
 
 /**
- * Muebles con los que empieza la caravana: una "dinette" (dos sillones de
- * diner enfrentados con una mesa en medio) a un lado, y la cocina al otro.
+ * La caravana de un jugador: escena propia y muebles con los que empieza.
+ *
+ * Es larga y estrecha, con la puerta en mitad de la pared larga (y = 0), como
+ * se ve desde fuera. Empieza amueblada con una "dinette" (dos sillones de diner
+ * enfrentados con una mesa en medio) a un lado y la cocina al otro.
+ *
+ * Los ids de los muebles llevan delante el id del dueño para que no choquen
+ * con los de otras caravanas.
  */
-function createTrailerFurniture(): FurniItem[] {
-  const s = SCENES.trailer;
-  return [
-    { id: 'f1', sceneId: s, defId: 'diner_booth', x: 0, y: 1, rotation: 0 },
-    { id: 'f2', sceneId: s, defId: 'formica_table', x: 1, y: 1, rotation: 0 },
-    { id: 'f3', sceneId: s, defId: 'diner_booth', x: 2, y: 1, rotation: 2 },
-    { id: 'f4', sceneId: s, defId: 'neon_lamp', x: 4, y: 0, rotation: 1 },
-    { id: 'f5', sceneId: s, defId: 'jukebox', x: 9, y: 0, rotation: 1 },
-    { id: 'f6', sceneId: s, defId: 'vintage_fridge', x: 11, y: 0, rotation: 1 },
-    { id: 'f7', sceneId: s, defId: 'bar_stool', x: 10, y: 3, rotation: 3 },
-    { id: 'f8', sceneId: s, defId: 'potted_cactus', x: 0, y: 4, rotation: 0 },
+export function createTrailer(ownerId: string, ownerName: string) {
+  const id = trailerSceneId(ownerId);
+  const scene: Scene = {
+    id,
+    name: `Caravana de ${ownerName}`,
+    kind: 'interior',
+    theme: 'trailer',
+    width: 12,
+    depth: 5,
+    doors: [
+      {
+        id: 'trailer-exit',
+        x: 6,
+        y: 0,
+        spawn: { x: 6, y: 1 },
+        to: { sceneId: SCENES.street, doorId: 'street-trailer' },
+      },
+    ],
+  };
+  const f = (n: number, item: Omit<FurniItem, 'id' | 'sceneId'>): FurniItem => ({
+    id: `${ownerId}:f${n}`,
+    sceneId: id,
+    ...item,
+  });
+  const furniture: FurniItem[] = [
+    f(1, { defId: 'diner_booth', x: 0, y: 1, rotation: 0 }),
+    f(2, { defId: 'formica_table', x: 1, y: 1, rotation: 0 }),
+    f(3, { defId: 'diner_booth', x: 2, y: 1, rotation: 2 }),
+    f(4, { defId: 'neon_lamp', x: 4, y: 0, rotation: 1 }),
+    f(5, { defId: 'jukebox', x: 9, y: 0, rotation: 1 }),
+    f(6, { defId: 'vintage_fridge', x: 11, y: 0, rotation: 1 }),
+    f(7, { defId: 'bar_stool', x: 10, y: 3, rotation: 3 }),
+    f(8, { defId: 'potted_cactus', x: 0, y: 4, rotation: 0 }),
   ];
+  return { scene, furniture };
 }
 
 export function createInitialState(): GameState {
-  const furniture = [...createStreetStructures(), ...createTrailerFurniture()];
+  // Las caravanas de los jugadores se crean al entrar cada uno (JOIN).
+  const furniture = createStreetStructures();
   const state: GameState = {
     scenes: Object.fromEntries(createScenes().map((s) => [s.id, s])),
     avatars: {},

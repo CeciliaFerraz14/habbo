@@ -24,16 +24,34 @@ import {
 import { ECONOMY } from './economy.config';
 import { canPlaceFurni } from './furniture';
 import { isValidLook } from './looks';
+import { createTrailer } from './world';
+import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'JOIN': {
+      let next = state;
+      let avatar = action.avatar;
+      // Cada jugador tiene su caravana: se crea la primera vez que entra.
+      const trailerId = trailerSceneId(avatar.id);
+      if (!avatar.isBot && !next.scenes[trailerId]) {
+        const trailer = createTrailer(avatar.id, avatar.name);
+        next = {
+          ...next,
+          scenes: { ...next.scenes, [trailerId]: trailer.scene },
+          furniture: {
+            ...next.furniture,
+            ...Object.fromEntries(trailer.furniture.map((f) => [f.id, f])),
+          },
+        };
+      }
+      // 'trailer' es un alias de "tu caravana".
+      if (avatar.sceneId === SCENES.trailer) avatar = { ...avatar, sceneId: trailerId };
       // Solo se puede entrar en una escena que existe.
-      const { avatar } = action;
-      if (!state.scenes[avatar.sceneId]) return state;
-      let next = withAvatar(state, avatar);
+      if (!next.scenes[avatar.sceneId]) return state;
+      next = withAvatar(next, avatar);
       // La primera vez que entra alguien, recibe el dinero inicial...
       if (next.money[avatar.id] === undefined) {
         next = { ...next, money: { ...next.money, [avatar.id]: ECONOMY.startingMoney } };
