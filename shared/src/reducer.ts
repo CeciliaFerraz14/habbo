@@ -9,7 +9,16 @@
 import type { Action } from './actions';
 import { CATALOG } from './catalog';
 import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
-import { canEditScene, collectCrafted, collectMaterials, rentLot, startCraft } from './economy';
+import {
+  buyItem,
+  canEditScene,
+  collectCrafted,
+  collectMaterials,
+  listItem,
+  rentLot,
+  setPrice,
+  startCraft,
+} from './economy';
 import { ECONOMY } from './economy.config';
 import { canPlaceFurni } from './furniture';
 import { isValidLook } from './looks';
@@ -111,6 +120,12 @@ export function applyAction(state: GameState, action: Action): GameState {
       return startCraft(state, action.avatarId, action.lotId, action.defId);
     case 'COLLECT_CRAFTED':
       return collectCrafted(state, action.avatarId, action.lotId);
+    case 'LIST_ITEM':
+      return listItem(state, action.avatarId, action.lotId, action.itemId, action.price);
+    case 'SET_PRICE':
+      return setPrice(state, action.avatarId, action.itemId, action.price);
+    case 'BUY_ITEM':
+      return buyItem(state, action.avatarId, action.itemId);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];

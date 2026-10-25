@@ -27,7 +27,9 @@ import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
 import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
+import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
+import { createShopWindow } from './ui/shopWindow';
 import { showToast } from './ui/toast';
 import './ui/styles.css';
 
@@ -120,6 +122,10 @@ const controller = new GameController(
       businessWindow.open(lotId);
       businessWindow.update(state, PLAYER_ID);
     },
+    openShop: (lotId) => {
+      shopWindow.open(lotId);
+      shopWindow.update(state, PLAYER_ID);
+    },
   },
 );
 
@@ -147,7 +153,19 @@ const businessWindow = createBusinessWindow({
   craft: (lotId, defId) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, defId }),
   collectCrafted: (lotId) =>
     transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
+  listItem: (lotId, itemId, price) =>
+    transport.dispatch({ type: 'LIST_ITEM', avatarId: PLAYER_ID, lotId, itemId, price }),
+  setPrice: (itemId, price) =>
+    transport.dispatch({ type: 'SET_PRICE', avatarId: PLAYER_ID, itemId, price }),
+  // Retirar un producto es recogerlo: vuelve al inventario.
+  unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
 });
+const shopWindow = createShopWindow((itemId) => {
+  const before = state.money[PLAYER_ID];
+  transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
+  if (state.money[PLAYER_ID] !== before) showToast('¡Comprado! Está en tu inventario.');
+});
+const priceTags = new PriceTags();
 const inventory = createInventoryWindow((itemId) => controller.startPlacing(itemId));
 const furniPanel = createFurniPanel({
   onMove: () => controller.startMovingSelected(),
@@ -182,6 +200,7 @@ function refreshUi(): void {
   wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
+  shopWindow.update(state, PLAYER_ID);
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look);
   chatHistory.update(state.messages, sceneId);
@@ -257,6 +276,7 @@ function frame(now: number): void {
     phase: clock.phase(),
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
+  priceTags.update(state, sceneId, renderer, canvasToScreen);
   requestAnimationFrame(frame);
 }
 

@@ -9,6 +9,7 @@ export * from './furniture';
 export * from './looks';
 export * from './movement';
 export * from './pathfinding';
+export * from './random';
 export * from './reducer';
 export * from './scene';
 export * from './simulation';

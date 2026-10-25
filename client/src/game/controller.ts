@@ -45,6 +45,8 @@ export interface ControllerEvents {
   openRent: (lotId: string) => void;
   /** Abre la ventana de gestión de un negocio. */
   openBusiness: (lotId: string) => void;
+  /** Abre una tienda como cliente (para ver sus productos y comprar). */
+  openShop: (lotId: string) => void;
 }
 
 export class GameController {
@@ -229,13 +231,20 @@ export class GameController {
         // Puesto de trabajo de un negocio: abre su ventana (si es tuyo).
         const lotId = lotOfStation(item.id);
         if (lotId) {
-          if (state.lots[lotId]?.ownerId === this.playerId) this.events.openBusiness(lotId);
+          const lot = state.lots[lotId];
+          if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
+          else if (lot?.business === 'store') this.events.openShop(lotId);
           else this.events.notify('Este negocio no es tuyo.');
           return;
         }
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
         if (door) this.goToDoor(door);
+        return;
+      }
+      // Un producto de una tienda ajena: abrimos la tienda para comprarlo.
+      if (item.price !== undefined && !this.canDecorateHere()) {
+        this.events.openShop(item.sceneId);
         return;
       }
       // Solo se seleccionan (para mover, girar o recoger) los muebles de un

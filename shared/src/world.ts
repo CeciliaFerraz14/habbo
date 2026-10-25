@@ -11,7 +11,7 @@
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus y el cartel de bienvenida
 import type { DecorId } from './catalog';
-import { createLot } from './economy';
+import { createLot, setupNpcStores } from './economy';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
 
@@ -196,7 +196,7 @@ function createTrailerFurniture(): FurniItem[] {
 
 export function createInitialState(): GameState {
   const furniture = [...createStreetStructures(), ...createTrailerFurniture()];
-  return {
+  const state: GameState = {
     scenes: Object.fromEntries(createScenes().map((s) => [s.id, s])),
     avatars: {},
     furniture: Object.fromEntries(furniture.map((f) => [f.id, f])),
@@ -206,6 +206,9 @@ export function createInitialState(): GameState {
     money: {},
     materials: {},
     tick: 0,
+    seed: 20240917,
     nextId: 100,
   };
+  // Las tiendas de los NPC abren desde el principio.
+  return setupNpcStores(state);
 }

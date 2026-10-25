@@ -37,4 +37,10 @@ export type Action =
   /** Taller: empezar a fabricar un mueble. */
   | { type: 'CRAFT'; avatarId: string; lotId: string; defId: DecorId }
   /** Taller: recoger los muebles terminados. */
-  | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string };
+  | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string }
+  /** Tienda: poner a la venta un mueble del inventario (se coloca en el local). */
+  | { type: 'LIST_ITEM'; avatarId: string; lotId: string; itemId: string; price: number }
+  /** Tienda: cambiar el precio de un producto. (Para retirarlo, PICKUP_FURNI.) */
+  | { type: 'SET_PRICE'; avatarId: string; itemId: string; price: number }
+  /** Comprar un producto de una tienda. */
+  | { type: 'BUY_ITEM'; avatarId: string; itemId: string };

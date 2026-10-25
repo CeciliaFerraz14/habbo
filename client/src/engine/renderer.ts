@@ -196,6 +196,15 @@ export class Renderer {
     return this.backdrop.canvas;
   }
 
+  /**
+   * Punto del canvas en el centro de la parte de arriba del sprite de un
+   * mueble (para colocar etiquetas encima), según el último fotograma dibujado.
+   */
+  furniTop(itemId: string): Point | null {
+    const d = this.drawn.find((x) => x.target.kind === 'furni' && x.target.item.id === itemId);
+    return d ? { x: d.x + d.sprite.width / 2, y: d.y } : null;
+  }
+
   /** Lee (una sola vez por sprite) los píxeles del sprite para consultar su transparencia. */
   private getAlpha(sprite: Sprite): Uint8ClampedArray {
     let data = this.alphaCache.get(sprite);

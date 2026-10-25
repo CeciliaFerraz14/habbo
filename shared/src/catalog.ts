@@ -28,7 +28,8 @@ export type StructureId =
   | 'welcome_sign'
   // Puestos de trabajo de los negocios (dentro de los locales)
   | 'scrap_pile'
-  | 'workbench';
+  | 'workbench'
+  | 'shop_counter';
 
 export type FurniId = DecorId | StructureId;
 
@@ -99,6 +100,7 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   welcome_sign: structure('welcome_sign', 'Cartel de bienvenida', 1, 2),
   scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
   workbench: structure('workbench', 'Banco de trabajo', 1, 2),
+  shop_counter: structure('shop_counter', 'Mostrador', 1, 2),
 };
 
 /** Muebles que se pueden tener (excluye las estructuras fijas). */

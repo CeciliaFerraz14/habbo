@@ -516,6 +516,38 @@ body {
   background: var(--turquoise);
 }
 
+/* Tienda: etiquetas de precio sobre los productos y campo para escribir precios. */
+#ui > .price-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.price-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0 4px;
+  background: var(--mustard-light);
+  color: var(--outline);
+  border: 2px solid var(--outline);
+  font-family: var(--font-text);
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.price-input {
+  width: 70px;
+  padding: 2px 4px;
+  font-family: var(--font-text);
+  font-size: 18px;
+  color: var(--outline);
+  background: #fffaf0;
+  border: 2px solid var(--outline);
+}
+
 /* ---------- Editor de avatar ---------- */
 
 .look-editor {

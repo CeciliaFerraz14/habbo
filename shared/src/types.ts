@@ -76,6 +76,11 @@ export interface FurniItem {
    * local. La decide la lógica del juego; el cliente solo elige el dibujo.
    */
   variant?: string;
+  /**
+   * Si tiene precio, es un PRODUCTO a la venta en una tienda: un mueble más,
+   * colocado en el local, que cualquiera puede comprar.
+   */
+  price?: number;
 }
 
 /** Todo el estado del mundo. Es lo que en la fase 2 tendrá el servidor. */
@@ -100,6 +105,8 @@ export interface GameState {
    * para que la simulación sea determinista.
    */
   tick: number;
+  /** Semilla del generador aleatorio determinista (ver random.ts). */
+  seed: number;
   /**
    * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
    * (en vez de usar Math.random) para que el reducer siga siendo puro.

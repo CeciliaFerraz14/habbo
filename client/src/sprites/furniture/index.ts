@@ -5,6 +5,7 @@ import { gasStation } from '../structures/gasStation';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
 import { shop } from '../structures/shop';
+import { shopCounter } from '../structures/shopCounter';
 import { streetLamp } from '../structures/streetLamp';
 import { trailer } from '../structures/trailer';
 import { welcomeSign } from '../structures/welcomeSign';
@@ -41,4 +42,5 @@ export const MODELS: Record<FurniId, ModelSource> = {
   // Puestos de trabajo de los negocios
   scrap_pile: scrapPile,
   workbench,
+  shop_counter: shopCounter,
 };
