@@ -4,6 +4,7 @@ import {
   GAME_NAME,
   isInsideRoom,
   type Avatar,
+  type FurniItem,
   type GameState,
 } from '@juego/shared';
 import { centerCamera, type Camera } from './engine/camera';
@@ -42,7 +43,24 @@ const player: Avatar = {
   isBot: false,
 };
 
-const initialState: GameState = { room: createDefaultRoom(), avatars: {} };
+// Muebles de prueba. En el paso 4 se colocarán desde el catálogo.
+const initialFurniture: FurniItem[] = [
+  { id: 'f1', defId: 'lamp', x: 0, y: 0, rotation: 0 },
+  { id: 'f2', defId: 'shelf', x: 2, y: 0, rotation: 1 },
+  { id: 'f3', defId: 'bed', x: 6, y: 0, rotation: 1 },
+  { id: 'f4', defId: 'plant', x: 9, y: 0, rotation: 0 },
+  { id: 'f5', defId: 'sofa', x: 0, y: 3, rotation: 0 },
+  { id: 'f6', defId: 'table', x: 2, y: 4, rotation: 0 },
+  { id: 'f7', defId: 'chair', x: 3, y: 4, rotation: 2 },
+  { id: 'f8', defId: 'rug', x: 5, y: 5, rotation: 0 },
+  { id: 'f9', defId: 'plant', x: 0, y: 9, rotation: 0 },
+];
+
+const initialState: GameState = {
+  room: createDefaultRoom(),
+  avatars: {},
+  furniture: Object.fromEntries(initialFurniture.map((f) => [f.id, f])),
+};
 const transport: Transport = new LocalTransport(initialState);
 transport.dispatch({ type: 'JOIN', avatar: player });
 

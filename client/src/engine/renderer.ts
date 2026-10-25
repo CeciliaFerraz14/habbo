@@ -1,7 +1,15 @@
 // El renderer solo LEE datos y dibuja. Nunca modifica el estado del juego.
 
-import { isInsideRoom, type GameState, type Room } from '@juego/shared';
-import type { AvatarViews } from '../game/avatarViews';
+import {
+  CATALOG,
+  getFootprint,
+  isInsideRoom,
+  type Avatar,
+  type FurniItem,
+  type GameState,
+  type Room,
+} from '@juego/shared';
+import type { AvatarView, AvatarViews } from '../game/avatarViews';
 import {
   AVATAR_HEIGHT,
   AVATAR_WIDTH,
@@ -11,9 +19,11 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
+import { getFurniSprite } from '../sprites/furniture/bake';
 import type { RoomSprites } from '../sprites/room';
 import { WALL_HEIGHT } from '../sprites/room';
 import type { Camera } from './camera';
+import { depthSort, type DepthBox } from './depth';
 import { TILE_HEIGHT, TILE_WIDTH, tileToScreen, type Point } from './iso';
 
 const BACKGROUND = '#1b1b2f';
@@ -51,7 +61,7 @@ export class Renderer {
       this.drawAtTile(this.sprites.hover, hoverTile.x, hoverTile.y, camera, -HALF_W, 0);
     }
 
-    this.drawAvatars(state, views, camera, now);
+    this.drawScene(state, views, camera, now);
   }
 
   /**
@@ -106,31 +116,74 @@ export class Renderer {
     }
   }
 
-  private drawAvatars(state: GameState, views: AvatarViews, camera: Camera, now: number): void {
-    // Orden provisional: de atrás (x + y pequeño) hacia delante. En el paso 3
-    // lo sustituiremos por una ordenación de profundidad que incluya muebles.
-    const avatars = Object.values(state.avatars)
-      .map((avatar) => ({ avatar, view: views.get(avatar.id) }))
-      .filter((a) => a.view !== undefined)
-      .sort((a, b) => a.view!.x + a.view!.y - (b.view!.x + b.view!.y));
-
-    for (const { avatar, view } of avatars) {
-      // Los pies del avatar van en el CENTRO de la baldosa, que está HALF_H
-      // píxeles por debajo de su esquina superior.
-      const frames = getAvatarFrames(avatar.look)[avatar.direction];
-      const frameIndex = view!.walking
-        ? WALK_CYCLE[Math.floor(now / WALK_FRAME_MS) % WALK_CYCLE.length]
-        : FRAME_STAND;
-
-      this.drawAtTile(SHADOW, view!.x, view!.y, camera, -SHADOW.width / 2, HALF_H - 2);
-      this.drawAtTile(
-        frames[frameIndex],
-        view!.x,
-        view!.y,
-        camera,
-        -AVATAR_WIDTH / 2,
-        HALF_H + 2 - AVATAR_HEIGHT,
-      );
-    }
+  private drawFurni(item: FurniItem, camera: Camera): void {
+    const { sprite, offsetX, offsetY } = getFurniSprite(item.defId, item.rotation);
+    this.drawAtTile(sprite, item.x, item.y, camera, offsetX, offsetY);
   }
+
+  /**
+   * Dibuja muebles y avatares en el orden correcto de profundidad.
+   * Las alfombras van antes, a ras de suelo: nunca tapan nada.
+   */
+  private drawScene(state: GameState, views: AvatarViews, camera: Camera, now: number): void {
+    const flat: FurniItem[] = [];
+    const drawables: Drawable[] = [];
+
+    for (const item of Object.values(state.furniture)) {
+      if (CATALOG[item.defId].walkable) {
+        flat.push(item);
+        continue;
+      }
+      const f = getFootprint(item);
+      drawables.push({
+        box: { x0: f.x, y0: f.y, x1: f.x + f.width, y1: f.y + f.depth },
+        draw: () => this.drawFurni(item, camera),
+      });
+    }
+
+    for (const avatar of Object.values(state.avatars)) {
+      const view = views.get(avatar.id);
+      if (!view) continue;
+      // El avatar ocupa una baldosa, pero en su posición VISUAL (con decimales),
+      // para que se ordene bien también a mitad de paso.
+      drawables.push({
+        box: { x0: view.x, y0: view.y, x1: view.x + 1, y1: view.y + 1 },
+        draw: () => this.drawAvatar(avatar, view, camera, now),
+      });
+    }
+
+    flat.sort((a, b) => a.x + a.y - (b.x + b.y)).forEach((item) => this.drawFurni(item, camera));
+
+    const sorted = depthSort(
+      drawables,
+      (d) => d.box,
+      (d) => d.box.x0 + d.box.x1 + d.box.y0 + d.box.y1,
+    );
+    for (const d of sorted) d.draw();
+  }
+
+  private drawAvatar(avatar: Avatar, view: AvatarView, camera: Camera, now: number): void {
+    // Los pies del avatar van en el CENTRO de la baldosa, que está HALF_H
+    // píxeles por debajo de su esquina superior.
+    const frames = getAvatarFrames(avatar.look)[avatar.direction];
+    const frameIndex = view.walking
+      ? WALK_CYCLE[Math.floor(now / WALK_FRAME_MS) % WALK_CYCLE.length]
+      : FRAME_STAND;
+
+    this.drawAtTile(SHADOW, view.x, view.y, camera, -SHADOW.width / 2, HALF_H - 2);
+    this.drawAtTile(
+      frames[frameIndex],
+      view.x,
+      view.y,
+      camera,
+      -AVATAR_WIDTH / 2,
+      HALF_H + 2 - AVATAR_HEIGHT,
+    );
+  }
+}
+
+/** Algo que se dibuja en la escena con su caja para ordenar por profundidad. */
+interface Drawable {
+  box: DepthBox;
+  draw: () => void;
 }

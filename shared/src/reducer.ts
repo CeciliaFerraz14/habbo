@@ -4,14 +4,9 @@
 // la misma entrada da siempre la misma salida. Esto facilita mucho depurar y
 // permite que cliente y servidor ejecuten exactamente la misma lógica.
 import type { Action } from './actions';
+import { createWalkableCheck } from './furniture';
 import { findPath } from './pathfinding';
-import { isInsideRoom } from './room';
 import type { Avatar, GameState } from './types';
-
-/** ¿Se puede pisar la baldosa (x, y)? De momento basta con que esté en la sala. */
-export function isWalkable(state: GameState, x: number, y: number): boolean {
-  return isInsideRoom(state.room, x, y);
-}
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -27,7 +22,7 @@ export function applyAction(state: GameState, action: Action): GameState {
         { x: action.x, y: action.y },
         state.room.width,
         state.room.depth,
-        (x, y) => isWalkable(state, x, y),
+        createWalkableCheck(state),
       );
       // Sin camino posible: ignoramos la acción.
       if (path === null) return state;

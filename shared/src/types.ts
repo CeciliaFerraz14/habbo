@@ -1,5 +1,6 @@
 // Tipos del estado del juego. Son datos puros (sin métodos ni referencias al
 // canvas) para poder enviarlos tal cual por la red en la fase 2.
+import type { FurniId, Rotation } from './catalog';
 import type { Room } from './room';
 
 /** Una baldosa de la sala. */
@@ -36,8 +37,20 @@ export interface Avatar {
   isBot: boolean;
 }
 
+/** Un mueble colocado en la sala. */
+export interface FurniItem {
+  id: string;
+  /** Qué mueble del catálogo es. */
+  defId: FurniId;
+  /** Baldosa de la esquina con menor x e y que ocupa. */
+  x: number;
+  y: number;
+  rotation: Rotation;
+}
+
 /** Todo el estado de una sala. Es lo que en la fase 2 tendrá el servidor. */
 export interface GameState {
   room: Room;
   avatars: Record<string, Avatar>;
+  furniture: Record<string, FurniItem>;
 }

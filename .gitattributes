@@ -1,0 +1,2 @@
+# Guardamos los archivos de texto con saltos de línea LF en el repositorio.
+* text=auto eol=lf
