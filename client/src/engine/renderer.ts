@@ -23,6 +23,7 @@ import {
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
 import { getFurniSprite } from '../sprites/furniture/bake';
+import { PALETTE } from '../sprites/palette';
 import { MODELS } from '../sprites/furniture/index';
 import type { RoomSprites } from '../sprites/room';
 import { WALL_HEIGHT } from '../sprites/room';
@@ -30,7 +31,6 @@ import type { Camera } from './camera';
 import { depthSort, type DepthBox } from './depth';
 import { TILE_HEIGHT, TILE_WIDTH, tileToScreen, type Point } from './iso';
 
-const BACKGROUND = '#1b1b2f';
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
 /** Milisegundos que dura cada fotograma de la animación de caminar. */
@@ -67,6 +67,7 @@ interface DrawnFurni {
 
 export class Renderer {
   private drawnFurni: DrawnFurni[] = [];
+  private backdrop: HTMLCanvasElement | null = null;
   private readonly alphaCache = new WeakMap<Sprite, Uint8ClampedArray>();
 
   constructor(
@@ -77,8 +78,7 @@ export class Renderer {
   render({ state, views, camera, hoverTile, selectedId, ghost, now }: RenderInput): void {
     const { ctx } = this;
     const { room } = state;
-    ctx.fillStyle = BACKGROUND;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.drawImage(this.getBackdrop(ctx.canvas.width, ctx.canvas.height), 0, 0);
     this.drawnFurni = [];
 
     this.drawFloor(room, camera);
@@ -139,6 +139,43 @@ export class Renderer {
     }
     const standHeight = getAvatarFrames(avatar.look)[avatar.direction][FRAME_STAND].height;
     return { x: centerX, y: centerY + 2 - standHeight };
+  }
+
+  /**
+   * Fondo del desierto: cielo en franjas de color (sin degradado suave, que no
+   * sería pixel art) y una línea de dunas en el horizonte. Solo se dibuja de
+   * nuevo cuando cambia el tamaño del canvas.
+   */
+  private getBackdrop(width: number, height: number): HTMLCanvasElement {
+    if (this.backdrop?.width === width && this.backdrop.height === height) return this.backdrop;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const g = canvas.getContext('2d')!;
+
+    // Cielo: 4 franjas horizontales, más claras cerca del horizonte.
+    const horizon = Math.round(height * 0.62);
+    const bands = PALETTE.sky;
+    const bandHeight = Math.ceil(horizon / bands.length);
+    bands.forEach((color, i) => {
+      g.fillStyle = color;
+      g.fillRect(0, i * bandHeight, width, bandHeight);
+    });
+
+    // Dunas: para cada columna calculamos una altura con dos ondas (seno) de
+    // distinto tamaño, redondeada a múltiplos de 2 para que tenga escalones pixel.
+    for (let x = 0; x < width; x++) {
+      const wave = Math.sin(x / 37) * 8 + Math.sin(x / 13) * 3;
+      const top = horizon - 6 + Math.round(wave / 2) * 2;
+      g.fillStyle = PALETTE.dunes;
+      g.fillRect(x, top, 1, height - top);
+      g.fillStyle = PALETTE.dunesShade;
+      g.fillRect(x, top + 10, 1, height - top - 10);
+    }
+
+    this.backdrop = canvas;
+    return canvas;
   }
 
   /** Lee (una sola vez por sprite) los píxeles del sprite para consultar su transparencia. */

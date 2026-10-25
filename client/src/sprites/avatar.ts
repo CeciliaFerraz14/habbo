@@ -20,6 +20,7 @@
 import type { AvatarLook, Direction } from '@juego/shared';
 import type { Sprite } from './canvas';
 import { shade } from './color';
+import { PALETTE } from './palette';
 import { bakePixelArt, type Palette } from './pixelArt';
 
 export const AVATAR_WIDTH = 16;
@@ -127,8 +128,8 @@ export type AvatarFrames = Record<Direction, Sprite[]>;
 
 function lookPalette(look: AvatarLook): Palette {
   return {
-    O: '#141428',
-    E: '#141428',
+    O: PALETTE.outline,
+    E: PALETTE.outline,
     B: '#3a2a2a',
     H: look.hair,
     h: shade(look.hair, 0.7),
@@ -168,5 +169,5 @@ export const SHADOW = bakePixelArt(
     '.xxxxxxxxxxxx.',
     '...xxxxxxxx...',
   ],
-  { x: 'rgba(20, 20, 40, 0.3)' },
+  { x: 'rgba(60, 30, 10, 0.28)' },
 );

@@ -1,15 +1,34 @@
-/* Estilos globales de la interfaz retro. */
+/*
+  Estilos de la interfaz de Pixel Springs: carteles de carretera y letreros de diner.
+
+  Reglas para que parezca pixel art:
+  - Nada de border-radius ni sombras difuminadas: solo bordes y sombras duras.
+  - Las "esquinas redondeadas" se hacen recortando un escalón de 2 px (clip-path).
+  - Los detalles pequeños (remaches, piquitos) se pintan con bloques de color.
+*/
 
 :root {
-  --bg: #1b1b2f;
-  --panel: #2e2e4f;
-  --panel-light: #4a4a7a;
-  --panel-dark: #1e1e38;
-  --border: #0d0d1a;
-  --text: #f4f4e8;
-  --muted: #b8b8d0;
-  --accent: #ffcc33;
-  --accent-dark: #c89a10;
+  /* Desierto */
+  --sand: #e8c48a;
+  --ochre: #c98a3a;
+  --terracotta: #b5532f;
+  --terracotta-dark: #8f3f22;
+  --cream: #f6e7c8;
+  --cream-dark: #e3cfa6;
+  --turquoise: #2f8f8a;
+  --turquoise-light: #5cc8bd;
+  --outline: #2a1a14;
+  /* Neones */
+  --neon-pink: #ff4fa3;
+  --neon-cyan: #39e6ff;
+  --neon-yellow: #ffe14d;
+  /* Botones: amarillo mostaza de letrero */
+  --mustard: #f2b134;
+  --mustard-light: #ffd36e;
+  --mustard-dark: #c9851c;
+
+  --text: var(--outline);
+  --muted: #7a5a40;
   --font-title: 'Press Start 2P', monospace;
   --font-text: 'VT323', monospace;
 }
@@ -23,7 +42,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
+  background: #3fb8af;
   color: var(--text);
   font-family: var(--font-text);
 }
@@ -51,36 +70,71 @@ body {
   pointer-events: auto;
 }
 
+/* Esquinas "redondeadas" pixel: recortamos un escalón de 2 px en cada esquina. */
+.btn,
+.chat-input,
+.card {
+  clip-path: polygon(
+    2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px),
+    calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px
+  );
+}
+
+/* ---------- Letrero con el nombre del juego ---------- */
+
+/* Cartel de marquesina: fondo oscuro, texto neón rosa y bombillas (borde punteado). */
+#logo {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: var(--outline);
+  border: 4px dotted var(--neon-yellow);
+  outline: 2px solid var(--outline);
+  font-family: var(--font-title);
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: var(--neon-pink);
+  /* Sombras duras (sin desenfoque) desplazadas 2 px para dar volumen a las letras. */
+  text-shadow:
+    2px 2px 0 var(--terracotta-dark),
+    -2px 0 0 #6a1a44;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* ---------- Botones ---------- */
 
-/* Bisel pixel: sombras interiores sin difuminar (luz arriba-izquierda, sombra abajo-derecha). */
+/* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */
 .btn {
   font-family: var(--font-title);
   font-size: 10px;
-  color: var(--border);
-  background: var(--accent);
-  border: 2px solid var(--border);
+  color: var(--outline);
+  background: var(--mustard);
+  border: 2px solid var(--outline);
   box-shadow:
-    inset -2px -2px 0 var(--accent-dark),
-    inset 2px 2px 0 #ffe88a;
+    inset -2px -2px 0 var(--mustard-dark),
+    inset 2px 2px 0 var(--mustard-light);
   padding: 8px 12px;
   cursor: pointer;
 }
 
 .btn:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--mustard-light);
 }
 
 /* Al pulsar, el botón "se hunde" 2 píxeles. */
 .btn:active:not(:disabled) {
   transform: translate(2px, 2px);
-  box-shadow: inset 2px 2px 0 var(--accent-dark);
+  box-shadow: inset 2px 2px 0 var(--mustard-dark);
 }
 
 .btn:disabled {
-  background: var(--panel-light);
+  background: #9fb8b0;
   box-shadow: none;
-  color: var(--panel-dark);
+  color: #5d7570;
   cursor: not-allowed;
 }
 
@@ -89,22 +143,34 @@ body {
   padding: 6px 8px;
 }
 
-/* ---------- Barra inferior ---------- */
+/* ---------- Barra inferior: cartel de autopista ---------- */
 
+/*
+  Los carteles de carretera tienen un fondo de color con una línea clara
+  interior y remaches en las esquinas. La línea se hace con dos box-shadow
+  interiores (turquesa y crema); los remaches, con 4 bloques de 4x4 px pintados
+  en el fondo con linear-gradient (un degradado de un solo color = un bloque).
+*/
 #hud {
+  --rivet: var(--cream);
   position: absolute;
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
-  padding: 8px;
-  background: var(--panel);
-  border: 2px solid var(--border);
+  padding: 12px 16px;
+  background:
+    linear-gradient(var(--rivet), var(--rivet)) left 4px top 4px / 4px 4px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right 4px top 4px / 4px 4px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) left 4px bottom 4px / 4px 4px no-repeat,
+    linear-gradient(var(--rivet), var(--rivet)) right 4px bottom 4px / 4px 4px no-repeat,
+    var(--turquoise);
+  border: 2px solid var(--outline);
   box-shadow:
-    inset 2px 2px 0 var(--panel-light),
-    inset -2px -2px 0 var(--panel-dark),
-    4px 4px 0 rgba(0, 0, 0, 0.4);
+    inset 0 0 0 2px var(--turquoise),
+    inset 0 0 0 4px var(--cream),
+    4px 4px 0 rgba(42, 26, 20, 0.45);
 }
 
 /* ---------- Chat ---------- */
@@ -119,15 +185,19 @@ body {
   padding: 4px 8px;
   font-family: var(--font-text);
   font-size: 20px;
-  color: var(--border);
-  background: var(--text);
-  border: 2px solid var(--border);
-  box-shadow: inset 2px 2px 0 #c8c8b8;
+  color: var(--outline);
+  background: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: inset 2px 2px 0 var(--cream-dark);
   outline: none;
 }
 
+.chat-input::placeholder {
+  color: var(--muted);
+}
+
 .chat-input:focus {
-  border-color: var(--accent);
+  background: #fff6e0;
 }
 
 .chat-log {
@@ -151,10 +221,10 @@ body {
   top: 0;
   max-width: 260px;
   padding: 2px 8px;
-  background: #ffffff;
-  color: var(--border);
-  border: 2px solid var(--border);
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  background: #fffaf0;
+  color: var(--outline);
+  border: 2px solid var(--outline);
+  box-shadow: 2px 2px 0 rgba(42, 26, 20, 0.35);
   font-family: var(--font-text);
   font-size: 20px;
   line-height: 1;
@@ -167,7 +237,7 @@ body {
   y varias box-shadow sin difuminar, cada una es otro "píxel" desplazado.
   Empieza encima del borde inferior (top: 100%) para abrir un hueco en él.
 
-        fila 0:    . W W .      (hueco blanco en el borde)
+        fila 0:    . W W .      (hueco del color del bocadillo en el borde)
         fila 1:    D W W D
         fila 2:    . D D .
 */
@@ -178,27 +248,32 @@ body {
   top: 100%;
   width: 2px;
   height: 2px;
-  background: #ffffff;
+  background: #fffaf0;
   box-shadow:
-    -2px 0 0 #ffffff,
-    -4px 2px 0 var(--border),
-    -2px 2px 0 #ffffff,
-    0 2px 0 #ffffff,
-    2px 2px 0 var(--border),
-    -2px 4px 0 var(--border),
-    0 4px 0 var(--border);
+    -2px 0 0 #fffaf0,
+    -4px 2px 0 var(--outline),
+    -2px 2px 0 #fffaf0,
+    0 2px 0 #fffaf0,
+    2px 2px 0 var(--outline),
+    -2px 4px 0 var(--outline),
+    0 4px 0 var(--outline);
 }
 
-/* ---------- Ventanas ---------- */
+/* ---------- Ventanas: letrero de diner ---------- */
 
+/*
+  Marco doble como los letreros esmaltados: borde oscuro, franja ocre y otra
+  línea oscura por dentro. Todo con box-shadow interiores de colores sólidos.
+*/
 .win {
   position: absolute;
-  background: var(--panel);
-  border: 2px solid var(--border);
+  background: var(--cream);
+  border: 2px solid var(--outline);
   box-shadow:
-    inset 2px 2px 0 var(--panel-light),
-    inset -2px -2px 0 var(--panel-dark),
-    4px 4px 0 rgba(0, 0, 0, 0.4);
+    inset 0 0 0 3px var(--ochre),
+    inset 0 0 0 5px var(--outline),
+    4px 4px 0 rgba(42, 26, 20, 0.45);
+  padding: 5px;
   max-width: calc(100vw - 16px);
 }
 
@@ -206,17 +281,24 @@ body {
   display: none;
 }
 
+/* Cabecera roja del letrero con remaches crema en las esquinas. */
 .win-title {
+  --rivet: var(--cream);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 6px 6px 10px;
-  background: var(--accent);
-  color: var(--border);
-  border-bottom: 2px solid var(--border);
+  padding: 8px 8px 8px 16px;
+  background:
+    linear-gradient(var(--rivet), var(--rivet)) left 4px center / 4px 4px no-repeat,
+    var(--terracotta);
+  color: var(--cream);
+  border-bottom: 2px solid var(--outline);
+  box-shadow: inset 0 -2px 0 var(--terracotta-dark);
   font-family: var(--font-title);
   font-size: 10px;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 var(--terracotta-dark);
   cursor: move;
   user-select: none;
   touch-action: none;
@@ -229,9 +311,10 @@ body {
   font-family: var(--font-title);
   font-size: 10px;
   line-height: 1;
-  color: var(--text);
-  background: #c83c3c;
-  border: 2px solid var(--border);
+  color: var(--cream);
+  background: var(--turquoise);
+  border: 2px solid var(--outline);
+  box-shadow: inset -2px -2px 0 #1f6662;
   cursor: pointer;
 }
 
@@ -255,9 +338,10 @@ body {
   align-items: center;
   gap: 4px;
   padding: 6px 4px;
-  background: var(--panel-dark);
-  border: 2px solid var(--border);
-  color: var(--text);
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  box-shadow: inset 2px 2px 0 #f3d9a8;
+  color: var(--outline);
   font-family: var(--font-text);
 }
 
@@ -266,7 +350,7 @@ body {
 }
 
 .card-button:hover {
-  border-color: var(--accent);
+  background: var(--mustard-light);
 }
 
 .card .icon {
@@ -287,8 +371,8 @@ body {
   top: 2px;
   right: 2px;
   padding: 0 4px;
-  background: var(--accent);
-  color: var(--border);
+  background: var(--terracotta);
+  color: var(--cream);
   font-size: 16px;
 }
 

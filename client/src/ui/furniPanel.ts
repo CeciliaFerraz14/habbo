@@ -17,9 +17,9 @@ export interface FurniPanel {
 export function createFurniPanel(actions: FurniPanelActions): FurniPanel {
   const win = new PixelWindow({
     title: 'Mueble',
-    x: window.innerWidth - 260,
+    x: window.innerWidth - 304,
     y: 24,
-    width: 236,
+    width: 280,
   });
   win.onClose = actions.onClose;
 

@@ -15,8 +15,9 @@ import { createSprite, type Sprite } from '../canvas';
 import { shade } from '../color';
 import { MODELS } from './index';
 import type { Box, Decal } from './model';
+import { PALETTE } from '../palette';
 
-const OUTLINE = '#141428';
+const OUTLINE = PALETTE.outline;
 
 export interface FurniSprite {
   sprite: Sprite;

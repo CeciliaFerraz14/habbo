@@ -1,7 +1,7 @@
 {
   "name": "juego-isometrico",
   "private": true,
-  "description": "Juego social isométrico en pixel art (monorepo: client, server, shared)",
+  "description": "Pixel Springs: juego social isométrico en pixel art (monorepo: client, server, shared)",
   "workspaces": [
     "shared",
     "client",

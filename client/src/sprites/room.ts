@@ -6,6 +6,7 @@
 
 import { TILE_HEIGHT, TILE_WIDTH } from '../engine/iso';
 import { createSprite, type Sprite } from './canvas';
+import { PALETTE } from './palette';
 
 /** Altura de las paredes en píxeles. */
 export const WALL_HEIGHT = 72;
@@ -15,23 +16,24 @@ export const FLOOR_THICKNESS = 4;
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
 
+// Suelo de baldosa de barro cocido y paredes de adobe con rodapié turquesa.
 const C = {
-  outline: '#141428',
-  floorA: '#e0c088',
-  floorB: '#d2ae74',
-  floorLine: '#a8844e',
-  sideLeft: '#8a6a3a',
-  sideRight: '#6e5230',
-  wallLeft: '#4a78ab',
-  wallLeftSeam: '#3f6896',
-  wallRight: '#6fa3d8',
-  wallRightSeam: '#5f92c6',
-  wallCap: '#b8d8f4',
-  baseboard: '#2e4a6e',
-  hover: '#ffcc33',
-  selected: '#5ce1e6',
-  valid: '#6be36b',
-  invalid: '#ff5050',
+  outline: PALETTE.outline,
+  floorA: '#d9895b',
+  floorB: '#c97a4e',
+  floorLine: '#a85f3a',
+  sideLeft: PALETTE.ochre,
+  sideRight: '#a86f2c',
+  wallLeft: PALETTE.adobe,
+  wallLeftSeam: '#d2a26c',
+  wallRight: PALETTE.adobeLight,
+  wallRightSeam: '#dfb47f',
+  wallCap: PALETTE.cream,
+  baseboard: PALETTE.turquoise,
+  hover: PALETTE.neonYellow,
+  selected: PALETTE.neonCyan,
+  valid: '#7be35b',
+  invalid: '#ff4f4f',
 };
 
 /**

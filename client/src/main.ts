@@ -31,6 +31,12 @@ const ctx = canvas.getContext('2d')!;
 
 document.title = GAME_NAME;
 
+// Letrero con el nombre del juego.
+const logo = document.createElement('div');
+logo.id = 'logo';
+logo.textContent = GAME_NAME.toUpperCase();
+document.querySelector('#ui')!.append(logo);
+
 // --- Estado inicial ----------------------------------------------------------
 
 const player: Avatar = {
