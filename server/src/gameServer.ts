@@ -15,7 +15,6 @@
 
 import {
   applyAction,
-  createInitialState,
   diffState,
   MOVE_TICK_MS,
   tick,
@@ -24,9 +23,12 @@ import {
   type GameState,
 } from '@juego/shared';
 import type { Server, Socket } from 'socket.io';
+import type { Persistence } from './persistence';
 
 /** Cada cuánto se mandan los cambios a los clientes (ms). */
 const BROADCAST_MS = 50;
+/** Cada cuánto se guardan los cambios en Supabase (ms). */
+const SAVE_MS = 10_000;
 
 /** Acciones que un cliente puede pedir. JOIN y LEAVE solo las hace el servidor. */
 const CLIENT_ACTIONS = new Set<Action['type']>([
@@ -48,24 +50,40 @@ const CLIENT_ACTIONS = new Set<Action['type']>([
 ]);
 
 export class GameServer {
-  private state: GameState = createInitialState();
   /** Último estado enviado a los clientes (para calcular el parche). */
-  private sent: GameState = this.state;
+  private sent: GameState;
   /** Socket activo de cada jugador (para echar la sesión vieja si entra dos veces). */
   private readonly sockets = new Map<string, Socket>();
 
-  constructor(private readonly io: Server) {
+  constructor(
+    private readonly io: Server,
+    private state: GameState,
+    /** null si no hay Supabase: entonces no se guarda nada. */
+    private readonly persistence: Persistence | null,
+  ) {
+    this.sent = state;
     setInterval(() => {
       this.state = tick(this.state);
     }, MOVE_TICK_MS);
     setInterval(() => this.broadcast(), BROADCAST_MS);
+    setInterval(() => void this.save(), SAVE_MS);
+  }
+
+  /** Guarda en Supabase lo que haya cambiado (si hay persistencia). */
+  save(): Promise<void> {
+    return this.persistence?.save(this.state) ?? Promise.resolve();
   }
 
   /**
    * Un jugador se conecta: creamos su avatar, le mandamos el estado completo
    * y a partir de ahí escuchamos sus acciones.
    */
-  connect(socket: Socket, avatar: Avatar): void {
+  connect(socket: Socket, joining: Avatar): void {
+    // Si ya tenía perfil guardado, entra con su nombre y aspecto de siempre.
+    const saved = this.persistence?.profile(joining.id);
+    const avatar = saved ? { ...joining, name: saved.name, look: saved.look } : joining;
+    this.persistence?.register(avatar.id, { name: avatar.name, look: avatar.look });
+
     // Si el mismo usuario ya estaba conectado (otra pestaña), cerramos aquella.
     const previous = this.sockets.get(avatar.id);
     this.sockets.set(avatar.id, socket);

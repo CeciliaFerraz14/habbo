@@ -224,17 +224,21 @@ function openBusiness(
     furniture[item.id] = item;
   }
 
-  // Los negocios de los NPC llevan su nombre en el cartel.
   const scene = state.scenes[lotId];
-  const title = isNpcId(ownerId) ? `${config.name} de ${ownerName}` : config.name;
   return {
     ...state,
     lots: { ...state.lots, [lotId]: rented },
     furniture,
-    scenes: scene
-      ? { ...state.scenes, [lotId]: { ...scene, name: `${title} · ${lot.label}` } }
-      : state.scenes,
+    scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lotSceneName(rented) } } : state.scenes,
   };
+}
+
+/** Nombre de la escena de un local ("Chatarrería · Local 1"; los de NPC llevan su nombre). */
+export function lotSceneName(lot: Lot): string {
+  if (!lot.business) return lot.label;
+  const config = ECONOMY.businesses[lot.business];
+  const title = isNpcId(lot.ownerId) ? `${config.name} de ${lot.ownerName}` : config.name;
+  return `${title} · ${lot.label}`;
 }
 
 /** Chatarrería: el dueño recoge los materiales acumulados. */
