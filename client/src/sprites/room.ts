@@ -39,7 +39,11 @@ const C = {
   doorFrame: '#8a5a34',
   doorGlass: '#a6e3d4',
   doorKnob: '#f2b134',
-  doormat: PALETTE.terracotta,
+  sidewalk: '#cdbb9c',
+  sidewalkLine: '#a8987c',
+  asphalt: '#5e5450',
+  asphaltLine: '#574d49',
+  roadPaint: PALETTE.neonYellow,
 };
 
 /**
@@ -185,18 +189,24 @@ function doorSegment(side: 'left' | 'right'): Sprite {
   });
 }
 
-/** Felpudo: marca provisional de las puertas de la calle (en el paso 2b serán edificios). */
-function doormat(): Sprite {
+/**
+ * Asfalto con un trozo de la línea central amarilla. La línea va en la
+ * dirección del eje X, que en pantalla baja 1 píxel por cada 2 hacia la
+ * derecha: la dibujamos de 2 píxeles de grosor, atravesando el centro del rombo.
+ */
+function roadLineTile(): Sprite {
+  const base = floorTile(C.asphalt, C.asphaltLine);
   return createSprite(TILE_WIDTH, TILE_HEIGHT, (px) => {
-    for (let row = 3; row < TILE_HEIGHT - 3; row++) {
-      // Un rombo más pequeño dentro de la baldosa: quitamos 6 px por cada lado.
-      const [x0, x1] = diamondRow(row);
-      const from = x0 + 6;
-      const to = x1 - 6;
-      for (let x = from; x <= to; x++) {
-        const isEdge = x <= from + 1 || x >= to - 1 || row === 3 || row === TILE_HEIGHT - 4;
-        px(x, row, isEdge ? C.outline : C.doormat);
-      }
+    // Copiamos el asfalto y pintamos la raya encima.
+    const data = base.canvas.getContext('2d')!.getImageData(0, 0, TILE_WIDTH, TILE_HEIGHT).data;
+    for (let i = 0; i < TILE_WIDTH * TILE_HEIGHT; i++) {
+      if (data[i * 4 + 3] === 0) continue;
+      const [r, g, b] = [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]];
+      px(i % TILE_WIDTH, Math.floor(i / TILE_WIDTH), `rgb(${r},${g},${b})`);
+    }
+    for (let t = 0; t < 10; t++) {
+      px(11 + t, 6 + Math.floor(t / 2), C.roadPaint);
+      px(11 + t, 7 + Math.floor(t / 2), C.roadPaint);
     }
   });
 }
@@ -208,7 +218,9 @@ export interface RoomSprites {
   sandB: Sprite;
   doorLeft: Sprite;
   doorRight: Sprite;
-  doormat: Sprite;
+  sidewalk: Sprite;
+  asphalt: Sprite;
+  asphaltLine: Sprite;
   hover: Sprite;
   selected: Sprite;
   valid: Sprite;
@@ -229,7 +241,9 @@ export function buildRoomSprites(): RoomSprites {
     sandB: floorTile(PALETTE.sandDark, C.sandLine),
     doorLeft: doorSegment('left'),
     doorRight: doorSegment('right'),
-    doormat: doormat(),
+    sidewalk: floorTile(C.sidewalk, C.sidewalkLine),
+    asphalt: floorTile(C.asphalt, C.asphaltLine),
+    asphaltLine: roadLineTile(),
     hover: outlineTile(C.hover),
     selected: outlineTile(C.selected),
     valid: outlineTile(C.valid),

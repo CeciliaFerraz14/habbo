@@ -11,6 +11,7 @@ import {
   type FurniItem,
   type FurniPlacement,
   type GameState,
+  type GroundChar,
   type Scene,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
@@ -24,9 +25,8 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
-import { getFurniSprite } from '../sprites/furniture/bake';
+import { getFurniSprite, getModel } from '../sprites/furniture/bake';
 import { PALETTE } from '../sprites/palette';
-import { MODELS } from '../sprites/furniture/index';
 import type { RoomSprites } from '../sprites/room';
 import { WALL_HEIGHT } from '../sprites/room';
 import type { Camera } from './camera';
@@ -93,11 +93,6 @@ export class Renderer {
     if (scene.kind === 'interior') {
       this.drawWalls(scene, camera);
       this.drawWallDoors(scene, camera);
-    } else {
-      // Provisional hasta que la calle tenga edificios (paso 2b).
-      for (const door of scene.doors) {
-        this.drawAtTile(this.sprites.doormat, door.x, door.y, camera, -HALF_W, 0);
-      }
     }
 
     // Marcas sobre el suelo (debajo de muebles y avatares).
@@ -151,7 +146,7 @@ export class Renderer {
     const centerY = camera.originY + p.y + HALF_H;
     if (avatar.sitting) {
       const seat = getSeatAt(state, avatar.sceneId, avatar.x, avatar.y);
-      const seatHeight = (seat && MODELS[seat.defId].seatHeight) ?? 0;
+      const seatHeight = (seat && getModel(seat.defId, seat.variant).seatHeight) ?? 0;
       return { x: centerX, y: centerY - seatHeight - HIP_ROW };
     }
     const standHeight = getAvatarFrames(avatar.look)[avatar.direction][FRAME_STAND].height;
@@ -238,14 +233,32 @@ export class Renderer {
     }
   }
 
+  /**
+   * Sprite de suelo de la baldosa (x, y). Los interiores llevan baldosa de
+   * barro cocido; los exteriores leen su mapa `ground` (arena, acera, asfalto).
+   * La arena y el barro alternan dos tonos en patrón de ajedrez (paridad de x + y).
+   */
+  private groundSprite(scene: Scene, x: number, y: number): Sprite {
+    const s = this.sprites;
+    const even = (x + y) % 2 === 0;
+    if (scene.kind === 'interior') return even ? s.floorA : s.floorB;
+    switch (scene.ground?.[y]?.[x] as GroundChar | undefined) {
+      case 's':
+        return s.sidewalk;
+      case 'r':
+        return s.asphalt;
+      case '-':
+        return s.asphaltLine;
+      default:
+        return even ? s.sandA : s.sandB;
+    }
+  }
+
   private drawFloor(room: Scene, camera: Camera): void {
     const s = this.sprites;
-    // Interiores: baldosa de barro cocido. Calle: arena.
-    const [tileA, tileB] = room.kind === 'interior' ? [s.floorA, s.floorB] : [s.sandA, s.sandB];
     for (let y = 0; y < room.depth; y++) {
       for (let x = 0; x < room.width; x++) {
-        // Patrón de ajedrez: alternamos dos tonos según la paridad de x + y.
-        const tile = (x + y) % 2 === 0 ? tileA : tileB;
+        const tile = this.groundSprite(room, x, y);
         // El sprite del rombo tiene su esquina superior en la columna HALF_W,
         // así que lo desplazamos HALF_W a la izquierda.
         this.drawAtTile(tile, x, y, camera, -HALF_W, 0);
@@ -286,7 +299,7 @@ export class Renderer {
   }
 
   private drawFurni(item: FurniItem, camera: Camera): void {
-    const { sprite, offsetX, offsetY } = getFurniSprite(item.defId, item.rotation);
+    const { sprite, offsetX, offsetY } = getFurniSprite(item.defId, item.rotation, 'all', item.variant);
     const at = this.drawAtTile(sprite, item.x, item.y, camera, offsetX, offsetY);
     this.drawn.push({ target: { kind: 'furni', item }, sprite, ...at });
   }
@@ -354,7 +367,7 @@ export class Renderer {
       // Sentado: las caderas (HIP_ROW) se apoyan a la altura del asiento,
       // seatHeight píxeles por encima del centro de la baldosa.
       const seat = getSeatAt(state, avatar.sceneId, avatar.x, avatar.y);
-      const seatHeight = (seat && MODELS[seat.defId].seatHeight) ?? 0;
+      const seatHeight = (seat && getModel(seat.defId, seat.variant).seatHeight) ?? 0;
       const sprite = frames[FRAME_SIT];
       this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H - seatHeight - HIP_ROW);
 

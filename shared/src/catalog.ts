@@ -2,7 +2,23 @@
 // Aquí NO hay nada de dibujo: el aspecto está en client/src/sprites/furniture.
 import type { Direction } from './types';
 
-export type FurniId = 'sofa' | 'chair' | 'table' | 'lamp' | 'plant' | 'bed' | 'rug' | 'shelf';
+/** Muebles que los jugadores pueden tener, colocar y vender. */
+export type DecorId = 'sofa' | 'chair' | 'table' | 'lamp' | 'plant' | 'bed' | 'rug' | 'shelf';
+
+/**
+ * Estructuras FIJAS del escenario (edificios, farolas...). Se dibujan, ordenan
+ * y bloquean el paso exactamente igual que los muebles, pero nadie puede
+ * moverlas, recogerlas ni comprarlas.
+ */
+export type StructureId =
+  | 'shop'
+  | 'trailer'
+  | 'gas_station'
+  | 'street_lamp'
+  | 'saguaro'
+  | 'welcome_sign';
+
+export type FurniId = DecorId | StructureId;
 
 /**
  * Rotación de un mueble: 0, 1, 2 o 3 cuartos de vuelta.
@@ -30,6 +46,13 @@ export interface FurniDef {
   sittable: boolean;
   /** ¿Se puede caminar por encima? (alfombras) */
   walkable: boolean;
+  /** Estructura fija del escenario: no se puede mover, recoger ni comprar. */
+  fixed?: true;
+}
+
+/** Atajo para definir estructuras fijas (no sentables ni pisables). */
+function structure(id: StructureId, name: string, width: number, depth: number): FurniDef {
+  return { id, name, width, depth, sittable: false, walkable: false, fixed: true };
 }
 
 export const CATALOG: Record<FurniId, FurniDef> = {
@@ -41,6 +64,16 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   bed: { id: 'bed', name: 'Cama', width: 2, depth: 1, sittable: false, walkable: false },
   rug: { id: 'rug', name: 'Alfombra', width: 2, depth: 2, sittable: false, walkable: true },
   shelf: { id: 'shelf', name: 'Estantería', width: 1, depth: 2, sittable: false, walkable: false },
+
+  // Estructuras de la calle. Como todo mueble, en rotación 0 miran a +x; en la
+  // calle se colocan con rotación 1 para que su fachada mire a la carretera (+y).
+  shop: structure('shop', 'Local', 4, 4),
+  trailer: structure('trailer', 'Caravana', 3, 5),
+  gas_station: structure('gas_station', 'Gasolinera', 4, 5),
+  street_lamp: structure('street_lamp', 'Farola', 1, 1),
+  saguaro: structure('saguaro', 'Cactus', 1, 1),
+  welcome_sign: structure('welcome_sign', 'Cartel de bienvenida', 1, 2),
 };
 
-export const FURNI_IDS = Object.keys(CATALOG) as FurniId[];
+/** Muebles que se pueden conseguir (excluye las estructuras fijas). */
+export const FURNI_IDS = (Object.keys(CATALOG) as FurniId[]).filter((id) => !CATALOG[id].fixed);

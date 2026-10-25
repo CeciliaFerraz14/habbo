@@ -126,6 +126,29 @@ body {
   display: none;
 }
 
+/* Aviso breve: una tablilla de madera sobre la barra inferior. */
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: #8a5a34;
+  color: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow:
+    inset 0 2px 0 #a8754a,
+    4px 4px 0 rgba(42, 26, 20, 0.45);
+  font-family: var(--font-text);
+  font-size: 22px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#toast[hidden] {
+  display: none;
+}
+
 /* ---------- Botones ---------- */
 
 /* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */

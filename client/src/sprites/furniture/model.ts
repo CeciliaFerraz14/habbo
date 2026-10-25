@@ -25,6 +25,11 @@ export interface Box {
    * así que el renderer lo vuelve a dibujar ENCIMA del avatar.
    */
   backrest?: boolean;
+  /**
+   * Marca las piezas que emiten luz (neones, bombillas). En el ciclo día/noche
+   * se dibujan encima de la oscuridad para que brillen.
+   */
+  emissive?: boolean;
 }
 
 /**
@@ -63,3 +68,14 @@ export function box(
 export function backrest(...args: Parameters<typeof box>): Box {
   return { ...box(...args), backrest: true };
 }
+
+/** Como box(), pero marcada como pieza que da luz. */
+export function glow(...args: Parameters<typeof box>): Box {
+  return { ...box(...args), emissive: true };
+}
+
+/**
+ * Un modelo puede ser fijo o depender de la variante del mueble (por ejemplo
+ * un local 'closed' con tablones o abierto con su neón encendido).
+ */
+export type ModelSource = FurniModel | ((variant: string | undefined) => FurniModel);

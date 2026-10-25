@@ -49,7 +49,17 @@ export interface Door {
   /** Baldosa donde aparece quien LLEGA a esta escena por esta puerta. */
   spawn: TilePoint;
   to: DoorLink;
+  /** Edificio (mueble fijo) al que pertenece la puerta: clicar el edificio lleva a ella. */
+  buildingId?: string;
+  /** Local al que da acceso. Mientras el local no esté alquilado, la puerta está cerrada. */
+  lotId?: string;
 }
+
+/**
+ * Tipos de suelo de una escena exterior, uno por carácter del mapa `ground`:
+ *   '.' arena   's' acera   'r' asfalto   '-' asfalto con línea central
+ */
+export type GroundChar = '.' | 's' | 'r' | '-';
 
 export interface Scene {
   id: string;
@@ -60,6 +70,11 @@ export interface Scene {
   /** Número de baldosas en el eje Y. */
   depth: number;
   doors: Door[];
+  /**
+   * Mapa del suelo (solo exteriores): una string por fila (y) y un carácter
+   * por baldosa (x). Es el mismo truco que los sprites de matriz.
+   */
+  ground?: string[];
 }
 
 /** ¿La baldosa (x, y) está dentro de la escena? */

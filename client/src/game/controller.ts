@@ -9,8 +9,11 @@ import {
   canPlaceFurni,
   CATALOG,
   footprintContains,
+  getDoorAt,
   getFootprint,
+  isDoorLocked,
   isInsideScene,
+  type Door,
   type FurniId,
   type GameState,
   type Rotation,
@@ -45,6 +48,8 @@ export class GameController {
     private readonly getState: () => GameState,
     /** Devuelve lo que hay dibujado en un punto del canvas (lo resuelve el renderer). */
     private readonly pickAt: (p: Point) => PickTarget | null,
+    /** Muestra un aviso breve al jugador. */
+    private readonly notify: (message: string) => void,
   ) {
     window.addEventListener('keydown', (e) => {
       // Si se está escribiendo en un campo de texto, las teclas no son para el juego.
@@ -196,7 +201,7 @@ export class GameController {
     //    baldosa; al llegar, la simulación nos pasa a la otra escena.
     if (picked?.kind === 'door') {
       this.select(null);
-      this.moveTo(picked.door);
+      this.goToDoor(picked.door);
       return;
     }
 
@@ -205,6 +210,14 @@ export class GameController {
     if (picked?.kind === 'furni') {
       const item = state.furniture[picked.item.id];
       if (!item) return;
+      // Las estructuras fijas (edificios, farolas...) no se seleccionan. Si
+      // el edificio tiene puerta, el clic nos lleva hasta ella.
+      if (CATALOG[item.defId].fixed) {
+        this.select(null);
+        const door = this.scene?.doors.find((d) => d.buildingId === item.id);
+        if (door) this.goToDoor(door);
+        return;
+      }
       this.select(item.id);
       const def = CATALOG[item.defId];
       if (def.sittable || def.walkable) {
@@ -221,7 +234,20 @@ export class GameController {
     //    la calle, al llegar cambiaremos de escena).
     this.select(null);
     const scene = this.scene;
-    if (scene && isInsideScene(scene, tile.x, tile.y)) this.moveTo(tile);
+    if (!scene || !isInsideScene(scene, tile.x, tile.y)) return;
+    const door = getDoorAt(scene, tile.x, tile.y);
+    if (door) this.goToDoor(door);
+    else this.moveTo(tile);
+  }
+
+  /** Camina hasta una puerta; si está cerrada, avisa (y se queda delante). */
+  private goToDoor(door: Door): void {
+    if (isDoorLocked(this.getState(), door)) {
+      this.notify('Local cerrado. Pronto se podrá alquilar.');
+      this.moveTo(door.spawn);
+      return;
+    }
+    this.moveTo(door);
   }
 
   /** Clic derecho: gira el mueble que llevamos en la mano. */

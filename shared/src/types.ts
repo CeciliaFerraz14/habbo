@@ -69,6 +69,11 @@ export interface FurniItem {
   x: number;
   y: number;
   rotation: Rotation;
+  /**
+   * Variante visual del mismo mueble, por ejemplo 'closed' u 'open' en un
+   * local. La decide la lógica del juego; el cliente solo elige el dibujo.
+   */
+  variant?: string;
 }
 
 /** Todo el estado del mundo. Es lo que en la fase 2 tendrá el servidor. */

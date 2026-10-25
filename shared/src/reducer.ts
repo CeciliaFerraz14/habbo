@@ -30,7 +30,8 @@ export function applyAction(state: GameState, action: Action): GameState {
     }
 
     case 'BUY_FURNI': {
-      if (!CATALOG[action.defId]) return state;
+      // Solo muebles del catálogo; las estructuras fijas no se pueden conseguir.
+      if (!CATALOG[action.defId] || CATALOG[action.defId].fixed) return state;
       const item: InventoryItem = { id: `i${state.nextId}`, defId: action.defId };
       const inventory = state.inventories[action.avatarId] ?? [];
       return {
@@ -68,7 +69,7 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'MOVE_FURNI': {
       const item = state.furniture[action.itemId];
-      if (!item) return state;
+      if (!item || CATALOG[item.defId].fixed) return state;
       const { sceneId, defId, id } = item;
       if (!canPlaceFurni(state, sceneId, defId, action.x, action.y, action.rotation, id)) {
         return state;
@@ -79,7 +80,7 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'PICKUP_FURNI': {
       const item = state.furniture[action.itemId];
-      if (!item) return state;
+      if (!item || CATALOG[item.defId].fixed) return state;
       const { [item.id]: _removed, ...furniture } = state.furniture;
       const inventory = state.inventories[action.avatarId] ?? [];
       const next = withInventory(state, action.avatarId, [

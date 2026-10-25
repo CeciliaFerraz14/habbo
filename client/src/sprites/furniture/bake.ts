@@ -14,7 +14,7 @@ import { tileToScreen, type Point } from '../../engine/iso';
 import { createSprite, type Sprite } from '../canvas';
 import { shade } from '../color';
 import { MODELS } from './index';
-import type { Box, Decal } from './model';
+import type { Box, Decal, FurniModel } from './model';
 import { PALETTE } from '../palette';
 
 const OUTLINE = PALETTE.outline;
@@ -98,9 +98,20 @@ function visibleFaces(b: Box): { poly: Point[]; color: string }[] {
 /** Qué parte del mueble hornear: entero, o solo el respaldo (ver Box.backrest). */
 export type FurniPart = 'all' | 'backrest';
 
-function bake(defId: FurniId, rotation: Rotation, part: FurniPart): FurniSprite {
+/** Resuelve el modelo de un mueble para una variante (si el modelo depende de ella). */
+export function getModel(defId: FurniId, variant?: string): FurniModel {
+  const source = MODELS[defId];
+  return typeof source === 'function' ? source(variant) : source;
+}
+
+function bake(
+  defId: FurniId,
+  rotation: Rotation,
+  part: FurniPart,
+  variant: string | undefined,
+): FurniSprite {
   const def = CATALOG[defId];
-  const model = MODELS[defId];
+  const model = getModel(defId, variant);
 
   // 1. Girar cajas y calcomanías tantas veces como indique la rotación.
   let boxes = part === 'backrest' ? model.boxes.filter((b) => b.backrest) : model.boxes;
@@ -214,11 +225,12 @@ export function getFurniSprite(
   defId: FurniId,
   rotation: Rotation,
   part: FurniPart = 'all',
+  variant?: string,
 ): FurniSprite {
-  const key = `${defId}:${rotation}:${part}`;
+  const key = `${defId}:${rotation}:${part}:${variant ?? ''}`;
   let result = cache.get(key);
   if (!result) {
-    result = bake(defId, rotation, part);
+    result = bake(defId, rotation, part, variant);
     cache.set(key, result);
   }
   return result;

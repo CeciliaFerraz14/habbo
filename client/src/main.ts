@@ -7,9 +7,9 @@ import {
   type Avatar,
   type GameState,
 } from '@juego/shared';
-import { centerCamera, type Camera } from './engine/camera';
+import { centerCamera, followCamera, type Camera } from './engine/camera';
 import { attachInput } from './engine/input';
-import type { Point } from './engine/iso';
+import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
 import { GameController } from './game/controller';
@@ -21,6 +21,7 @@ import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
 import { createInventoryWindow } from './ui/inventoryWindow';
+import { showToast } from './ui/toast';
 import './ui/styles.css';
 
 /**
@@ -29,6 +30,9 @@ import './ui/styles.css';
  * sin suavizar (image-rendering: pixelated), lo que da el aspecto retro.
  */
 const SCALE = 2;
+
+/** Altura que asoman los edificios más altos de la calle por encima del suelo. */
+const STREET_EXTRA_TOP = 90;
 
 /** Id del avatar que controla este jugador. En la fase 2 lo asignará el servidor. */
 const PLAYER_ID = 'player';
@@ -77,6 +81,7 @@ const controller = new GameController(
   PLAYER_ID,
   () => state,
   (p) => renderer.pickAt(p.x, p.y),
+  showToast,
 );
 
 let camera: Camera = { originX: 0, originY: 0 };
@@ -149,10 +154,25 @@ function resize(): void {
   canvas.height = Math.floor(window.innerHeight / SCALE);
   // Al cambiar el tamaño, el contexto se reinicia: hay que volver a desactivar el suavizado.
   ctx.imageSmoothingEnabled = false;
+  updateCamera();
+}
+
+/**
+ * Los interiores caben en pantalla: se centran. La calle es más grande que la
+ * pantalla: la cámara sigue la posición VISUAL del jugador (la interpolada),
+ * así se mueve suave mientras camina.
+ */
+function updateCamera(): void {
   const scene = state.scenes[playerSceneId()];
-  // Las paredes de los interiores necesitan sitio por arriba; la calle no tiene.
-  const extraTop = scene.kind === 'interior' ? WALL_HEIGHT : 0;
-  camera = centerCamera(scene, canvas.width, canvas.height, extraTop);
+  if (scene.kind === 'interior') {
+    camera = centerCamera(scene, canvas.width, canvas.height, WALL_HEIGHT);
+    return;
+  }
+  const view = views.get(PLAYER_ID);
+  const player = state.avatars[PLAYER_ID];
+  const focus = view ?? player ?? { x: 0, y: 0 };
+  const p = tileToScreen(focus.x + 0.5, focus.y + 0.5);
+  camera = followCamera(scene, p.x, p.y, canvas.width, canvas.height, STREET_EXTRA_TOP);
 }
 
 /** Bucle principal: se ejecuta en cada fotograma (normalmente 60 veces por segundo). */
@@ -164,6 +184,7 @@ function frame(now: number): void {
 
   const sceneId = playerSceneId();
   views.update(state, dt);
+  updateCamera();
   renderer.render({
     state,
     sceneId,

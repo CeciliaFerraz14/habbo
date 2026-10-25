@@ -2,7 +2,7 @@
 import { ROTATION_DIRECTION } from './catalog';
 import { createWalkableCheck, getSeatAt } from './furniture';
 import { findPath } from './pathfinding';
-import { getDoorAt } from './scene';
+import { getDoorAt, type Door } from './scene';
 import type { Avatar, Direction, GameState, TilePoint } from './types';
 
 /** Dirección a la que hay que mirar para ir de `from` a una baldosa vecina `to`. */
@@ -52,6 +52,15 @@ export function updateSitting(state: GameState): GameState {
 }
 
 /**
+ * ¿Está cerrada esta puerta? Las puertas de los locales están cerradas
+ * mientras el local no esté alquilado. (Los alquileres llegan en el paso de
+ * negocios; hasta entonces, todo local está cerrado.)
+ */
+export function isDoorLocked(_state: GameState, door: Door): boolean {
+  return door.lotId !== undefined;
+}
+
+/**
  * Cruza las puertas: todo avatar que haya TERMINADO su camino encima de una
  * puerta pasa a la escena destino y aparece en el spawn de la puerta enlazada,
  * mirando hacia fuera de ella.
@@ -65,7 +74,7 @@ export function updateDoors(state: GameState): GameState {
     if (avatar.path.length > 0) continue;
     const scene = state.scenes[avatar.sceneId];
     const door = scene && getDoorAt(scene, avatar.x, avatar.y);
-    if (!door) continue;
+    if (!door || isDoorLocked(state, door)) continue;
 
     const target = state.scenes[door.to.sceneId]?.doors.find((d) => d.id === door.to.doorId);
     if (!target) continue;
