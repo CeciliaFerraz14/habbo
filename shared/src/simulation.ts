@@ -10,6 +10,7 @@ import { MOVE_TICK_MS } from './constants';
 import { economyTick } from './economy';
 import { createWalkableCheck, getSeatAt } from './furniture';
 import { directionTo, planPath, updateDoors, updateSitting } from './movement';
+import { npcTick } from './npcs';
 import type { Avatar, GameState } from './types';
 
 // Se reexporta aquí por comodidad (antes vivía en este archivo).
@@ -20,7 +21,8 @@ export { MOVE_TICK_MS };
  * movimiento de los avatares.
  */
 export function tick(previous: GameState): GameState {
-  const state = economyTick({ ...previous, tick: previous.tick + 1 });
+  // Primero la economía y las decisiones de los NPC; después, el movimiento.
+  const state = npcTick(economyTick({ ...previous, tick: previous.tick + 1 }));
   // Una comprobación de "se puede pisar" por escena, creada solo si hace falta.
   const walkableByScene = new Map<string, (x: number, y: number) => boolean>();
   const walkableIn = (sceneId: string) => {

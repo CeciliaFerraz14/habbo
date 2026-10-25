@@ -36,6 +36,8 @@ export const ECONOMY = {
   currency: '$',
   /** Dinero con el que empieza un jugador nuevo. */
   startingMoney: 500,
+  /** Muebles que recibe en su inventario un jugador nuevo. */
+  starterInventory: ['tire', 'tire', 'road_sign'] as DecorId[],
 
   businesses: {
     scrapyard: {

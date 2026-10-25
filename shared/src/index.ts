@@ -8,6 +8,7 @@ export * from './economy.config';
 export * from './furniture';
 export * from './looks';
 export * from './movement';
+export * from './npcs';
 export * from './pathfinding';
 export * from './random';
 export * from './reducer';

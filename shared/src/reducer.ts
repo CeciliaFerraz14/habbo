@@ -24,7 +24,6 @@ import { canPlaceFurni } from './furniture';
 import { isValidLook } from './looks';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
-import { STARTER_INVENTORY } from './world';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -39,7 +38,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       // ...y el kit inicial de muebles.
       if (!next.inventories[avatar.id]) {
-        const items = STARTER_INVENTORY.map((defId, i) => ({ id: `i${next.nextId + i}`, defId }));
+        const items = ECONOMY.starterInventory.map((defId, i) => ({ id: `i${next.nextId + i}`, defId }));
         next = {
           ...withInventory(next, avatar.id, items),
           nextId: next.nextId + items.length,

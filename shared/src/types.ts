@@ -3,6 +3,7 @@
 import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
+import type { NpcBrain } from './npcs';
 import type { Scene } from './scene';
 
 /** Una baldosa de la sala. */
@@ -107,6 +108,8 @@ export interface GameState {
   tick: number;
   /** Semilla del generador aleatorio determinista (ver random.ts). */
   seed: number;
+  /** "Cerebro" de cada NPC (vecinos y, más adelante, viajeros). */
+  npcs: Record<string, NpcBrain>;
   /**
    * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
    * (en vez de usar Math.random) para que el reducer siga siendo puro.
