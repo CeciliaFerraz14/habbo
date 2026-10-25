@@ -53,11 +53,11 @@ export function updateSitting(state: GameState): GameState {
 
 /**
  * ¿Está cerrada esta puerta? Las puertas de los locales están cerradas
- * mientras el local no esté alquilado. (Los alquileres llegan en el paso de
- * negocios; hasta entonces, todo local está cerrado.)
+ * mientras el local no tenga dueño (esté en alquiler).
  */
-export function isDoorLocked(_state: GameState, door: Door): boolean {
-  return door.lotId !== undefined;
+export function isDoorLocked(state: GameState, door: Door): boolean {
+  if (door.lotId === undefined) return false;
+  return (state.lots[door.lotId]?.ownerId ?? null) === null;
 }
 
 /**

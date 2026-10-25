@@ -9,6 +9,8 @@
 import type { Action } from './actions';
 import { CATALOG } from './catalog';
 import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
+import { canEditScene, collectCrafted, collectMaterials, rentLot, startCraft } from './economy';
+import { ECONOMY } from './economy.config';
 import { canPlaceFurni } from './furniture';
 import { isValidLook } from './looks';
 import { planPath, updateSitting } from './movement';
@@ -22,7 +24,11 @@ export function applyAction(state: GameState, action: Action): GameState {
       const { avatar } = action;
       if (!state.scenes[avatar.sceneId]) return state;
       let next = withAvatar(state, avatar);
-      // La primera vez que entra alguien, recibe el kit inicial de muebles.
+      // La primera vez que entra alguien, recibe el dinero inicial...
+      if (next.money[avatar.id] === undefined) {
+        next = { ...next, money: { ...next.money, [avatar.id]: ECONOMY.startingMoney } };
+      }
+      // ...y el kit inicial de muebles.
       if (!next.inventories[avatar.id]) {
         const items = STARTER_INVENTORY.map((defId, i) => ({ id: `i${next.nextId + i}`, defId }));
         next = {
@@ -42,17 +48,6 @@ export function applyAction(state: GameState, action: Action): GameState {
       return withAvatar(state, { ...avatar, path });
     }
 
-    case 'BUY_FURNI': {
-      // Solo muebles del catálogo; las estructuras fijas no se pueden conseguir.
-      if (!CATALOG[action.defId] || CATALOG[action.defId].fixed) return state;
-      const item: InventoryItem = { id: `i${state.nextId}`, defId: action.defId };
-      const inventory = state.inventories[action.avatarId] ?? [];
-      return {
-        ...withInventory(state, action.avatarId, [...inventory, item]),
-        nextId: state.nextId + 1,
-      };
-    }
-
     case 'PLACE_FURNI': {
       // El mueble se coloca en la escena donde está quien lo coloca.
       const avatar = state.avatars[action.avatarId];
@@ -60,6 +55,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       const item = inventory.find((i) => i.id === action.itemId);
       if (!avatar || !item) return state;
       const { sceneId } = avatar;
+      if (!canEditScene(state, avatar.id, sceneId)) return state;
       if (!canPlaceFurni(state, sceneId, item.defId, action.x, action.y, action.rotation)) {
         return state;
       }
@@ -84,6 +80,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       const item = state.furniture[action.itemId];
       if (!item || CATALOG[item.defId].fixed) return state;
       const { sceneId, defId, id } = item;
+      if (!canEditScene(state, action.avatarId, sceneId)) return state;
       if (!canPlaceFurni(state, sceneId, defId, action.x, action.y, action.rotation, id)) {
         return state;
       }
@@ -94,6 +91,7 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'PICKUP_FURNI': {
       const item = state.furniture[action.itemId];
       if (!item || CATALOG[item.defId].fixed) return state;
+      if (!canEditScene(state, action.avatarId, item.sceneId)) return state;
       const { [item.id]: _removed, ...furniture } = state.furniture;
       const inventory = state.inventories[action.avatarId] ?? [];
       const next = withInventory(state, action.avatarId, [
@@ -103,6 +101,16 @@ export function applyAction(state: GameState, action: Action): GameState {
       // Si alguien estaba sentado encima, updateSitting lo levanta.
       return updateSitting({ ...next, furniture });
     }
+
+    // --- Negocios: la lógica está en economy.ts ---
+    case 'RENT_LOT':
+      return rentLot(state, action.avatarId, action.lotId, action.business);
+    case 'COLLECT_MATERIALS':
+      return collectMaterials(state, action.avatarId, action.lotId);
+    case 'CRAFT':
+      return startCraft(state, action.avatarId, action.lotId, action.defId);
+    case 'COLLECT_CRAFTED':
+      return collectCrafted(state, action.avatarId, action.lotId);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];

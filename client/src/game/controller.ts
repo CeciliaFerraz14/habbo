@@ -6,6 +6,7 @@
 // y si está colocando uno. Eso nunca viajará al servidor.
 
 import {
+  canEditScene,
   canPlaceFurni,
   CATALOG,
   footprintContains,
@@ -13,6 +14,7 @@ import {
   getFootprint,
   isDoorLocked,
   isInsideScene,
+  lotOfStation,
   type Door,
   type FurniId,
   type GameState,
@@ -35,6 +37,16 @@ interface Placing {
 
 type Listener = () => void;
 
+/** Cosas que el controlador pide a la interfaz. */
+export interface ControllerEvents {
+  /** Muestra un aviso breve al jugador. */
+  notify: (message: string) => void;
+  /** Abre la ventana para alquilar un local libre. */
+  openRent: (lotId: string) => void;
+  /** Abre la ventana de gestión de un negocio. */
+  openBusiness: (lotId: string) => void;
+}
+
 export class GameController {
   private placing: Placing | null = null;
   private selectedId: string | null = null;
@@ -48,8 +60,7 @@ export class GameController {
     private readonly getState: () => GameState,
     /** Devuelve lo que hay dibujado en un punto del canvas (lo resuelve el renderer). */
     private readonly pickAt: (p: Point) => PickTarget | null,
-    /** Muestra un aviso breve al jugador. */
-    private readonly notify: (message: string) => void,
+    private readonly events: ControllerEvents,
   ) {
     window.addEventListener('keydown', (e) => {
       // Si se está escribiendo en un campo de texto, las teclas no son para el juego.
@@ -97,14 +108,14 @@ export class GameController {
 
   // --- Acciones de la interfaz -------------------------------------------
 
-  buy(defId: FurniId): void {
-    this.transport.dispatch({ type: 'BUY_FURNI', avatarId: this.playerId, defId });
-  }
-
   /** Coge un mueble del inventario para colocarlo. */
   startPlacing(itemId: string): void {
     const item = (this.getState().inventories[this.playerId] ?? []).find((i) => i.id === itemId);
     if (!item) return;
+    if (!this.canDecorateHere()) {
+      this.events.notify('Solo puedes decorar tu caravana y tus locales.');
+      return;
+    }
     this.select(null);
     this.setPlacing({ kind: 'place', itemId, defId: item.defId, rotation: 0 });
   }
@@ -170,7 +181,9 @@ export class GameController {
       rotation,
       x,
       y,
-      valid: canPlaceFurni(this.getState(), scene.id, defId, x, y, rotation, ignoreId),
+      valid:
+        this.canDecorateHere() &&
+        canPlaceFurni(this.getState(), scene.id, defId, x, y, rotation, ignoreId),
     };
   }
 
@@ -210,12 +223,26 @@ export class GameController {
     if (picked?.kind === 'furni') {
       const item = state.furniture[picked.item.id];
       if (!item) return;
-      // Las estructuras fijas (edificios, farolas...) no se seleccionan. Si
-      // el edificio tiene puerta, el clic nos lleva hasta ella.
+      // Las estructuras fijas (edificios, farolas...) no se seleccionan.
       if (CATALOG[item.defId].fixed) {
         this.select(null);
+        // Puesto de trabajo de un negocio: abre su ventana (si es tuyo).
+        const lotId = lotOfStation(item.id);
+        if (lotId) {
+          if (state.lots[lotId]?.ownerId === this.playerId) this.events.openBusiness(lotId);
+          else this.events.notify('Este negocio no es tuyo.');
+          return;
+        }
+        // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
         if (door) this.goToDoor(door);
+        return;
+      }
+      // Solo se seleccionan (para mover, girar o recoger) los muebles de un
+      // sitio que puedes decorar.
+      if (!this.canDecorateHere()) {
+        const def = CATALOG[item.defId];
+        if (def.sittable) this.moveTo(tile);
         return;
       }
       this.select(item.id);
@@ -240,14 +267,23 @@ export class GameController {
     else this.moveTo(tile);
   }
 
-  /** Camina hasta una puerta; si está cerrada, avisa (y se queda delante). */
+  /**
+   * Camina hasta una puerta. Si es la de un local en alquiler, se queda
+   * delante y abre la ventana para alquilarlo.
+   */
   private goToDoor(door: Door): void {
     if (isDoorLocked(this.getState(), door)) {
-      this.notify('Local cerrado. Pronto se podrá alquilar.');
       this.moveTo(door.spawn);
+      if (door.lotId) this.events.openRent(door.lotId);
       return;
     }
     this.moveTo(door);
+  }
+
+  /** ¿Puede el jugador decorar la escena en la que está? */
+  private canDecorateHere(): boolean {
+    const scene = this.scene;
+    return !!scene && canEditScene(this.getState(), this.playerId, scene.id);
   }
 
   /** Clic derecho: gira el mueble que llevamos en la mano. */

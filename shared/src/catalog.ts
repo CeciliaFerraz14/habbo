@@ -25,7 +25,10 @@ export type StructureId =
   | 'gas_station'
   | 'street_lamp'
   | 'saguaro'
-  | 'welcome_sign';
+  | 'welcome_sign'
+  // Puestos de trabajo de los negocios (dentro de los locales)
+  | 'scrap_pile'
+  | 'workbench';
 
 export type FurniId = DecorId | StructureId;
 
@@ -94,7 +97,11 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   street_lamp: structure('street_lamp', 'Farola', 1, 1),
   saguaro: structure('saguaro', 'Cactus', 1, 1),
   welcome_sign: structure('welcome_sign', 'Cartel de bienvenida', 1, 2),
+  scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
+  workbench: structure('workbench', 'Banco de trabajo', 1, 2),
 };
 
-/** Muebles que se pueden conseguir (excluye las estructuras fijas). */
-export const FURNI_IDS = (Object.keys(CATALOG) as FurniId[]).filter((id) => !CATALOG[id].fixed);
+/** Muebles que se pueden tener (excluye las estructuras fijas). */
+export const DECOR_IDS = (Object.keys(CATALOG) as FurniId[]).filter(
+  (id): id is DecorId => !CATALOG[id].fixed,
+);

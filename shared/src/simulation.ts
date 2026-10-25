@@ -6,15 +6,21 @@
 // En la fase 2 el servidor ejecutará tick() con un setInterval.
 //
 // El tick simula TODAS las escenas a la vez, no solo la que se ve.
+import { MOVE_TICK_MS } from './constants';
+import { economyTick } from './economy';
 import { createWalkableCheck, getSeatAt } from './furniture';
 import { directionTo, planPath, updateDoors, updateSitting } from './movement';
 import type { Avatar, GameState } from './types';
 
-/** Milisegundos que tarda un avatar en avanzar una baldosa. */
-export const MOVE_TICK_MS = 400;
+// Se reexporta aquí por comodidad (antes vivía en este archivo).
+export { MOVE_TICK_MS };
 
-/** Avanza la simulación un turno. Si nada cambia, devuelve el mismo objeto. */
-export function tick(state: GameState): GameState {
+/**
+ * Avanza la simulación un turno: el contador de ticks, la economía y el
+ * movimiento de los avatares.
+ */
+export function tick(previous: GameState): GameState {
+  const state = economyTick({ ...previous, tick: previous.tick + 1 });
   // Una comprobación de "se puede pisar" por escena, creada solo si hace falta.
   const walkableByScene = new Map<string, (x: number, y: number) => boolean>();
   const walkableIn = (sceneId: string) => {

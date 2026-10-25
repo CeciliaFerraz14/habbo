@@ -3,6 +3,8 @@ export * from './actions';
 export * from './catalog';
 export * from './chat';
 export * from './constants';
+export * from './economy';
+export * from './economy.config';
 export * from './furniture';
 export * from './looks';
 export * from './movement';

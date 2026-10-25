@@ -6,7 +6,8 @@
 //
 // Sobre `avatarId`: en la fase 2 el servidor lo IGNORARÁ y usará el del
 // usuario conectado a ese socket, para que nadie pueda actuar en nombre de otro.
-import type { FurniId, Rotation } from './catalog';
+import type { DecorId, Rotation } from './catalog';
+import type { BusinessType } from './economy.config';
 import type { Avatar, AvatarLook } from './types';
 
 export type Action =
@@ -18,8 +19,6 @@ export type Action =
    * mandar un camino que atraviese paredes.
    */
   | { type: 'MOVE'; avatarId: string; x: number; y: number }
-  /** Obtener un mueble del catálogo: va al inventario. */
-  | { type: 'BUY_FURNI'; avatarId: string; defId: FurniId }
   /** Sacar un mueble del inventario y colocarlo en la sala. */
   | { type: 'PLACE_FURNI'; avatarId: string; itemId: string; x: number; y: number; rotation: Rotation }
   /** Mover y/o girar un mueble que ya está en la sala. */
@@ -29,4 +28,13 @@ export type Action =
   /** Decir algo en el chat de la sala. */
   | { type: 'SAY'; avatarId: string; text: string }
   /** Cambiar el aspecto (colores) del avatar. */
-  | { type: 'SET_LOOK'; avatarId: string; look: AvatarLook };
+  | { type: 'SET_LOOK'; avatarId: string; look: AvatarLook }
+  // --- Negocios ---
+  /** Alquilar un local libre y abrir en él un negocio. */
+  | { type: 'RENT_LOT'; avatarId: string; lotId: string; business: BusinessType }
+  /** Chatarrería: recoger los materiales producidos. */
+  | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
+  /** Taller: empezar a fabricar un mueble. */
+  | { type: 'CRAFT'; avatarId: string; lotId: string; defId: DecorId }
+  /** Taller: recoger los muebles terminados. */
+  | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string };

@@ -367,6 +367,155 @@ body {
   font-size: 20px;
 }
 
+/* ---------- Economía ---------- */
+
+/* Cartera: tablilla arriba a la izquierda con el dinero y los materiales. */
+#wallet {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  background: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow:
+    inset 0 0 0 2px var(--ochre),
+    4px 4px 0 rgba(42, 26, 20, 0.45);
+  pointer-events: none;
+}
+
+.wallet-money {
+  font-family: var(--font-title);
+  font-size: 14px;
+  color: var(--turquoise);
+  text-shadow: 2px 2px 0 var(--cream-dark);
+  margin-bottom: 4px;
+}
+
+/* Fichas de materiales: cuadradito de color + nombre + cantidad. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.chip i {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--outline);
+}
+
+/* En una receta, lo que no te alcanza sale en rojo. */
+.chip.missing {
+  color: #c83c3c;
+}
+
+.section-title {
+  margin: 10px 0 4px;
+  color: var(--outline);
+}
+
+/* Opciones de negocio al alquilar. */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.option-title {
+  grid-column: 1 / -1;
+  font-family: var(--font-title);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neon-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--outline);
+}
+
+/* Taller: recetas y cola de fabricación. */
+.recipes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.recipe {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.recipe .icon {
+  max-width: 36px;
+  max-height: 36px;
+  image-rendering: pixelated;
+}
+
+.recipe-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 52px;
+  gap: 8px;
+  align-items: center;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.queue-status {
+  text-align: right;
+}
+
+/* Barra de progreso pixel: borde oscuro y relleno que avanza a saltos. */
+.progress {
+  height: 12px;
+  background: var(--cream-dark);
+  border: 2px solid var(--outline);
+}
+
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--turquoise);
+}
+
 /* ---------- Editor de avatar ---------- */
 
 .look-editor {

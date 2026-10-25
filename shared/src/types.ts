@@ -1,6 +1,8 @@
 // Tipos del estado del juego. Son datos puros (sin métodos ni referencias al
 // canvas) para poder enviarlos tal cual por la red en la fase 2.
 import type { FurniId, Rotation } from './catalog';
+import type { Lot } from './economy';
+import type { Materials } from './economy.config';
 import type { Scene } from './scene';
 
 /** Una baldosa de la sala. */
@@ -86,6 +88,18 @@ export interface GameState {
   inventories: Record<string, InventoryItem[]>;
   /** Últimos mensajes del chat, del más antiguo al más reciente. */
   messages: ChatMessage[];
+  /** Locales de la calle, por id. */
+  lots: Record<string, Lot>;
+  /** Dinero de cada jugador. */
+  money: Record<string, number>;
+  /** Materiales (chapa, madera...) de cada jugador. */
+  materials: Record<string, Materials>;
+  /**
+   * Contador de turnos de simulación. Es el "reloj" de la economía: los
+   * tiempos (producción, fabricación...) se miden en ticks, no con la hora real,
+   * para que la simulación sea determinista.
+   */
+  tick: number;
   /**
    * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
    * (en vez de usar Math.random) para que el reducer siga siendo puro.

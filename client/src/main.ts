@@ -20,12 +20,14 @@ import { GameController } from './game/controller';
 import { LocalTransport, type Transport } from './game/transport';
 import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
-import { createCatalogWindow } from './ui/catalogWindow';
+import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
+import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
+import { createRentWindow } from './ui/rentWindow';
 import { showToast } from './ui/toast';
 import './ui/styles.css';
 
@@ -111,7 +113,14 @@ const controller = new GameController(
   PLAYER_ID,
   () => state,
   (p) => renderer.pickAt(p.x, p.y),
-  showToast,
+  {
+    notify: showToast,
+    openRent: (lotId) => rentWindow.open(lotId, state, PLAYER_ID),
+    openBusiness: (lotId) => {
+      businessWindow.open(lotId);
+      businessWindow.update(state, PLAYER_ID);
+    },
+  },
 );
 
 const clock = new DayClock();
@@ -127,7 +136,18 @@ function playerSceneId(): string {
 
 // --- Interfaz -----------------------------------------------------------------
 
-const catalog = createCatalogWindow((defId) => controller.buy(defId));
+const wallet = createWallet();
+const rentWindow = createRentWindow((lotId, business) => {
+  transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
+  showToast('¡Local alquilado! Ya puedes entrar.');
+});
+const businessWindow = createBusinessWindow({
+  collectMaterials: (lotId) =>
+    transport.dispatch({ type: 'COLLECT_MATERIALS', avatarId: PLAYER_ID, lotId }),
+  craft: (lotId, defId) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, defId }),
+  collectCrafted: (lotId) =>
+    transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
+});
 const inventory = createInventoryWindow((itemId) => controller.startPlacing(itemId));
 const furniPanel = createFurniPanel({
   onMove: () => controller.startMovingSelected(),
@@ -145,7 +165,6 @@ const chatHistory = createChatHistory();
 let bubbles: ChatBubbles | null = null;
 
 createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
-  { label: 'Catálogo', onClick: () => catalog.toggle() },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
   { label: 'Avatar', onClick: () => avatarEditor.win.toggle(), hint: 'Cambiar tu aspecto' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
@@ -160,6 +179,9 @@ function refreshUi(): void {
   }
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
+  wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
+  rentWindow.update(state);
+  businessWindow.update(state, PLAYER_ID);
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look);
   chatHistory.update(state.messages, sceneId);

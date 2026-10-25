@@ -11,6 +11,7 @@
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus y el cartel de bienvenida
 import type { DecorId } from './catalog';
+import { createLot } from './economy';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
 
@@ -201,6 +202,10 @@ export function createInitialState(): GameState {
     furniture: Object.fromEntries(furniture.map((f) => [f.id, f])),
     inventories: {},
     messages: [],
+    lots: Object.fromEntries(LOT_IDS.map((id, i) => [id, createLot(id, `Local ${i + 1}`)])),
+    money: {},
+    materials: {},
+    tick: 0,
     nextId: 100,
   };
 }
