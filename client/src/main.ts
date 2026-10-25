@@ -14,7 +14,7 @@ import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
 import { GameController } from './game/controller';
 import { LocalTransport, type Transport } from './game/transport';
-import { buildRoomSprites, WALL_HEIGHT } from './sprites/room';
+import { WALL_HEIGHT } from './sprites/room';
 import { createCatalogWindow } from './ui/catalogWindow';
 import { ChatBubbles } from './ui/chatBubbles';
 import { createChatHistory } from './ui/chatHistory';
@@ -74,7 +74,7 @@ transport.dispatch({ type: 'JOIN', avatar: player });
 // subscribe() llama enseguida con el estado actual, así que nunca queda sin asignar.
 let state!: GameState;
 
-const renderer = new Renderer(ctx, buildRoomSprites());
+const renderer = new Renderer(ctx);
 const views = new AvatarViews();
 const controller = new GameController(
   transport,
@@ -203,6 +203,19 @@ function frame(now: number): void {
 function canvasToScreen(p: Point): Point {
   const scale = canvas.clientWidth / canvas.width;
   return { x: p.x * scale, y: p.y * scale };
+}
+
+// Solo en desarrollo: deja el estado accesible desde la consola del navegador
+// (escribe `game.state` en las DevTools para inspeccionarlo).
+if (import.meta.env.DEV) {
+  Object.assign(window, {
+    game: {
+      get state() {
+        return state;
+      },
+      dispatch: transport.dispatch.bind(transport),
+    },
+  });
 }
 
 window.addEventListener('resize', resize);

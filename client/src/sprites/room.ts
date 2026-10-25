@@ -6,6 +6,7 @@
 
 import { TILE_HEIGHT, TILE_WIDTH } from '../engine/iso';
 import { createSprite, type Sprite } from './canvas';
+import type { InteriorTheme } from '@juego/shared';
 import { PALETTE } from './palette';
 
 /** Altura de las paredes en píxeles. */
@@ -19,17 +20,8 @@ const HALF_H = TILE_HEIGHT / 2;
 // Suelo de baldosa de barro cocido y paredes de adobe con rodapié turquesa.
 const C = {
   outline: PALETTE.outline,
-  floorA: '#d9895b',
-  floorB: '#c97a4e',
-  floorLine: '#a85f3a',
   sideLeft: PALETTE.ochre,
   sideRight: '#a86f2c',
-  wallLeft: PALETTE.adobe,
-  wallLeftSeam: '#d2a26c',
-  wallRight: PALETTE.adobeLight,
-  wallRightSeam: '#dfb47f',
-  wallCap: PALETTE.cream,
-  baseboard: PALETTE.turquoise,
   hover: PALETTE.neonYellow,
   selected: PALETTE.neonCyan,
   valid: '#7be35b',
@@ -44,6 +36,50 @@ const C = {
   asphalt: '#5e5450',
   asphaltLine: '#574d49',
   roadPaint: PALETTE.neonYellow,
+};
+
+/** Colores de suelo y paredes de cada estilo de interior. */
+interface ThemeColors {
+  floorA: string;
+  floorB: string;
+  floorLine: string;
+  wallLeft: string;
+  wallLeftSeam: string;
+  wallRight: string;
+  wallRightSeam: string;
+  wallCap: string;
+  baseboard: string;
+  /** Si se indica, dibuja una línea horizontal cada N píxeles (tablas de madera). */
+  plankEvery?: number;
+}
+
+const THEMES: Record<InteriorTheme, ThemeColors> = {
+  // Locales: baldosa de barro cocido y paredes de adobe con rodapié turquesa.
+  adobe: {
+    floorA: '#d9895b',
+    floorB: '#c97a4e',
+    floorLine: '#a85f3a',
+    wallLeft: PALETTE.adobe,
+    wallLeftSeam: '#d2a26c',
+    wallRight: PALETTE.adobeLight,
+    wallRightSeam: '#dfb47f',
+    wallCap: PALETTE.cream,
+    baseboard: PALETTE.turquoise,
+  },
+  // Caravana: suelo de damero crema y turquesa, como un diner, y paredes
+  // forradas de tablas de madera.
+  trailer: {
+    floorA: PALETTE.cream,
+    floorB: PALETTE.turquoiseLight,
+    floorLine: '#b8a888',
+    wallLeft: '#b07a4a',
+    wallLeftSeam: '#8f5f36',
+    wallRight: '#c08a58',
+    wallRightSeam: '#9c6a3e',
+    wallCap: '#e8d0a8',
+    baseboard: '#6e4428',
+    plankEvery: 12,
+  },
 };
 
 /**
@@ -67,7 +103,7 @@ function diamondRow(row: number): [number, number] {
 }
 
 /** Rombo de suelo. Los 2 píxeles de cada extremo de fila forman el borde. */
-function floorTile(fill: string, line: string = C.floorLine): Sprite {
+function floorTile(fill: string, line: string): Sprite {
   return createSprite(TILE_WIDTH, TILE_HEIGHT, (px) => {
     for (let row = 0; row < TILE_HEIGHT; row++) {
       const [x0, x1] = diamondRow(row);
@@ -126,7 +162,7 @@ function floorSide(side: 'left' | 'right'): Sprite {
  *
  * `end` = true añade un contorno vertical en el extremo libre de la pared.
  */
-function wallSegment(side: 'left' | 'right', end: boolean): Sprite {
+function wallSegment(side: 'left' | 'right', end: boolean, t: ThemeColors): Sprite {
   return createSprite(HALF_W, WALL_HEIGHT + HALF_H, (px) => {
     for (let c = 0; c < HALF_W; c++) {
       // Fila (dentro del rombo) de la arista superior en esta columna.
@@ -141,11 +177,12 @@ function wallSegment(side: 'left' | 'right', end: boolean): Sprite {
         const row = edgeRow + i;
         let color: string;
         if (i === 0 || isEnd) color = C.outline; // borde superior
-        else if (i <= 2) color = C.wallCap; // remate claro
+        else if (i <= 2) color = t.wallCap; // remate claro
         else if (i === WALL_HEIGHT - 1) color = C.outline; // línea del suelo
-        else if (i >= WALL_HEIGHT - 4) color = C.baseboard; // rodapié
-        else if (isSeam) color = side === 'left' ? C.wallLeftSeam : C.wallRightSeam;
-        else color = side === 'left' ? C.wallLeft : C.wallRight;
+        else if (i >= WALL_HEIGHT - 4) color = t.baseboard; // rodapié
+        else if (isSeam || (t.plankEvery && i % t.plankEvery === 0)) {
+          color = side === 'left' ? t.wallLeftSeam : t.wallRightSeam; // juntas
+        } else color = side === 'left' ? t.wallLeft : t.wallRight;
         px(c, row, color);
       }
     }
@@ -233,10 +270,12 @@ export interface RoomSprites {
   wallRightEnd: Sprite;
 }
 
-export function buildRoomSprites(): RoomSprites {
+/** Genera todos los sprites de suelo y paredes, con los colores del estilo de interior indicado. */
+export function buildRoomSprites(theme: InteriorTheme = 'adobe'): RoomSprites {
+  const t = THEMES[theme];
   return {
-    floorA: floorTile(C.floorA),
-    floorB: floorTile(C.floorB),
+    floorA: floorTile(t.floorA, t.floorLine),
+    floorB: floorTile(t.floorB, t.floorLine),
     sandA: floorTile(PALETTE.sand, C.sandLine),
     sandB: floorTile(PALETTE.sandDark, C.sandLine),
     doorLeft: doorSegment('left'),
@@ -250,9 +289,9 @@ export function buildRoomSprites(): RoomSprites {
     invalid: outlineTile(C.invalid),
     sideLeft: floorSide('left'),
     sideRight: floorSide('right'),
-    wallLeft: wallSegment('left', false),
-    wallLeftEnd: wallSegment('left', true),
-    wallRight: wallSegment('right', false),
-    wallRightEnd: wallSegment('right', true),
+    wallLeft: wallSegment('left', false, t),
+    wallLeftEnd: wallSegment('left', true, t),
+    wallRight: wallSegment('right', false, t),
+    wallRightEnd: wallSegment('right', true, t),
   };
 }

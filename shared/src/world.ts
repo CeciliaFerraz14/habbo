@@ -10,6 +10,7 @@
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus y el cartel de bienvenida
+import type { DecorId } from './catalog';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
 
@@ -21,7 +22,10 @@ export const SCENES = {
 
 /** Escena en la que aparece un jugador nuevo, y en qué baldosa. */
 export const START_SCENE = SCENES.trailer;
-export const START_TILE = { x: 4, y: 4 };
+export const START_TILE = { x: 6, y: 3 };
+
+/** Muebles que recibe en su inventario un jugador que entra por primera vez. */
+export const STARTER_INVENTORY: DecorId[] = ['tire', 'tire', 'road_sign'];
 
 const STREET_WIDTH = 44;
 const STREET_DEPTH = 14;
@@ -85,6 +89,7 @@ function createScenes(): Scene[] {
       id,
       name: `Local ${i + 1}`,
       kind: 'interior',
+      theme: 'adobe',
       width: 8,
       depth: 8,
       doors: [
@@ -110,19 +115,20 @@ function createScenes(): Scene[] {
       ground: streetGround(),
     },
     {
-      // La caravana del jugador (la sala del prototipo).
+      // La caravana del jugador: larga y estrecha, con la puerta en mitad de
+      // la pared larga (y = 0), como se ve desde fuera.
       id: SCENES.trailer,
       name: 'Tu caravana',
       kind: 'interior',
-      width: 10,
-      depth: 10,
+      theme: 'trailer',
+      width: 12,
+      depth: 5,
       doors: [
         {
-          // Puerta en la pared izquierda (x = 0).
           id: 'trailer-exit',
-          x: 0,
-          y: 7,
-          spawn: { x: 1, y: 7 },
+          x: 6,
+          y: 0,
+          spawn: { x: 6, y: 1 },
           to: { sceneId: s, doorId: 'street-trailer' },
         },
       ],
@@ -169,19 +175,21 @@ function createStreetStructures(): FurniItem[] {
   return items;
 }
 
-/** Muebles con los que empieza la caravana. */
+/**
+ * Muebles con los que empieza la caravana: una "dinette" (dos sillones de
+ * diner enfrentados con una mesa en medio) a un lado, y la cocina al otro.
+ */
 function createTrailerFurniture(): FurniItem[] {
   const s = SCENES.trailer;
   return [
-    { id: 'f1', sceneId: s, defId: 'lamp', x: 0, y: 0, rotation: 0 },
-    { id: 'f2', sceneId: s, defId: 'shelf', x: 2, y: 0, rotation: 1 },
-    { id: 'f3', sceneId: s, defId: 'bed', x: 6, y: 0, rotation: 1 },
-    { id: 'f4', sceneId: s, defId: 'plant', x: 9, y: 0, rotation: 0 },
-    { id: 'f5', sceneId: s, defId: 'sofa', x: 0, y: 3, rotation: 0 },
-    { id: 'f6', sceneId: s, defId: 'table', x: 2, y: 4, rotation: 0 },
-    { id: 'f7', sceneId: s, defId: 'chair', x: 3, y: 4, rotation: 2 },
-    { id: 'f8', sceneId: s, defId: 'rug', x: 5, y: 5, rotation: 0 },
-    { id: 'f9', sceneId: s, defId: 'plant', x: 0, y: 9, rotation: 0 },
+    { id: 'f1', sceneId: s, defId: 'diner_booth', x: 0, y: 1, rotation: 0 },
+    { id: 'f2', sceneId: s, defId: 'formica_table', x: 1, y: 1, rotation: 0 },
+    { id: 'f3', sceneId: s, defId: 'diner_booth', x: 2, y: 1, rotation: 2 },
+    { id: 'f4', sceneId: s, defId: 'neon_lamp', x: 4, y: 0, rotation: 1 },
+    { id: 'f5', sceneId: s, defId: 'jukebox', x: 9, y: 0, rotation: 1 },
+    { id: 'f6', sceneId: s, defId: 'vintage_fridge', x: 11, y: 0, rotation: 1 },
+    { id: 'f7', sceneId: s, defId: 'bar_stool', x: 10, y: 3, rotation: 3 },
+    { id: 'f8', sceneId: s, defId: 'potted_cactus', x: 0, y: 4, rotation: 0 },
   ];
 }
 

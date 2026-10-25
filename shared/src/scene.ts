@@ -61,6 +61,8 @@ export interface Door {
  */
 export type GroundChar = '.' | 's' | 'r' | '-';
 
+export type InteriorTheme = 'adobe' | 'trailer';
+
 export interface Scene {
   id: string;
   name: string;
@@ -70,6 +72,11 @@ export interface Scene {
   /** Número de baldosas en el eje Y. */
   depth: number;
   doors: Door[];
+  /**
+   * Estilo de un interior: 'adobe' (paredes de adobe y barro cocido, el de los
+   * locales) o 'trailer' (madera y suelo de damero, el de la caravana).
+   */
+  theme?: InteriorTheme;
   /**
    * Mapa del suelo (solo exteriores): una string por fila (y) y un carácter
    * por baldosa (x). Es el mismo truco que los sprites de matriz.

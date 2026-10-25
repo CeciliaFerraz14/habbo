@@ -12,13 +12,25 @@ import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
 import { canPlaceFurni } from './furniture';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
+import { STARTER_INVENTORY } from './world';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
-    case 'JOIN':
+    case 'JOIN': {
       // Solo se puede entrar en una escena que existe.
-      if (!state.scenes[action.avatar.sceneId]) return state;
-      return updateSitting(withAvatar(state, action.avatar));
+      const { avatar } = action;
+      if (!state.scenes[avatar.sceneId]) return state;
+      let next = withAvatar(state, avatar);
+      // La primera vez que entra alguien, recibe el kit inicial de muebles.
+      if (!next.inventories[avatar.id]) {
+        const items = STARTER_INVENTORY.map((defId, i) => ({ id: `i${next.nextId + i}`, defId }));
+        next = {
+          ...withInventory(next, avatar.id, items),
+          nextId: next.nextId + items.length,
+        };
+      }
+      return updateSitting(next);
+    }
 
     case 'MOVE': {
       const avatar = state.avatars[action.avatarId];

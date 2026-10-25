@@ -7,25 +7,28 @@ import { shop } from '../structures/shop';
 import { streetLamp } from '../structures/streetLamp';
 import { trailer } from '../structures/trailer';
 import { welcomeSign } from '../structures/welcomeSign';
-import { bed } from './bed';
-import { chair } from './chair';
-import { lamp } from './lamp';
+import { barStool } from './barStool';
+import { dinerBooth } from './dinerBooth';
+import { formicaTable } from './formicaTable';
+import { jukebox } from './jukebox';
 import type { ModelSource } from './model';
-import { plant } from './plant';
-import { rug } from './rug';
-import { shelf } from './shelf';
-import { sofa } from './sofa';
-import { table } from './table';
+import { neonLamp } from './neonLamp';
+import { pottedCactus } from './pottedCactus';
+import { roadSign } from './roadSign';
+import { tire } from './tire';
+import { vintageFridge } from './vintageFridge';
 
 export const MODELS: Record<FurniId, ModelSource> = {
-  sofa,
-  chair,
-  table,
-  lamp,
-  plant,
-  bed,
-  rug,
-  shelf,
+  // Muebles
+  diner_booth: dinerBooth,
+  bar_stool: barStool,
+  formica_table: formicaTable,
+  jukebox,
+  neon_lamp: neonLamp,
+  potted_cactus: pottedCactus,
+  road_sign: roadSign,
+  tire,
+  vintage_fridge: vintageFridge,
   // Estructuras de la calle
   shop,
   trailer,

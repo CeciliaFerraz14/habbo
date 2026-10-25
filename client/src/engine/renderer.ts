@@ -12,6 +12,7 @@ import {
   type FurniPlacement,
   type GameState,
   type GroundChar,
+  type InteriorTheme,
   type Scene,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
@@ -27,8 +28,7 @@ import {
 import type { Sprite } from '../sprites/canvas';
 import { getFurniSprite, getModel } from '../sprites/furniture/bake';
 import { PALETTE } from '../sprites/palette';
-import type { RoomSprites } from '../sprites/room';
-import { WALL_HEIGHT } from '../sprites/room';
+import { buildRoomSprites, WALL_HEIGHT, type RoomSprites } from '../sprites/room';
 import type { Camera } from './camera';
 import { depthSort, type DepthBox } from './depth';
 import { TILE_HEIGHT, TILE_WIDTH, tileToScreen, type Point } from './iso';
@@ -77,10 +77,23 @@ export class Renderer {
   private backdrop: HTMLCanvasElement | null = null;
   private readonly alphaCache = new WeakMap<Sprite, Uint8ClampedArray>();
 
-  constructor(
-    private readonly ctx: CanvasRenderingContext2D,
-    private readonly sprites: RoomSprites,
-  ) {}
+  /** Sprites de suelo y paredes de la escena que se está dibujando. */
+  private sprites: RoomSprites;
+  /** Un juego de sprites por estilo de interior, generado la primera vez que hace falta. */
+  private readonly spritesByTheme = new Map<InteriorTheme, RoomSprites>();
+
+  constructor(private readonly ctx: CanvasRenderingContext2D) {
+    this.sprites = this.spritesFor('adobe');
+  }
+
+  private spritesFor(theme: InteriorTheme): RoomSprites {
+    let sprites = this.spritesByTheme.get(theme);
+    if (!sprites) {
+      sprites = buildRoomSprites(theme);
+      this.spritesByTheme.set(theme, sprites);
+    }
+    return sprites;
+  }
 
   render({ state, sceneId, views, camera, hoverTile, selectedId, ghost, now }: RenderInput): void {
     const { ctx } = this;
@@ -88,6 +101,7 @@ export class Renderer {
     ctx.drawImage(this.getBackdrop(ctx.canvas.width, ctx.canvas.height), 0, 0);
     this.drawn = [];
     if (!scene) return;
+    this.sprites = this.spritesFor(scene.theme ?? 'adobe');
 
     this.drawFloor(scene, camera);
     if (scene.kind === 'interior') {

@@ -2,8 +2,17 @@
 // Aquí NO hay nada de dibujo: el aspecto está en client/src/sprites/furniture.
 import type { Direction } from './types';
 
-/** Muebles que los jugadores pueden tener, colocar y vender. */
-export type DecorId = 'sofa' | 'chair' | 'table' | 'lamp' | 'plant' | 'bed' | 'rug' | 'shelf';
+/** Muebles que los jugadores pueden tener, colocar y vender (estética de carretera). */
+export type DecorId =
+  | 'diner_booth'
+  | 'bar_stool'
+  | 'formica_table'
+  | 'jukebox'
+  | 'neon_lamp'
+  | 'potted_cactus'
+  | 'road_sign'
+  | 'tire'
+  | 'vintage_fridge';
 
 /**
  * Estructuras FIJAS del escenario (edificios, farolas...). Se dibujan, ordenan
@@ -50,20 +59,32 @@ export interface FurniDef {
   fixed?: true;
 }
 
+/** Atajo para definir muebles normales. */
+function decor(
+  id: DecorId,
+  name: string,
+  width: number,
+  depth: number,
+  sittable = false,
+): FurniDef {
+  return { id, name, width, depth, sittable, walkable: false };
+}
+
 /** Atajo para definir estructuras fijas (no sentables ni pisables). */
 function structure(id: StructureId, name: string, width: number, depth: number): FurniDef {
   return { id, name, width, depth, sittable: false, walkable: false, fixed: true };
 }
 
 export const CATALOG: Record<FurniId, FurniDef> = {
-  sofa: { id: 'sofa', name: 'Sofá', width: 1, depth: 2, sittable: true, walkable: false },
-  chair: { id: 'chair', name: 'Silla', width: 1, depth: 1, sittable: true, walkable: false },
-  table: { id: 'table', name: 'Mesa', width: 1, depth: 1, sittable: false, walkable: false },
-  lamp: { id: 'lamp', name: 'Lámpara', width: 1, depth: 1, sittable: false, walkable: false },
-  plant: { id: 'plant', name: 'Planta', width: 1, depth: 1, sittable: false, walkable: false },
-  bed: { id: 'bed', name: 'Cama', width: 2, depth: 1, sittable: false, walkable: false },
-  rug: { id: 'rug', name: 'Alfombra', width: 2, depth: 2, sittable: false, walkable: true },
-  shelf: { id: 'shelf', name: 'Estantería', width: 1, depth: 2, sittable: false, walkable: false },
+  diner_booth: decor('diner_booth', 'Sillón de diner', 1, 2, true),
+  bar_stool: decor('bar_stool', 'Taburete de barra', 1, 1, true),
+  formica_table: decor('formica_table', 'Mesa de formica', 1, 1),
+  jukebox: decor('jukebox', 'Máquina de discos', 1, 1),
+  neon_lamp: decor('neon_lamp', 'Lámpara de neón', 1, 1),
+  potted_cactus: decor('potted_cactus', 'Cactus en maceta', 1, 1),
+  road_sign: decor('road_sign', 'Señal de tráfico', 1, 1),
+  tire: decor('tire', 'Neumático', 1, 1),
+  vintage_fridge: decor('vintage_fridge', 'Nevera vintage', 1, 1),
 
   // Estructuras de la calle. Como todo mueble, en rotación 0 miran a +x; en la
   // calle se colocan con rotación 1 para que su fachada mire a la carretera (+y).
