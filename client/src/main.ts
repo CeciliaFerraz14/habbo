@@ -1,10 +1,13 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
 import {
   createInitialState,
+  DEFAULT_LOOK,
   GAME_NAME,
+  isValidLook,
   START_SCENE,
   START_TILE,
   type Avatar,
+  type AvatarLook,
   type GameState,
 } from '@juego/shared';
 import { centerCamera, followCamera, type Camera } from './engine/camera';
@@ -15,6 +18,7 @@ import { AvatarViews } from './game/avatarViews';
 import { GameController } from './game/controller';
 import { LocalTransport, type Transport } from './game/transport';
 import { WALL_HEIGHT } from './sprites/room';
+import { createAvatarEditor } from './ui/avatarEditor';
 import { createCatalogWindow } from './ui/catalogWindow';
 import { ChatBubbles } from './ui/chatBubbles';
 import { createChatHistory } from './ui/chatHistory';
@@ -53,6 +57,31 @@ uiRoot.append(logo, locationSign);
 
 // --- Estado inicial ----------------------------------------------------------
 
+/**
+ * El aspecto se recuerda en este navegador (localStorage) para no perderlo al
+ * recargar. Es solo una comodidad de la fase 1: en la fase 2 lo guardará el
+ * servidor. localStorage puede fallar (modo privado...), por eso el try/catch.
+ */
+const LOOK_STORAGE_KEY = 'pixel-springs:look';
+
+function loadLook(): AvatarLook {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null');
+    if (saved && isValidLook(saved)) return saved;
+  } catch {
+    // Sin acceso o datos corruptos: usamos el aspecto por defecto.
+  }
+  return DEFAULT_LOOK;
+}
+
+function saveLook(look: AvatarLook): void {
+  try {
+    localStorage.setItem(LOOK_STORAGE_KEY, JSON.stringify(look));
+  } catch {
+    // No pasa nada si no se puede guardar.
+  }
+}
+
 const player: Avatar = {
   id: PLAYER_ID,
   name: 'Tú',
@@ -60,7 +89,7 @@ const player: Avatar = {
   ...START_TILE,
   direction: 'SE',
   path: [],
-  look: { hair: '#5a3a1e', skin: '#f0c090', shirt: '#d94040', pants: '#3050a0' },
+  look: loadLook(),
   isBot: false,
   sitting: false,
 };
@@ -105,13 +134,18 @@ const furniPanel = createFurniPanel({
   onClose: () => controller.cancel(),
 });
 
+const avatarEditor = createAvatarEditor((look) => {
+  transport.dispatch({ type: 'SET_LOOK', avatarId: PLAYER_ID, look });
+  saveLook(look);
+});
+
 const chatHistory = createChatHistory();
 let bubbles: ChatBubbles | null = null;
 
 createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
   { label: 'Catálogo', onClick: () => catalog.toggle() },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
-  { label: 'Avatar', onClick: () => {}, disabled: true, hint: 'Próximamente' },
+  { label: 'Avatar', onClick: () => avatarEditor.win.toggle(), hint: 'Cambiar tu aspecto' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
 ]);
 
@@ -124,6 +158,8 @@ function refreshUi(): void {
   }
   locationSign.textContent = state.scenes[sceneId]?.name ?? '';
   inventory.update(state.inventories[PLAYER_ID] ?? []);
+  const me = state.avatars[PLAYER_ID];
+  if (me) avatarEditor.update(me.look);
   chatHistory.update(state.messages, sceneId);
   bubbles?.sync(state.messages, sceneId, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);

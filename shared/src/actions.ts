@@ -7,7 +7,7 @@
 // Sobre `avatarId`: en la fase 2 el servidor lo IGNORARÁ y usará el del
 // usuario conectado a ese socket, para que nadie pueda actuar en nombre de otro.
 import type { FurniId, Rotation } from './catalog';
-import type { Avatar } from './types';
+import type { Avatar, AvatarLook } from './types';
 
 export type Action =
   /** Un avatar entra en la sala. */
@@ -27,4 +27,6 @@ export type Action =
   /** Recoger un mueble de la sala: vuelve al inventario. */
   | { type: 'PICKUP_FURNI'; avatarId: string; itemId: string }
   /** Decir algo en el chat de la sala. */
-  | { type: 'SAY'; avatarId: string; text: string };
+  | { type: 'SAY'; avatarId: string; text: string }
+  /** Cambiar el aspecto (colores) del avatar. */
+  | { type: 'SET_LOOK'; avatarId: string; look: AvatarLook };

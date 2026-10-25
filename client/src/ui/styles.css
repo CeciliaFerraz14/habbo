@@ -367,6 +367,66 @@ body {
   font-size: 20px;
 }
 
+/* ---------- Editor de avatar ---------- */
+
+.look-editor {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.look-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* El lienzo mide 20x28 píxeles del juego; lo ampliamos x4 sin suavizar. */
+.avatar-preview {
+  width: 80px;
+  height: 112px;
+  image-rendering: pixelated;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  box-shadow: inset 2px 2px 0 #f3d9a8;
+}
+
+.look-parts {
+  flex: 1;
+  min-width: 0;
+}
+
+.look-label {
+  font-size: 18px;
+  line-height: 1;
+  margin: 4px 0 2px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Muestra de color: un cuadrado con borde oscuro; la elegida lleva un marco mostaza. */
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid var(--outline);
+  cursor: pointer;
+}
+
+.swatch:hover {
+  transform: translateY(-2px);
+}
+
+.swatch.selected {
+  outline: 3px solid var(--mustard);
+  outline-offset: 0;
+}
+
 /* ---------- Tarjetas de muebles ---------- */
 
 .grid {

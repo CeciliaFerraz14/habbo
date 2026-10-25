@@ -4,6 +4,7 @@ export * from './catalog';
 export * from './chat';
 export * from './constants';
 export * from './furniture';
+export * from './looks';
 export * from './movement';
 export * from './pathfinding';
 export * from './reducer';

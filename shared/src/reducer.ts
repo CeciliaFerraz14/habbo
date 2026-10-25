@@ -10,6 +10,7 @@ import type { Action } from './actions';
 import { CATALOG } from './catalog';
 import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
 import { canPlaceFurni } from './furniture';
+import { isValidLook } from './looks';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
 import { STARTER_INVENTORY } from './world';
@@ -101,6 +102,13 @@ export function applyAction(state: GameState, action: Action): GameState {
       ]);
       // Si alguien estaba sentado encima, updateSitting lo levanta.
       return updateSitting({ ...next, furniture });
+    }
+
+    case 'SET_LOOK': {
+      const avatar = state.avatars[action.avatarId];
+      // Solo se aceptan colores de la lista de LOOK_COLORS.
+      if (!avatar || !isValidLook(action.look)) return state;
+      return withAvatar(state, { ...avatar, look: { ...action.look } });
     }
 
     case 'SAY': {
