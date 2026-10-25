@@ -3,30 +3,81 @@
 // Es una función PURA: no modifica el estado que recibe (crea copias) y con
 // la misma entrada da siempre la misma salida. Esto facilita mucho depurar y
 // permite que cliente y servidor ejecuten exactamente la misma lógica.
+//
+// Si una acción no es válida (mueble que no existe, sitio ocupado...), se
+// devuelve el estado tal cual: la acción se ignora.
 import type { Action } from './actions';
-import { createWalkableCheck } from './furniture';
-import { findPath } from './pathfinding';
-import type { Avatar, GameState } from './types';
+import { CATALOG } from './catalog';
+import { canPlaceFurni } from './furniture';
+import { planPath, updateSitting } from './movement';
+import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'JOIN':
-      return withAvatar(state, action.avatar);
+      return updateSitting(withAvatar(state, action.avatar));
 
     case 'MOVE': {
       const avatar = state.avatars[action.avatarId];
       if (!avatar) return state;
-
-      const path = findPath(
-        { x: avatar.x, y: avatar.y },
-        { x: action.x, y: action.y },
-        state.room.width,
-        state.room.depth,
-        createWalkableCheck(state),
-      );
+      const path = planPath(state, avatar, { x: action.x, y: action.y });
       // Sin camino posible: ignoramos la acción.
       if (path === null) return state;
       return withAvatar(state, { ...avatar, path });
+    }
+
+    case 'BUY_FURNI': {
+      if (!CATALOG[action.defId]) return state;
+      const item: InventoryItem = { id: `i${state.nextId}`, defId: action.defId };
+      const inventory = state.inventories[action.avatarId] ?? [];
+      return {
+        ...withInventory(state, action.avatarId, [...inventory, item]),
+        nextId: state.nextId + 1,
+      };
+    }
+
+    case 'PLACE_FURNI': {
+      const inventory = state.inventories[action.avatarId] ?? [];
+      const item = inventory.find((i) => i.id === action.itemId);
+      if (!item) return state;
+      if (!canPlaceFurni(state, item.defId, action.x, action.y, action.rotation)) return state;
+
+      const placed: FurniItem = {
+        id: item.id,
+        defId: item.defId,
+        x: action.x,
+        y: action.y,
+        rotation: action.rotation,
+      };
+      const next = withInventory(
+        state,
+        action.avatarId,
+        inventory.filter((i) => i.id !== item.id),
+      );
+      return updateSitting(withFurni(next, placed));
+    }
+
+    case 'MOVE_FURNI': {
+      const item = state.furniture[action.itemId];
+      if (!item) return state;
+      if (!canPlaceFurni(state, item.defId, action.x, action.y, action.rotation, item.id)) {
+        return state;
+      }
+      const moved = { ...item, x: action.x, y: action.y, rotation: action.rotation };
+      return updateSitting(withFurni(state, moved));
+    }
+
+    case 'PICKUP_FURNI': {
+      const item = state.furniture[action.itemId];
+      if (!item) return state;
+      const { [item.id]: _removed, ...furniture } = state.furniture;
+      const inventory = state.inventories[action.avatarId] ?? [];
+      const next = withInventory(state, action.avatarId, [
+        ...inventory,
+        { id: item.id, defId: item.defId },
+      ]);
+      // Si alguien estaba sentado encima, updateSitting lo levanta.
+      return updateSitting({ ...next, furniture });
     }
   }
 }
@@ -34,4 +85,12 @@ export function applyAction(state: GameState, action: Action): GameState {
 /** Devuelve una copia del estado con el avatar añadido o reemplazado. */
 export function withAvatar(state: GameState, avatar: Avatar): GameState {
   return { ...state, avatars: { ...state.avatars, [avatar.id]: avatar } };
+}
+
+function withFurni(state: GameState, item: FurniItem): GameState {
+  return { ...state, furniture: { ...state.furniture, [item.id]: item } };
+}
+
+function withInventory(state: GameState, avatarId: string, items: InventoryItem[]): GameState {
+  return { ...state, inventories: { ...state.inventories, [avatarId]: items } };
 }

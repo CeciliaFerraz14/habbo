@@ -35,6 +35,14 @@ export interface Avatar {
   path: TilePoint[];
   look: AvatarLook;
   isBot: boolean;
+  /** ¿Está sentado? Se calcula solo: al terminar de caminar sobre un mueble sentable. */
+  sitting: boolean;
+}
+
+/** Un mueble guardado en el inventario (todavía sin colocar). */
+export interface InventoryItem {
+  id: string;
+  defId: FurniId;
 }
 
 /** Un mueble colocado en la sala. */
@@ -53,4 +61,11 @@ export interface GameState {
   room: Room;
   avatars: Record<string, Avatar>;
   furniture: Record<string, FurniItem>;
+  /** Inventario de cada usuario (clave: id del avatar). En la fase 2 irá a SQLite. */
+  inventories: Record<string, InventoryItem[]>;
+  /**
+   * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
+   * (en vez de usar Math.random) para que el reducer siga siendo puro.
+   */
+  nextId: number;
 }

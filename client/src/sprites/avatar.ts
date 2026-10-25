@@ -23,7 +23,6 @@ import { shade } from './color';
 import { bakePixelArt, type Palette } from './pixelArt';
 
 export const AVATAR_WIDTH = 16;
-export const AVATAR_HEIGHT = 24;
 
 // Cabeza de frente: los ojos están desplazados a la derecha para que se note
 // que mira hacia la derecha (SE).
@@ -96,10 +95,22 @@ const LEGS_STEP_B = [
   '...OOOOO........',
 ];
 
-const LEGS = [LEGS_STAND, LEGS_STEP_A, LEGS_STEP_B];
+// Sentado: los muslos van hacia delante, así que solo asoman los zapatos.
+// Este fotograma es 2 píxeles más bajo que los demás.
+const LEGS_SIT = [
+  '....OPPPPPPO....',
+  '...OPPPPPPPPO...',
+  '...OBBBOOBBBO...',
+  '...OOOOOOOOOO...',
+];
+
+const LEGS = [LEGS_STAND, LEGS_STEP_A, LEGS_STEP_B, LEGS_SIT];
 
 /** Índices de fotograma. */
 export const FRAME_STAND = 0;
+export const FRAME_SIT = 3;
+/** Fila del sprite donde están las caderas: es la que se apoya en el asiento. */
+export const HIP_ROW = 18;
 /** Secuencia de la animación de caminar: paso A, de pie, paso B, de pie... */
 export const WALK_CYCLE = [1, 0, 2, 0];
 

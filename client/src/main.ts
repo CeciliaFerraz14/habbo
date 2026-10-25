@@ -1,19 +1,17 @@
-// Punto de entrada del cliente.
-import {
-  createDefaultRoom,
-  GAME_NAME,
-  isInsideRoom,
-  type Avatar,
-  type FurniItem,
-  type GameState,
-} from '@juego/shared';
+// Punto de entrada del cliente: crea las piezas y las conecta entre sí.
+import { createDefaultRoom, GAME_NAME, type Avatar, type FurniItem, type GameState } from '@juego/shared';
 import { centerCamera, type Camera } from './engine/camera';
 import { attachInput } from './engine/input';
 import type { Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
+import { GameController } from './game/controller';
 import { LocalTransport, type Transport } from './game/transport';
 import { buildRoomSprites, WALL_HEIGHT } from './sprites/room';
+import { createCatalogWindow } from './ui/catalogWindow';
+import { createFurniPanel } from './ui/furniPanel';
+import { createHud } from './ui/hud';
+import { createInventoryWindow } from './ui/inventoryWindow';
 import './ui/styles.css';
 
 /**
@@ -28,9 +26,10 @@ const PLAYER_ID = 'player';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = canvas.getContext('2d')!;
-const debug = document.querySelector<HTMLDivElement>('#debug')!;
 
 document.title = GAME_NAME;
+
+// --- Estado inicial ----------------------------------------------------------
 
 const player: Avatar = {
   id: PLAYER_ID,
@@ -41,9 +40,10 @@ const player: Avatar = {
   path: [],
   look: { hair: '#5a3a1e', skin: '#f0c090', shirt: '#d94040', pants: '#3050a0' },
   isBot: false,
+  sitting: false,
 };
 
-// Muebles de prueba. En el paso 4 se colocarán desde el catálogo.
+// Muebles con los que empieza la sala.
 const initialFurniture: FurniItem[] = [
   { id: 'f1', defId: 'lamp', x: 0, y: 0, rotation: 0 },
   { id: 'f2', defId: 'shelf', x: 2, y: 0, rotation: 1 },
@@ -60,21 +60,71 @@ const initialState: GameState = {
   room: createDefaultRoom(),
   avatars: {},
   furniture: Object.fromEntries(initialFurniture.map((f) => [f.id, f])),
+  inventories: {},
+  nextId: 100,
 };
+
+// --- Piezas del juego ---------------------------------------------------------
+
 const transport: Transport = new LocalTransport(initialState);
 transport.dispatch({ type: 'JOIN', avatar: player });
 
-// Copia local del último estado recibido. El renderer lee de aquí.
+// Copia local del último estado recibido. El renderer y la interfaz leen de aquí.
 let state = initialState;
-transport.subscribe((next) => {
-  state = next;
-});
 
 const renderer = new Renderer(ctx, buildRoomSprites());
 const views = new AvatarViews();
+const controller = new GameController(
+  transport,
+  PLAYER_ID,
+  () => state,
+  (p) => renderer.pickFurniAt(p.x, p.y),
+);
 
 let camera: Camera = { originX: 0, originY: 0 };
 let hoverTile: Point | null = null;
+
+// --- Interfaz -----------------------------------------------------------------
+
+const catalog = createCatalogWindow((defId) => controller.buy(defId));
+const inventory = createInventoryWindow((itemId) => controller.startPlacing(itemId));
+const furniPanel = createFurniPanel({
+  onMove: () => controller.startMovingSelected(),
+  onRotate: () => controller.rotate(),
+  onPickUp: () => controller.pickUpSelected(),
+  onClose: () => controller.cancel(),
+});
+
+createHud([
+  { label: 'Catálogo', onClick: () => catalog.toggle() },
+  { label: 'Inventario', onClick: () => inventory.win.toggle() },
+  { label: 'Avatar', onClick: () => {}, disabled: true, hint: 'Próximamente (paso 7)' },
+  { label: 'Chat', onClick: () => {}, disabled: true, hint: 'Próximamente (paso 5)' },
+]);
+
+/** Refleja en la interfaz el estado del juego y la selección actual. */
+function refreshUi(): void {
+  inventory.update(state.inventories[PLAYER_ID] ?? []);
+  furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);
+  canvas.style.cursor = controller.isPlacing ? 'crosshair' : '';
+}
+
+transport.subscribe((next) => {
+  state = next;
+  controller.syncWithState(state);
+  refreshUi();
+});
+controller.onChange(refreshUi);
+
+// --- Entrada y bucle principal ---------------------------------------------
+
+attachInput(canvas, () => camera, {
+  onHover: (pointer) => {
+    hoverTile = pointer?.tile ?? null;
+  },
+  onClick: (pointer) => controller.handleClick(pointer),
+  onRightClick: () => controller.handleRightClick(),
+});
 
 /** Ajusta la resolución interna del canvas al tamaño de la ventana y recentra la sala. */
 function resize(): void {
@@ -85,23 +135,6 @@ function resize(): void {
   camera = centerCamera(state.room, canvas.width, canvas.height, WALL_HEIGHT);
 }
 
-function updateDebug(): void {
-  const inside = hoverTile && isInsideRoom(state.room, hoverTile.x, hoverTile.y);
-  debug.textContent = `Ratón: ${inside ? `(${hoverTile!.x}, ${hoverTile!.y})` : '-'}`;
-}
-
-attachInput(canvas, () => camera, {
-  onHover: (tile) => {
-    hoverTile = tile;
-    updateDebug();
-  },
-  // Al hacer clic no movemos el avatar: pedimos moverlo con una acción.
-  onClick: (tile) => {
-    if (!isInsideRoom(state.room, tile.x, tile.y)) return;
-    transport.dispatch({ type: 'MOVE', avatarId: PLAYER_ID, x: tile.x, y: tile.y });
-  },
-});
-
 /** Bucle principal: se ejecuta en cada fotograma (normalmente 60 veces por segundo). */
 let lastTime = performance.now();
 function frame(now: number): void {
@@ -110,11 +143,19 @@ function frame(now: number): void {
   lastTime = now;
 
   views.update(state, dt);
-  renderer.render({ state, views, camera, hoverTile, now });
+  renderer.render({
+    state,
+    views,
+    camera,
+    hoverTile,
+    selectedId: controller.selected,
+    ghost: controller.getGhost(hoverTile),
+    now,
+  });
   requestAnimationFrame(frame);
 }
 
 window.addEventListener('resize', resize);
 resize();
-updateDebug();
+refreshUi();
 requestAnimationFrame(frame);

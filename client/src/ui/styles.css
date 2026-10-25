@@ -4,9 +4,12 @@
   --bg: #1b1b2f;
   --panel: #2e2e4f;
   --panel-light: #4a4a7a;
+  --panel-dark: #1e1e38;
   --border: #0d0d1a;
   --text: #f4f4e8;
+  --muted: #b8b8d0;
   --accent: #ffcc33;
+  --accent-dark: #c89a10;
   --font-title: 'Press Start 2P', monospace;
   --font-text: 'VT323', monospace;
 }
@@ -36,7 +39,8 @@ body {
   image-rendering: crisp-edges;
 }
 
-/* Capa de interfaz HTML por encima del canvas. */
+/* Capa de interfaz HTML por encima del canvas. Solo sus hijos capturan el ratón,
+   para que los clics en zonas vacías lleguen al juego. */
 #ui {
   position: fixed;
   inset: 0;
@@ -47,15 +51,178 @@ body {
   pointer-events: auto;
 }
 
-/* Panel de depuración: muestra la baldosa bajo el ratón y la última clicada. */
-#debug {
+/* ---------- Botones ---------- */
+
+/* Bisel pixel: sombras interiores sin difuminar (luz arriba-izquierda, sombra abajo-derecha). */
+.btn {
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--border);
+  background: var(--accent);
+  border: 2px solid var(--border);
+  box-shadow:
+    inset -2px -2px 0 var(--accent-dark),
+    inset 2px 2px 0 #ffe88a;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Al pulsar, el botón "se hunde" 2 píxeles. */
+.btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 var(--accent-dark);
+}
+
+.btn:disabled {
+  background: var(--panel-light);
+  box-shadow: none;
+  color: var(--panel-dark);
+  cursor: not-allowed;
+}
+
+.btn-small {
+  font-size: 8px;
+  padding: 6px 8px;
+}
+
+/* ---------- Barra inferior ---------- */
+
+#hud {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  padding: 4px 8px;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px;
   background: var(--panel);
   border: 2px solid var(--border);
+  box-shadow:
+    inset 2px 2px 0 var(--panel-light),
+    inset -2px -2px 0 var(--panel-dark),
+    4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Ventanas ---------- */
+
+.win {
+  position: absolute;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  box-shadow:
+    inset 2px 2px 0 var(--panel-light),
+    inset -2px -2px 0 var(--panel-dark),
+    4px 4px 0 rgba(0, 0, 0, 0.4);
+  max-width: calc(100vw - 16px);
+}
+
+.win[hidden] {
+  display: none;
+}
+
+.win-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  background: var(--accent);
+  color: var(--border);
+  border-bottom: 2px solid var(--border);
+  font-family: var(--font-title);
+  font-size: 10px;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.win-close {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text);
+  background: #c83c3c;
+  border: 2px solid var(--border);
+  cursor: pointer;
+}
+
+.win-body {
+  padding: 10px;
   font-size: 20px;
-  white-space: pre;
-  pointer-events: none;
+}
+
+/* ---------- Tarjetas de muebles ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: var(--panel-dark);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-text);
+}
+
+.card-button {
+  cursor: pointer;
+}
+
+.card-button:hover {
+  border-color: var(--accent);
+}
+
+.card .icon {
+  height: 48px;
+  max-width: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.card-name {
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 4px;
+  background: var(--accent);
+  color: var(--border);
+  font-size: 16px;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.hint:empty {
+  display: none;
 }

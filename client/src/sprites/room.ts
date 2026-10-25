@@ -29,6 +29,9 @@ const C = {
   wallCap: '#b8d8f4',
   baseboard: '#2e4a6e',
   hover: '#ffcc33',
+  selected: '#5ce1e6',
+  valid: '#6be36b',
+  invalid: '#ff5050',
 };
 
 /**
@@ -64,14 +67,14 @@ function floorTile(fill: string): Sprite {
   });
 }
 
-/** Contorno amarillo que marca la baldosa bajo el ratón. */
-function hoverTile(): Sprite {
+/** Contorno de color sobre una baldosa (ratón encima, selección, colocar mueble...). */
+function outlineTile(color: string): Sprite {
   return createSprite(TILE_WIDTH, TILE_HEIGHT, (px) => {
     for (let row = 0; row < TILE_HEIGHT; row++) {
       const [x0, x1] = diamondRow(row);
       for (let x = x0; x <= x1; x++) {
         const isEdge = x <= x0 + 1 || x >= x1 - 1 || row === 0 || row === TILE_HEIGHT - 1;
-        if (isEdge) px(x, row, C.hover);
+        if (isEdge) px(x, row, color);
       }
     }
   });
@@ -141,6 +144,9 @@ export interface RoomSprites {
   floorA: Sprite;
   floorB: Sprite;
   hover: Sprite;
+  selected: Sprite;
+  valid: Sprite;
+  invalid: Sprite;
   sideLeft: Sprite;
   sideRight: Sprite;
   wallLeft: Sprite;
@@ -153,7 +159,10 @@ export function buildRoomSprites(): RoomSprites {
   return {
     floorA: floorTile(C.floorA),
     floorB: floorTile(C.floorB),
-    hover: hoverTile(),
+    hover: outlineTile(C.hover),
+    selected: outlineTile(C.selected),
+    valid: outlineTile(C.valid),
+    invalid: outlineTile(C.invalid),
     sideLeft: floorSide('left'),
     sideRight: floorSide('right'),
     wallLeft: wallSegment('left', false),

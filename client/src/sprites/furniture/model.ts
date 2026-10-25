@@ -19,6 +19,12 @@ export interface Box {
   y1: number;
   z1: number;
   color: string;
+  /**
+   * Marca el respaldo de un asiento. Si el asiento mira hacia el fondo
+   * (rotaciones 2 y 3), el respaldo queda entre la cámara y el avatar sentado,
+   * así que el renderer lo vuelve a dibujar ENCIMA del avatar.
+   */
+  backrest?: boolean;
 }
 
 /**
@@ -36,6 +42,8 @@ export interface Decal {
 export interface FurniModel {
   boxes: Box[];
   decals?: Decal[];
+  /** Solo muebles sentables: altura en píxeles del asiento, donde se apoya el avatar. */
+  seatHeight?: number;
 }
 
 /** Atajo para crear una caja. x e y en dieciseisavos de baldosa, z en píxeles. */
@@ -49,4 +57,9 @@ export function box(
   color: string,
 ): Box {
   return { x0: x0 / 16, y0: y0 / 16, z0, x1: x1 / 16, y1: y1 / 16, z1, color };
+}
+
+/** Como box(), pero marcada como respaldo. */
+export function backrest(...args: Parameters<typeof box>): Box {
+  return { ...box(...args), backrest: true };
 }

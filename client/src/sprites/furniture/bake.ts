@@ -94,13 +94,16 @@ function visibleFaces(b: Box): { poly: Point[]; color: string }[] {
   ];
 }
 
-function bake(defId: FurniId, rotation: Rotation): FurniSprite {
+/** Qué parte del mueble hornear: entero, o solo el respaldo (ver Box.backrest). */
+export type FurniPart = 'all' | 'backrest';
+
+function bake(defId: FurniId, rotation: Rotation, part: FurniPart): FurniSprite {
   const def = CATALOG[defId];
   const model = MODELS[defId];
 
   // 1. Girar cajas y calcomanías tantas veces como indique la rotación.
-  let boxes = model.boxes;
-  let decals: Decal[] = model.decals ?? [];
+  let boxes = part === 'backrest' ? model.boxes.filter((b) => b.backrest) : model.boxes;
+  let decals: Decal[] = part === 'backrest' ? [] : (model.decals ?? []);
   let depth = def.depth;
   let width = def.width;
   for (let r = 0; r < rotation; r++) {
@@ -206,11 +209,15 @@ function bake(defId: FurniId, rotation: Rotation): FurniSprite {
 const cache = new Map<string, FurniSprite>();
 
 /** Sprite de un mueble en una rotación. Se hornea la primera vez y se reutiliza. */
-export function getFurniSprite(defId: FurniId, rotation: Rotation): FurniSprite {
-  const key = `${defId}:${rotation}`;
+export function getFurniSprite(
+  defId: FurniId,
+  rotation: Rotation,
+  part: FurniPart = 'all',
+): FurniSprite {
+  const key = `${defId}:${rotation}:${part}`;
   let result = cache.get(key);
   if (!result) {
-    result = bake(defId, rotation);
+    result = bake(defId, rotation, part);
     cache.set(key, result);
   }
   return result;

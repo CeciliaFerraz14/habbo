@@ -3,6 +3,7 @@ export * from './actions';
 export * from './catalog';
 export * from './constants';
 export * from './furniture';
+export * from './movement';
 export * from './pathfinding';
 export * from './reducer';
 export * from './room';
