@@ -8,9 +8,10 @@
 // devuelve el estado tal cual: la acción se ignora.
 import type { Action } from './actions';
 import { CATALOG } from './catalog';
+import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
 import { canPlaceFurni } from './furniture';
 import { planPath, updateSitting } from './movement';
-import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
+import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -78,6 +79,24 @@ export function applyAction(state: GameState, action: Action): GameState {
       ]);
       // Si alguien estaba sentado encima, updateSitting lo levanta.
       return updateSitting({ ...next, furniture });
+    }
+
+    case 'SAY': {
+      const avatar = state.avatars[action.avatarId];
+      const text = sanitizeMessage(action.text);
+      if (!avatar || text === '') return state;
+      const message: ChatMessage = {
+        id: `m${state.nextId}`,
+        avatarId: avatar.id,
+        name: avatar.name,
+        text,
+      };
+      // Añadimos al final y nos quedamos solo con los últimos MAX_CHAT_HISTORY.
+      return {
+        ...state,
+        messages: [...state.messages, message].slice(-MAX_CHAT_HISTORY),
+        nextId: state.nextId + 1,
+      };
     }
   }
 }

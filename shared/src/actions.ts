@@ -25,4 +25,6 @@ export type Action =
   /** Mover y/o girar un mueble que ya está en la sala. */
   | { type: 'MOVE_FURNI'; avatarId: string; itemId: string; x: number; y: number; rotation: Rotation }
   /** Recoger un mueble de la sala: vuelve al inventario. */
-  | { type: 'PICKUP_FURNI'; avatarId: string; itemId: string };
+  | { type: 'PICKUP_FURNI'; avatarId: string; itemId: string }
+  /** Decir algo en el chat de la sala. */
+  | { type: 'SAY'; avatarId: string; text: string };

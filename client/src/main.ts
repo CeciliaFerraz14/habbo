@@ -9,6 +9,8 @@ import { GameController } from './game/controller';
 import { LocalTransport, type Transport } from './game/transport';
 import { buildRoomSprites, WALL_HEIGHT } from './sprites/room';
 import { createCatalogWindow } from './ui/catalogWindow';
+import { ChatBubbles } from './ui/chatBubbles';
+import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
 import { createInventoryWindow } from './ui/inventoryWindow';
@@ -61,6 +63,7 @@ const initialState: GameState = {
   avatars: {},
   furniture: Object.fromEntries(initialFurniture.map((f) => [f.id, f])),
   inventories: {},
+  messages: [],
   nextId: 100,
 };
 
@@ -95,16 +98,21 @@ const furniPanel = createFurniPanel({
   onClose: () => controller.cancel(),
 });
 
-createHud([
+const chatHistory = createChatHistory();
+const bubbles = new ChatBubbles(state.messages);
+
+createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
   { label: 'Catálogo', onClick: () => catalog.toggle() },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
   { label: 'Avatar', onClick: () => {}, disabled: true, hint: 'Próximamente (paso 7)' },
-  { label: 'Chat', onClick: () => {}, disabled: true, hint: 'Próximamente (paso 5)' },
+  { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
 ]);
 
 /** Refleja en la interfaz el estado del juego y la selección actual. */
 function refreshUi(): void {
   inventory.update(state.inventories[PLAYER_ID] ?? []);
+  chatHistory.update(state.messages);
+  bubbles.sync(state.messages, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);
   canvas.style.cursor = controller.isPlacing ? 'crosshair' : '';
 }
@@ -152,7 +160,14 @@ function frame(now: number): void {
     ghost: controller.getGhost(hoverTile),
     now,
   });
+  bubbles.update(state, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
+}
+
+/** Convierte un punto del canvas (resolución reducida) a píxeles de la pantalla. */
+function canvasToScreen(p: Point): Point {
+  const scale = canvas.clientWidth / canvas.width;
+  return { x: p.x * scale, y: p.y * scale };
 }
 
 window.addEventListener('resize', resize);

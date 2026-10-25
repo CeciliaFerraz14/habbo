@@ -123,6 +123,24 @@ export class Renderer {
     return null;
   }
 
+  /**
+   * Punto del canvas justo encima de la cabeza de un avatar (para los bocadillos).
+   * Usa las mismas cuentas que drawAvatar(): de pie, los pies están 2 px por
+   * debajo del centro de la baldosa; sentado, las caderas están a la altura del asiento.
+   */
+  avatarHeadPosition(state: GameState, avatar: Avatar, view: AvatarView, camera: Camera): Point {
+    const p = tileToScreen(view.x, view.y);
+    const centerX = camera.originX + p.x;
+    const centerY = camera.originY + p.y + HALF_H;
+    if (avatar.sitting) {
+      const seat = getSeatAt(state, avatar.x, avatar.y);
+      const seatHeight = (seat && MODELS[seat.defId].seatHeight) ?? 0;
+      return { x: centerX, y: centerY - seatHeight - HIP_ROW };
+    }
+    const standHeight = getAvatarFrames(avatar.look)[avatar.direction][FRAME_STAND].height;
+    return { x: centerX, y: centerY + 2 - standHeight };
+  }
+
   /** Lee (una sola vez por sprite) los píxeles del sprite para consultar su transparencia. */
   private getAlpha(sprite: Sprite): Uint8ClampedArray {
     let data = this.alphaCache.get(sprite);

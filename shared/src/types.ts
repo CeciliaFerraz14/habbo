@@ -39,6 +39,15 @@ export interface Avatar {
   sitting: boolean;
 }
 
+/** Un mensaje del chat de la sala. */
+export interface ChatMessage {
+  id: string;
+  avatarId: string;
+  /** Guardamos el nombre por si el avatar se va de la sala y queda en el historial. */
+  name: string;
+  text: string;
+}
+
 /** Un mueble guardado en el inventario (todavía sin colocar). */
 export interface InventoryItem {
   id: string;
@@ -63,6 +72,8 @@ export interface GameState {
   furniture: Record<string, FurniItem>;
   /** Inventario de cada usuario (clave: id del avatar). En la fase 2 irá a SQLite. */
   inventories: Record<string, InventoryItem[]>;
+  /** Últimos mensajes del chat, del más antiguo al más reciente. */
+  messages: ChatMessage[];
   /**
    * Contador para generar ids de muebles nuevos. Lo guardamos en el estado
    * (en vez de usar Math.random) para que el reducer siga siendo puro.

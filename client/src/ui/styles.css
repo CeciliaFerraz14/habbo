@@ -107,6 +107,88 @@ body {
     4px 4px 0 rgba(0, 0, 0, 0.4);
 }
 
+/* ---------- Chat ---------- */
+
+.chat-form {
+  display: flex;
+}
+
+.chat-input {
+  width: 280px;
+  max-width: 40vw;
+  padding: 4px 8px;
+  font-family: var(--font-text);
+  font-size: 20px;
+  color: var(--border);
+  background: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: inset 2px 2px 0 #c8c8b8;
+  outline: none;
+}
+
+.chat-input:focus {
+  border-color: var(--accent);
+}
+
+.chat-log {
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.1;
+}
+
+/* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
+#ui > .bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Bocadillo pixel: borde duro, sombra sin difuminar y "piquito" escalonado. */
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 260px;
+  padding: 2px 8px;
+  background: #ffffff;
+  color: var(--border);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  font-family: var(--font-text);
+  font-size: 20px;
+  line-height: 1;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/*
+  El piquito, dibujado con la técnica de "pixel art en CSS": un bloque de 2x2 px
+  y varias box-shadow sin difuminar, cada una es otro "píxel" desplazado.
+  Empieza encima del borde inferior (top: 100%) para abrir un hueco en él.
+
+        fila 0:    . W W .      (hueco blanco en el borde)
+        fila 1:    D W W D
+        fila 2:    . D D .
+*/
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 2px;
+  background: #ffffff;
+  box-shadow:
+    -2px 0 0 #ffffff,
+    -4px 2px 0 var(--border),
+    -2px 2px 0 #ffffff,
+    0 2px 0 #ffffff,
+    2px 2px 0 var(--border),
+    -2px 4px 0 var(--border),
+    0 4px 0 var(--border);
+}
+
 /* ---------- Ventanas ---------- */
 
 .win {
