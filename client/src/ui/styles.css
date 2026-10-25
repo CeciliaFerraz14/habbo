@@ -737,3 +737,37 @@ body {
   height: 20px;
   border: 2px solid var(--outline);
 }
+
+/* ---------- Pantalla de login ---------- */
+
+.login {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  z-index: 100;
+}
+
+.login label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.login label[hidden] {
+  display: none;
+}
+
+.login input {
+  padding: 4px 8px;
+  font-family: var(--font-text);
+  font-size: 16px;
+  background: #fffaf0;
+  border: 2px solid var(--outline);
+}
+
+.login-intro {
+  margin: 0 0 10px;
+}

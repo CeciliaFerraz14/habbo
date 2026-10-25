@@ -3,3 +3,8 @@ dist/
 *.log
 .DS_Store
 *.sqlite
+
+# Secretos y configuración local (nunca al repositorio)
+.env
+.env.local
+.env.*.local

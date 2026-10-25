@@ -14,6 +14,7 @@ import { attachInput } from './engine/input';
 import { tileToScreen, type Point } from './engine/iso';
 import { Renderer } from './engine/renderer';
 import { AvatarViews } from './game/avatarViews';
+import { signOut, supabase } from './game/auth';
 import { connect, type Connection } from './game/connection';
 import { GameController } from './game/controller';
 import { DoorStates } from './game/doorStates';
@@ -100,9 +101,18 @@ let connection: Connection;
 try {
   connection = await connect(loadLook());
 } catch (error) {
-  locationSign.textContent = 'No se puede conectar con el servidor';
+  // Si la sesión guardada ya no vale, la borramos para que salga el login.
+  if ((error as Error).message === 'Sesión no válida') {
+    await signOut();
+    location.reload();
+  }
+  locationSign.textContent = `No se puede conectar: ${(error as Error).message}`;
   throw error;
 }
+window.addEventListener('game-kicked', (e) => {
+  showToast((e as CustomEvent<string>).detail);
+  locationSign.textContent = 'Desconectado';
+});
 const { transport } = connection;
 /** Id del avatar que controla este jugador (en multijugador lo asigna el servidor). */
 const PLAYER_ID = connection.playerId;
@@ -227,6 +237,10 @@ createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text 
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
   { label: 'Avatar', onClick: () => avatarEditor.win.toggle(), hint: 'Cambiar tu aspecto' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
+  // Con cuenta de Supabase, botón para cerrar sesión.
+  ...(supabase && connection.online
+    ? [{ label: 'Salir', onClick: () => void signOut().then(() => location.reload()), hint: 'Cerrar sesión' }]
+    : []),
 ]);
 
 /** Refleja en la interfaz el estado del juego y la selección actual. */

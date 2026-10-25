@@ -10,7 +10,9 @@ import {
   type Avatar,
   type AvatarLook,
 } from '@juego/shared';
+import { currentToken, supabase } from './auth';
 import { SocketTransport } from './socketTransport';
+import { showLoginScreen } from '../ui/loginScreen';
 import { LocalTransport, type Transport } from './transport';
 
 export interface Connection {
@@ -24,7 +26,9 @@ export async function connect(look: AvatarLook): Promise<Connection> {
   const serverUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
 
   if (serverUrl) {
-    const { transport, playerId } = await SocketTransport.connect(serverUrl, { look });
+    // Con Supabase configurado hace falta sesión: la guardada o la del login.
+    const token = supabase ? ((await currentToken()) ?? (await showLoginScreen())) : undefined;
+    const { transport, playerId } = await SocketTransport.connect(serverUrl, { look, token });
     return { transport, playerId, online: true };
   }
 

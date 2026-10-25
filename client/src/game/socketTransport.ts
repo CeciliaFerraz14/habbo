@@ -52,6 +52,10 @@ export class SocketTransport implements Transport {
       socket.on('connect_error', (error) => {
         if (!welcomed) reject(error);
       });
+      // El servidor nos echa si entramos con la misma cuenta desde otro sitio.
+      socket.on('kicked', (reason: string) => {
+        window.dispatchEvent(new CustomEvent('game-kicked', { detail: reason }));
+      });
     });
   }
 

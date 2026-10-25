@@ -51,6 +51,8 @@ export class GameServer {
   private state: GameState = createInitialState();
   /** Último estado enviado a los clientes (para calcular el parche). */
   private sent: GameState = this.state;
+  /** Socket activo de cada jugador (para echar la sesión vieja si entra dos veces). */
+  private readonly sockets = new Map<string, Socket>();
 
   constructor(private readonly io: Server) {
     setInterval(() => {
@@ -64,6 +66,14 @@ export class GameServer {
    * y a partir de ahí escuchamos sus acciones.
    */
   connect(socket: Socket, avatar: Avatar): void {
+    // Si el mismo usuario ya estaba conectado (otra pestaña), cerramos aquella.
+    const previous = this.sockets.get(avatar.id);
+    this.sockets.set(avatar.id, socket);
+    if (previous) {
+      previous.emit('kicked', 'Has entrado desde otro sitio.');
+      previous.disconnect(true);
+    }
+
     // Antes de que entre, mandamos a todos lo pendiente: así el estado
     // completo que recibe el nuevo coincide con el "último enviado".
     this.broadcast();
@@ -74,6 +84,10 @@ export class GameServer {
 
     socket.on('action', (raw: unknown) => this.handleAction(avatar.id, raw));
     socket.on('disconnect', () => {
+      // Si este socket ya fue sustituido por otro del mismo jugador, el avatar
+      // sigue en el mundo con la conexión nueva: no lo quitamos.
+      if (this.sockets.get(avatar.id) !== socket) return;
+      this.sockets.delete(avatar.id);
       this.state = applyAction(this.state, { type: 'LEAVE', avatarId: avatar.id });
       console.log(`- ${avatar.name} (${avatar.id}) · ${this.playerCount()} conectados`);
     });

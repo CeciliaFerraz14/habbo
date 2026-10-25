@@ -1,7 +1,4 @@
 // Punto de entrada del servidor: HTTP + Socket.IO.
-//
-// De momento los jugadores entran como INVITADOS (sin cuenta). En el paso
-// F2-3 el login pasará a hacerse con Supabase Auth.
 import {
   DEFAULT_LOOK,
   isValidLook,
@@ -12,6 +9,7 @@ import {
 } from '@juego/shared';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
+import { identify, supabase, type PlayerIdentity } from './auth';
 import { GameServer } from './gameServer';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -25,18 +23,31 @@ const http = createServer((_req, res) => {
 const io = new Server(http, { cors: { origin: CLIENT_ORIGIN } });
 const game = new GameServer(io);
 
-let guestCounter = 0;
+/**
+ * "Middleware" de Socket.IO: se ejecuta ANTES de aceptar la conexión. Si el
+ * jugador no se identifica bien, se rechaza y nunca llega a entrar al mundo.
+ */
+io.use(async (socket, next) => {
+  try {
+    const identity = await identify(socket.handshake.auth?.token);
+    if (!identity) return next(new Error('Sesión no válida'));
+    socket.data.identity = identity;
+    next();
+  } catch (error) {
+    console.error('Error al identificar:', error);
+    next(new Error('No se pudo verificar la sesión'));
+  }
+});
 
 io.on('connection', (socket) => {
-  // El cliente puede proponer su aspecto (lo guarda en su navegador), pero lo
-  // validamos: solo se aceptan colores de la lista permitida.
+  const { id, name } = socket.data.identity as PlayerIdentity;
+  // El cliente propone su aspecto, pero solo aceptamos colores permitidos.
   const proposed = socket.handshake.auth?.look as AvatarLook | undefined;
   const look = proposed && isValidLook(proposed) ? proposed : DEFAULT_LOOK;
 
-  guestCounter++;
   const avatar: Avatar = {
-    id: `guest-${guestCounter}`,
-    name: `Invitado ${guestCounter}`,
+    id,
+    name,
     sceneId: START_SCENE,
     ...START_TILE,
     direction: 'SE',
@@ -51,4 +62,5 @@ io.on('connection', (socket) => {
 http.listen(PORT, () => {
   console.log(`Pixel Springs escuchando en http://localhost:${PORT}`);
   console.log(`Se aceptan clientes de ${CLIENT_ORIGIN}`);
+  console.log(supabase ? 'Login: Supabase Auth' : 'Login: invitados (Supabase no configurado)');
 });
