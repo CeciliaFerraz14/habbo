@@ -1,9 +1,10 @@
-// Pantalla de login: un letrero centrado con dos modos, "Entrar" y "Crear cuenta".
-// Devuelve una promesa que se resuelve con el token de la sesión.
+// Pantalla de login: un letrero con dos modos, "Entrar" y "Crear cuenta".
+// Se monta en `parent` (la pantalla de carga, debajo del logo) y devuelve una
+// promesa que se resuelve con el token de la sesión.
 import { GAME_NAME } from '@juego/shared';
 import { signIn, signUp } from '../game/auth';
 
-export function showLoginScreen(): Promise<string> {
+export function showLoginScreen(parent: HTMLElement): Promise<string> {
   return new Promise((resolve) => {
     const panel = document.createElement('form');
     panel.className = 'win login';
@@ -20,7 +21,7 @@ export function showLoginScreen(): Promise<string> {
           <button class="btn btn-small login-switch" type="button"></button>
         </div>
       </div>`;
-    document.querySelector('#ui')!.append(panel);
+    parent.append(panel);
 
     const q = <T extends Element>(sel: string) => panel.querySelector<T>(sel)!;
     const title = q<HTMLSpanElement>('.win-title span');

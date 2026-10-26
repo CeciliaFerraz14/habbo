@@ -33,7 +33,7 @@ import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
 import { createSupplierWindow } from './ui/supplierWindow';
 import { showToast } from './ui/toast';
-import './ui/styles.css';
+import logoUrl from './assets/pixel-springs-logo.png';
 
 /**
  * Zoom = escala de píxel: cada píxel "lógico" del juego ocupa scale x scale
@@ -55,10 +55,16 @@ const uiRoot = document.querySelector<HTMLDivElement>('#ui')!;
 
 document.title = GAME_NAME;
 
-// Letrero con el nombre del juego y, debajo, el nombre del sitio donde estás.
-const logo = document.createElement('div');
+// Pantalla de carga (está en index.html): aquí solo escribimos el estado.
+const splash = document.querySelector<HTMLDivElement>('#splash')!;
+const splashContent = splash.querySelector<HTMLDivElement>('.splash-content')!;
+const splashStatus = splash.querySelector<HTMLParagraphElement>('.splash-status')!;
+
+// Logo del juego y, debajo, el nombre del sitio donde estás.
+const logo = document.createElement('img');
 logo.id = 'logo';
-logo.textContent = GAME_NAME.toUpperCase();
+logo.src = logoUrl;
+logo.alt = GAME_NAME;
 const locationSign = document.createElement('div');
 locationSign.id = 'location';
 uiRoot.append(logo, locationSign);
@@ -98,15 +104,16 @@ function saveLook(look: AvatarLook): void {
  * alto del módulo: el resto del juego no arranca hasta tener conexión.
  */
 let connection: Connection;
+splashStatus.textContent = 'Conectando…';
 try {
-  connection = await connect(loadLook());
+  connection = await connect(loadLook(), splashContent);
 } catch (error) {
   // Si la sesión guardada ya no vale, la borramos para que salga el login.
   if ((error as Error).message === 'Sesión no válida') {
     await signOut();
     location.reload();
   }
-  locationSign.textContent = `No se puede conectar: ${(error as Error).message}`;
+  splashStatus.textContent = `No se puede conectar: ${(error as Error).message}`;
   throw error;
 }
 window.addEventListener('game-kicked', (e) => {
@@ -444,3 +451,5 @@ window.addEventListener('resize', resize);
 resize();
 refreshUi();
 requestAnimationFrame(frame);
+// Ya hay estado y bucle de dibujo: fuera la pantalla de carga.
+splash.remove();

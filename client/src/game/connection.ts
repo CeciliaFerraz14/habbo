@@ -22,12 +22,15 @@ export interface Connection {
   online: boolean;
 }
 
-export async function connect(look: AvatarLook): Promise<Connection> {
+/** @param loginParent dónde montar el login si hace falta (la pantalla de carga). */
+export async function connect(look: AvatarLook, loginParent: HTMLElement): Promise<Connection> {
   const serverUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
 
   if (serverUrl) {
     // Con Supabase configurado hace falta sesión: la guardada o la del login.
-    const token = supabase ? ((await currentToken()) ?? (await showLoginScreen())) : undefined;
+    const token = supabase
+      ? ((await currentToken()) ?? (await showLoginScreen(loginParent)))
+      : undefined;
     const { transport, playerId } = await SocketTransport.connect(serverUrl, { look, token });
     return { transport, playerId, online: true };
   }

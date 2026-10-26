@@ -10,10 +10,21 @@
       href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Press+Start+2P&family=VT323&display=swap"
       rel="stylesheet"
     />
+    <!-- Enlazado aquí (no importado desde main.ts) para que la pantalla de carga
+         tenga estilo desde el primer instante, antes de que se ejecute el JS. -->
+    <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
   <body>
     <canvas id="game"></canvas>
     <div id="ui"></div>
+    <!-- Pantalla de carga: se ve mientras se generan los sprites y se conecta.
+         main.ts escribe el estado, monta el login dentro y la quita al terminar. -->
+    <div id="splash">
+      <img class="splash-logo" src="/src/assets/pixel-springs-logo.png" alt="Pixel Springs" />
+      <div class="splash-content">
+        <p class="splash-status">Cargando…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
