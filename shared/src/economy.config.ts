@@ -224,7 +224,7 @@ export const ECONOMY = {
    * Si no tienes dinero para pagarlo, pierdes el local.
    */
   rent: {
-    periodSeconds: 120,
+    periodSeconds: 24 * 60 * 60, // una vez al día
   },
 
   /**

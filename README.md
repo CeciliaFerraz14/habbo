@@ -45,7 +45,7 @@ Abre http://localhost:5173
    muestra el icono del negocio para que se sepa desde la calle qué es cada local.
 4. Los **viajeros** paran con sus coches, entran en las tiendas abiertas y compran
    si el precio les parece bien. Tu tienda vende aunque no estés.
-5. Cada 2 minutos se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
+5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
 6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
    las tiendas de los vecinos Rosa y Elmer.

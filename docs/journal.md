@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-27 · Alquiler una vez al día
+
+**Qué se hizo**
+- `rent.periodSeconds` pasa de 120 s a 24 h (`shared/src/economy.config.ts`) y se actualiza el `README.md`.
+
+**Decisiones**
+- Cobrar cada 2 minutos era demasiado exigente: con pozo e invernadero salían unos $1.260 por hora.
+- El tiempo de juego solo avanza con el servidor encendido: el "día" son 24 h de servidor en marcha, no de calendario.
+
+**Pendiente**
+- Con el alquiler casi simbólico sale mucho menos dinero: vigilar la inflación y, si hace falta, subir la cuota de cada negocio o la comisión de venta.
+- Los locales ya alquilados pagan una vez más en la fecha que tenían guardada; desde ahí, una vez al día.
+
 ## 2026-10-27 · Fundido al cambiar de escena
 
 **Qué se hizo**
