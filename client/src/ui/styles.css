@@ -71,6 +71,16 @@ body {
   pointer-events: auto;
 }
 
+/* Capa oscura entre el canvas y la interfaz para el fundido al cambiar de escena.
+   main.ts la anima; en reposo es transparente y no captura el ratón. */
+#fade {
+  position: fixed;
+  inset: 0;
+  background: var(--outline);
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Esquinas "redondeadas" pixel: recortamos un escalón de 2 px en cada esquina. */
 .btn,
 .chat-input,

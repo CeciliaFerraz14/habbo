@@ -52,6 +52,7 @@ const STREET_EXTRA_TOP = 90;
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = canvas.getContext('2d')!;
 const uiRoot = document.querySelector<HTMLDivElement>('#ui')!;
+const fade = document.querySelector<HTMLDivElement>('#fade')!;
 
 document.title = GAME_NAME;
 
@@ -171,6 +172,8 @@ let playerWasWalking = false;
 let hoverTile: Point | null = null;
 /** Escena que se está mostrando; cuando el jugador cambia de escena, recolocamos la cámara. */
 let shownSceneId: string | null = null;
+/** Duración del fundido al cambiar de escena, en milisegundos. */
+const SCENE_FADE_MS = 400;
 
 /** Escena en la que está el jugador. */
 function playerSceneId(): string {
@@ -257,6 +260,14 @@ createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text 
 function refreshUi(): void {
   const sceneId = playerSceneId();
   if (sceneId !== shownSceneId) {
+    // Fundido al entrar o salir de un local: el servidor cambia de escena al
+    // instante, así que solo podemos fundir hacia dentro. La capa se pone negra
+    // de golpe y vuelve a la escena en 4 pasos, con aire retro. No se hace con
+    // la primera escena al cargar ni si el usuario prefiere menos movimiento.
+    const previousSceneId = shownSceneId;
+    if (previousSceneId !== null && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      fade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SCENE_FADE_MS, easing: 'steps(4, end)' });
+    }
     shownSceneId = sceneId;
     resetPan(); // en una escena nueva, la cámara vuelve al jugador
     resize();
