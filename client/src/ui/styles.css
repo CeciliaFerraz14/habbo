@@ -384,6 +384,12 @@ body {
   pointer-events: none;
 }
 
+/* La cartera deja pasar el ratón, salvo su botón. */
+.wallet-subsidy {
+  margin-top: 6px;
+  pointer-events: auto;
+}
+
 .wallet-money {
   font-family: var(--font-title);
   font-size: 14px;

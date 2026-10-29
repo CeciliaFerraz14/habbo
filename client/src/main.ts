@@ -4,6 +4,7 @@ import {
   GAME_NAME,
   isValidLook,
   SCENES,
+  subsidyTicksLeft,
   trailerSceneId,
   type AvatarLook,
   type GameState,
@@ -182,7 +183,9 @@ function playerSceneId(): string {
 
 // --- Interfaz -----------------------------------------------------------------
 
-const wallet = createWallet();
+const wallet = createWallet(() =>
+  transport.dispatch({ type: 'CLAIM_SUBSIDY', avatarId: PLAYER_ID }),
+);
 const rentWindow = createRentWindow((lotId, business) => {
   transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
   showToast('¡Local alquilado! Ya puedes entrar.');
@@ -274,7 +277,11 @@ function refreshUi(): void {
   }
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
-  wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
+  wallet.update(
+    state.money[PLAYER_ID] ?? 0,
+    state.materials[PLAYER_ID] ?? {},
+    subsidyTicksLeft(state, PLAYER_ID),
+  );
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);

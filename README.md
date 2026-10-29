@@ -47,6 +47,8 @@ Abre http://localhost:5173
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
+   Para no quedarte nunca a cero, una vez al día puedes recoger la **subvención
+   del pueblo** con el botón de la cartera (no se acumula si no la recoges).
 6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
    las tiendas de los vecinos Rosa y Elmer.
 7. Decora tu caravana con lo que compres o fabriques.
@@ -85,6 +87,7 @@ escriben en segundos.
 | Cuánto cabe en el almacén de un servicio y límites de precio | `services` |
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
+| Cuánto da la subvención del pueblo y cada cuánto | `subsidy` |
 | Recetas del taller (materiales y tiempo) | `recipes` |
 | Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
@@ -95,6 +98,7 @@ escriben en segundos.
 Cómo fluye el dinero:
 
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
+  También con la **subvención** diaria que recoge cada jugador.
 - **Sale** con el **alquiler** de los locales, la **comisión** de cada venta y las
   compras al **proveedor** de materiales.
 - **Circula** entre jugadores (y tiendas de NPC) cuando unos compran a otros.

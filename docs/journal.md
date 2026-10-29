@@ -2,6 +2,25 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-29 · Subvención del pueblo
+
+**Qué se hizo**
+- Nueva entrada fija de dinero: `ECONOMY.subsidy` ($30 cada 24 h) en `shared/src/economy.config.ts`.
+- Acción `CLAIM_SUBSIDY` y lógica `claimSubsidy` / `subsidyTicksLeft` en `shared/src/economy.ts`; nuevo `GameState.subsidies` (tick en que vuelve a estar disponible), sincronizado con los clientes.
+- Botón en la cartera: "Recoger subvención +$30" o "Subvención en 5 h".
+- Se guarda en `profiles.next_subsidy_at` (migración `supabase/migrations/003_subsidy.sql`).
+- Comprobado: typecheck, build y un script que reclama dos veces seguidas (solo cobra la primera) y otra tras un día.
+- Migración 003 aplicada en Supabase (columna comprobada).
+
+**Decisiones**
+- Se recoge a mano y no se acumula: premia entrar a jugar y no regala dinero a cuentas abandonadas.
+- Medida en ticks, como el alquiler: así la subvención y el alquiler avanzan al mismo ritmo aunque el servidor se apague.
+- $30, parecida al alquiler más barato: es una red de seguridad, no un sueldo que haga innecesarios a los viajeros.
+- Un jugador nuevo puede recogerla nada más entrar.
+
+**Pendiente**
+- El botón de la cartera no se ha probado en el navegador.
+
 ## 2026-10-27 · Alquiler una vez al día
 
 **Qué se hizo**

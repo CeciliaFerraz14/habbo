@@ -53,4 +53,6 @@ export type Action =
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   /** Comprar materiales al proveedor de la gasolinera. */
-  | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number };
+  | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number }
+  /** Recoger la subvención del pueblo (si ya toca). */
+  | { type: 'CLAIM_SUBSIDY'; avatarId: string };

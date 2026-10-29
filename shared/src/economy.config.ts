@@ -228,6 +228,17 @@ export const ECONOMY = {
   },
 
   /**
+   * Subvención del pueblo: un ingreso fijo que cada jugador recoge a mano
+   * (entrada de dinero). Es una red de seguridad, no un sueldo: conviene que
+   * sea parecida al alquiler más barato para no restar interés a los viajeros.
+   * No se acumula: si no la recoges, no se suma la del periodo siguiente.
+   */
+  subsidy: {
+    amount: 30,
+    periodSeconds: 24 * 60 * 60, // una vez al día
+  },
+
+  /**
    * Proveedor de materiales (en la gasolinera). Otra forma de conseguir
    * materiales sin tener chatarrería, a cambio de dinero (salida de dinero).
    */

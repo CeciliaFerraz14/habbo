@@ -28,6 +28,7 @@ const RECORD_KEYS = [
   'lots',
   'money',
   'materials',
+  'subsidies',
   'vehicles',
 ] as const;
 

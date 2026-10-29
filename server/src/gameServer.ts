@@ -49,6 +49,7 @@ const CLIENT_ACTIONS = new Set<Action['type']>([
   'STOCK_LOT',
   'SET_SERVICE_PRICE',
   'BUY_MATERIAL',
+  'CLAIM_SUBSIDY',
 ]);
 
 export class GameServer {

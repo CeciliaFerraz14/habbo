@@ -216,6 +216,7 @@ export function createInitialState(): GameState {
     lots: Object.fromEntries(LOT_IDS.map((id, i) => [id, createLot(id, `Local ${i + 1}`)])),
     money: {},
     materials: {},
+    subsidies: {},
     tick: 0,
     seed: 20240917,
     npcs: {},

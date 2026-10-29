@@ -709,6 +709,29 @@ export function buyMaterial(
   };
 }
 
+// --- Subvención del pueblo ----------------------------------------------------
+
+/** Ticks que faltan para poder recoger la subvención (0 si ya se puede). */
+export function subsidyTicksLeft(state: GameState, avatarId: string): number {
+  return Math.max(0, (state.subsidies[avatarId] ?? 0) - state.tick);
+}
+
+/**
+ * Recoger la subvención: da ECONOMY.subsidy.amount y la siguiente no estará
+ * lista hasta dentro de un periodo. Es una entrada de dinero al pueblo.
+ */
+export function claimSubsidy(state: GameState, avatarId: string): GameState {
+  const avatar = state.avatars[avatarId];
+  if (!avatar || avatar.isBot || subsidyTicksLeft(state, avatarId) > 0) return state;
+  const { amount, periodSeconds } = ECONOMY.subsidy;
+  const next = {
+    ...state,
+    money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + amount },
+    subsidies: { ...state.subsidies, [avatarId]: state.tick + secondsToTicks(periodSeconds) },
+  };
+  return addNotice(next, avatarId, `Subvención del pueblo: +${ECONOMY.currency}${amount}`);
+}
+
 // --- Fachadas -----------------------------------------------------------------
 
 /**

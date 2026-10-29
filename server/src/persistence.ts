@@ -165,12 +165,14 @@ export class Persistence {
     //    muebles iniciales: sus muebles reales vienen de la tabla furniture).
     const money: Record<string, number> = { ...state.money };
     const materials: Record<string, Materials> = { ...state.materials };
+    const subsidies: Record<string, number> = { ...state.subsidies };
     const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
     const persistence = new Persistence(state);
     for (const p of profileRows) {
       persistence.profiles.set(p.id, { name: p.name, look: p.look });
       money[p.id] = p.money;
       materials[p.id] = p.materials ?? {};
+      subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
       inventories[p.id] = [];
       const trailer = createTrailer(p.id, p.name).scene;
       scenes[trailer.id] = trailer;
@@ -193,7 +195,7 @@ export class Persistence {
       };
     }
 
-    state = { ...state, scenes, furniture: furniMap, lots: lotMap, money, materials, inventories };
+    state = { ...state, scenes, furniture: furniMap, lots: lotMap, money, materials, subsidies, inventories };
     persistence.saved = state;
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
@@ -215,9 +217,9 @@ export class Persistence {
     this.saving = true;
     const prev = this.saved;
     try {
-      // Perfiles: jugadores cuyo avatar, dinero o materiales han cambiado.
+      // Perfiles: jugadores cuyo avatar, dinero, materiales o subvención han cambiado.
       const changedPlayers = new Set<string>();
-      for (const key of ['avatars', 'money', 'materials', 'inventories'] as const) {
+      for (const key of ['avatars', 'money', 'materials', 'subsidies', 'inventories'] as const) {
         for (const id in state[key]) {
           if (isPlayerId(id) && state[key][id] !== prev[key][id]) changedPlayers.add(id);
         }
@@ -234,6 +236,7 @@ export class Persistence {
           look: info.look,
           money: state.money[id] ?? 0,
           materials: state.materials[id] ?? {},
+          next_subsidy_at: state.subsidies[id] ?? 0,
           updated_at: new Date().toISOString(),
         }];
       });

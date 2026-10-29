@@ -1,5 +1,5 @@
 // Piezas de interfaz reutilizables para la economía: dinero y materiales.
-import { ECONOMY, MATERIAL_IDS, type MaterialId, type Materials } from '@juego/shared';
+import { ECONOMY, MATERIAL_IDS, MOVE_TICK_MS, type MaterialId, type Materials } from '@juego/shared';
 
 /** Color del cuadradito que representa cada material. */
 const MATERIAL_COLORS: Record<MaterialId, string> = {
@@ -49,25 +49,48 @@ export function materialChips(
   return row;
 }
 
-/** Cartel fijo arriba a la izquierda con tu dinero y tus materiales. */
-export function createWallet(): { update: (money: number, materials: Materials) => void } {
+/** "5 h", "12 min" o "30 s": tiempo aproximado que falta, para mostrarlo. */
+export function formatWait(ticks: number): string {
+  const seconds = Math.ceil((ticks * MOVE_TICK_MS) / 1000);
+  if (seconds >= 3600) return `${Math.ceil(seconds / 3600)} h`;
+  if (seconds >= 60) return `${Math.ceil(seconds / 60)} min`;
+  return `${seconds} s`;
+}
+
+/**
+ * Cartel fijo arriba a la izquierda con tu dinero, tus materiales y el botón
+ * para recoger la subvención del pueblo.
+ */
+export function createWallet(onClaimSubsidy: () => void): {
+  update: (money: number, materials: Materials, subsidyTicksLeft: number) => void;
+} {
   const el = document.createElement('div');
   el.id = 'wallet';
   const money = document.createElement('div');
   money.className = 'wallet-money';
   const mats = document.createElement('div');
-  el.append(money, mats);
+  const subsidy = document.createElement('button');
+  subsidy.className = 'btn btn-small wallet-subsidy';
+  subsidy.addEventListener('click', onClaimSubsidy);
+  el.append(money, mats, subsidy);
   document.querySelector('#ui')!.append(el);
 
   let last = '';
   return {
-    update(amount, materials) {
-      // Solo tocamos el DOM si algo ha cambiado.
-      const key = JSON.stringify([amount, materials]);
+    update(amount, materials, subsidyTicksLeft) {
+      // El botón muestra la espera aproximada; solo tocamos el DOM si cambia.
+      const ready = subsidyTicksLeft === 0;
+      const label = ready
+        ? `Recoger subvención +${formatMoney(ECONOMY.subsidy.amount)}`
+        : `Subvención en ${formatWait(subsidyTicksLeft)}`;
+      const key = JSON.stringify([amount, materials, label]);
       if (key === last) return;
       last = key;
       money.textContent = formatMoney(amount);
       mats.replaceChildren(materialChips(materials, { showZero: true }));
+      subsidy.textContent = label;
+      subsidy.disabled = !ready;
+      subsidy.title = 'El pueblo te da una ayuda cada día. Si no la recoges, no se acumula.';
     },
   };
 }

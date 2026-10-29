@@ -13,6 +13,7 @@ import {
   buyItem,
   buyMaterial,
   canEditScene,
+  claimSubsidy,
   collectCrafted,
   collectMaterials,
   listItem,
@@ -161,6 +162,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setFacade(state, action.avatarId, action.lotId, action.facade);
     case 'BUY_MATERIAL':
       return buyMaterial(state, action.avatarId, action.material, action.quantity);
+    case 'CLAIM_SUBSIDY':
+      return claimSubsidy(state, action.avatarId);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];

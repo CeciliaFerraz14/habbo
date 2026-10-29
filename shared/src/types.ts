@@ -109,6 +109,11 @@ export interface GameState {
   /** Materiales (chapa, madera...) de cada jugador. */
   materials: Record<string, Materials>;
   /**
+   * Tick a partir del cual cada jugador puede recoger la subvención del
+   * pueblo. Si no aparece, puede recogerla ya.
+   */
+  subsidies: Record<string, number>;
+  /**
    * Contador de turnos de simulación. Es el "reloj" de la economía: los
    * tiempos (producción, fabricación...) se miden en ticks, no con la hora real,
    * para que la simulación sea determinista.
