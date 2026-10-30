@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Vista previa de la fachada
+
+**Qué se hizo**
+- En la ventana del negocio, encima de los botones de fachada, se dibuja el local tal como se ve desde la calle (mismo sprite `shop`, rotación 1, a doble tamaño).
+- Al pasar el ratón (o el foco del teclado) por una plantilla, la vista previa la muestra ("Vista previa: Boutique"); al salir vuelve a la actual. El clic la aplica, como antes.
+- `furniIcon()` (`client/src/ui/icons.ts`) acepta rotación y variante.
+- Comprobado en Chrome en modo offline: diner con fachada Diner, vista previa de Boutique y vuelta a la actual.
+
+**Decisiones**
+- La variante se calcula con `buildingVariant()` de shared, así la vista previa es exactamente lo que se pintará en la calle (neón e icono del negocio incluidos).
+- Aumento entero (`PREVIEW_SCALE = 2`) para que los píxeles no se deformen.
+- En pantallas táctiles no hay hover: la vista previa muestra la fachada actual y cambia al tocar una opción (que ya la aplica).
+
 ## 2026-10-30 · Una sesión por pestaña
 
 **Qué se hizo**

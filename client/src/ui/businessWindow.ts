@@ -8,6 +8,7 @@
 // - Lo que depende solo del tiempo (cuentas atrás, barras de progreso) se
 //   actualiza en su sitio en cada tick.
 import {
+  buildingVariant,
   CATALOG,
   DECOR_IDS,
   ECONOMY,
@@ -47,6 +48,9 @@ export interface BusinessWindow {
   update: (state: GameState, playerId: string) => void;
 }
 
+/** Aumento de la vista previa de la fachada (entero, para que los píxeles no se deformen). */
+const PREVIEW_SCALE = 2;
+
 /** Ticks → texto "12 s". */
 function formatTicks(ticks: number): string {
   return `${Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000))} s`;
@@ -82,10 +86,34 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
 
   // --- Fachada (todos los negocios) -------------------------------------------
   /**
-   * Plantillas de fachada: un botón por plantilla con sus dos colores. La
-   * elegida va marcada. El icono del cartel lo pone el tipo de negocio.
+   * Fachada que se está previsualizando (al pasar el ratón por una opción), o
+   * null para ver la actual. Vive fuera de buildFacadePicker para que no se
+   * pierda si la ventana se reconstruye mientras el ratón está encima.
+   */
+  let previewFacade: FacadeId | null = null;
+
+  /**
+   * Plantillas de fachada: una vista previa del local, tal como se verá desde
+   * la calle, y un botón por plantilla con sus dos colores. Al pasar el ratón
+   * (o el foco) por una opción, la vista previa la muestra; al hacer clic se
+   * aplica. El icono del cartel lo pone el tipo de negocio.
    */
   const buildFacadePicker = (lot: Lot) => {
+    const preview = document.createElement('div');
+    preview.className = 'facade-preview';
+    const caption = document.createElement('span');
+    caption.className = 'hint';
+    const showPreview = (id: FacadeId | null) => {
+      previewFacade = id;
+      const shown = id ?? lot.facade;
+      // Mismo sprite y rotación que el edificio de la calle, a doble tamaño.
+      const icon = furniIcon('shop', 1, buildingVariant({ ...lot, facade: shown }));
+      icon.style.width = `${icon.width * PREVIEW_SCALE}px`;
+      preview.replaceChildren(icon, caption);
+      caption.textContent =
+        shown && shown !== lot.facade ? `Vista previa: ${FACADES[shown].name}` : 'Fachada actual';
+    };
+
     const row = document.createElement('div');
     row.className = 'facade-picker';
     for (const id of FACADE_IDS) {
@@ -100,9 +128,14 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       swatch.style.background = `linear-gradient(${facade.trim} 50%, ${facade.wall} 50%)`;
       b.append(swatch, facade.name);
       b.addEventListener('click', () => actions.setFacade(lot.id, id));
+      b.addEventListener('mouseenter', () => showPreview(id));
+      b.addEventListener('focus', () => showPreview(id));
+      b.addEventListener('blur', () => showPreview(null));
       row.append(b);
     }
-    win.body.append(text('Fachada:', 'section-title'), row);
+    row.addEventListener('mouseleave', () => showPreview(null));
+    showPreview(previewFacade);
+    win.body.append(text('Fachada:', 'section-title'), preview, row);
   };
 
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------

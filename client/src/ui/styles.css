@@ -711,6 +711,24 @@ body {
 
 /* ---------- Plantillas de fachada ---------- */
 
+/* Vista previa del local con la fachada elegida (el tamaño lo pone el JS). */
+.facade-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+}
+
+.facade-preview .icon {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
 .facade-picker {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
