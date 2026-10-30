@@ -17,13 +17,20 @@ import { waterWell } from '../structures/waterWell';
 import { welcomeSign } from '../structures/welcomeSign';
 import { workbench } from '../structures/workbench';
 import { barStool } from './barStool';
+import { bed } from './bed';
+import { cowSkull } from './cowSkull';
 import { dinerBooth } from './dinerBooth';
 import { formicaTable } from './formicaTable';
 import { jukebox } from './jukebox';
+import { milkshakeMachine } from './milkshakeMachine';
 import type { ModelSource } from './model';
 import { neonLamp } from './neonLamp';
+import { openSign } from './openSign';
 import { pottedCactus } from './pottedCactus';
+import { radio } from './radio';
 import { roadSign } from './roadSign';
+import { rockingChair } from './rockingChair';
+import { sofa } from './sofa';
 import { tire } from './tire';
 import { vintageFridge } from './vintageFridge';
 
@@ -38,6 +45,13 @@ export const MODELS: Record<FurniId, ModelSource> = {
   road_sign: roadSign,
   tire,
   vintage_fridge: vintageFridge,
+  bed,
+  sofa,
+  radio,
+  rocking_chair: rockingChair,
+  open_sign: openSign,
+  milkshake_machine: milkshakeMachine,
+  cow_skull: cowSkull,
   // Estructuras de la calle
   shop,
   trailer,

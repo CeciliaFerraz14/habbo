@@ -2,6 +2,22 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Siete muebles nuevos
+
+**Qué se hizo**
+- Hogar: **Cama** (1x2, sentable), **Sofá** (1x2, sentable), **Radio antigua** (dial que da luz) y **Mecedora** (sentable).
+- Diner y desierto: **Cartel de neón OPEN** (da luz), **Máquina de batidos** y **Calavera de vaca**.
+- Cada uno: id en `DecorId` y `CATALOG` (`shared/src/catalog.ts`), receta y valor en `shared/src/economy.config.ts`, modelo en `client/src/sprites/furniture/` y registro en su `index.ts`.
+- Comprobado: typecheck, build y los sprites dibujados en Chrome en las cuatro rotaciones (se retocaron la calavera, que salía pequeña, y el cabecero de la cama, que tapaba la almohada).
+
+**Decisiones**
+- Solo materiales que ya existen; recetas y valores siguiendo la proporción de los muebles actuales (calavera $30 … cama y máquina de batidos $90).
+- La cama es un asiento más: el motor todavía no tiene postura tumbada.
+- Las tiendas de Rosa y Elmer también los venderán, porque reponen al azar entre todos los `DECOR_IDS`.
+
+**Pendiente**
+- No se ha probado sentarse en la cama, el sofá y la mecedora dentro del juego (usan el mismo sistema que el sillón de diner).
+
 ## 2026-10-30 · Vista previa de la fachada
 
 **Qué se hizo**

@@ -330,6 +330,13 @@ export const ECONOMY = {
     diner_booth: { materials: { old_wood: 3, tires: 2 }, seconds: 40 },
     vintage_fridge: { materials: { sheet_metal: 4 }, seconds: 45 },
     jukebox: { materials: { sheet_metal: 2, old_wood: 3 }, seconds: 60 },
+    cow_skull: { materials: { old_wood: 1 }, seconds: 10 },
+    rocking_chair: { materials: { old_wood: 3 }, seconds: 25 },
+    radio: { materials: { sheet_metal: 1, old_wood: 2 }, seconds: 30 },
+    open_sign: { materials: { sheet_metal: 2 }, seconds: 30 },
+    sofa: { materials: { old_wood: 2, tires: 2 }, seconds: 35 },
+    bed: { materials: { old_wood: 3, sheet_metal: 1 }, seconds: 35 },
+    milkshake_machine: { materials: { sheet_metal: 3 }, seconds: 35 },
   } satisfies Record<DecorId, Recipe>,
 
   /**
@@ -346,6 +353,13 @@ export const ECONOMY = {
     diner_booth: 110,
     vintage_fridge: 120,
     jukebox: 160,
+    cow_skull: 30,
+    rocking_chair: 65,
+    radio: 80,
+    open_sign: 75,
+    sofa: 85,
+    bed: 90,
+    milkshake_machine: 90,
   } satisfies Record<DecorId, number>,
 } as const;
 

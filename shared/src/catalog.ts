@@ -12,7 +12,16 @@ export type DecorId =
   | 'potted_cactus'
   | 'road_sign'
   | 'tire'
-  | 'vintage_fridge';
+  | 'vintage_fridge'
+  // Hogar
+  | 'bed'
+  | 'sofa'
+  | 'radio'
+  | 'rocking_chair'
+  // Diner y desierto
+  | 'open_sign'
+  | 'milkshake_machine'
+  | 'cow_skull';
 
 /**
  * Estructuras FIJAS del escenario (edificios, farolas...). Se dibujan, ordenan
@@ -96,6 +105,13 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   road_sign: decor('road_sign', 'Señal de tráfico', 1, 1),
   tire: decor('tire', 'Neumático', 1, 1),
   vintage_fridge: decor('vintage_fridge', 'Nevera vintage', 1, 1),
+  bed: decor('bed', 'Cama', 1, 2, true),
+  sofa: decor('sofa', 'Sofá', 1, 2, true),
+  radio: decor('radio', 'Radio antigua', 1, 1),
+  rocking_chair: decor('rocking_chair', 'Mecedora', 1, 1, true),
+  open_sign: decor('open_sign', 'Cartel de neón OPEN', 1, 1),
+  milkshake_machine: decor('milkshake_machine', 'Máquina de batidos', 1, 1),
+  cow_skull: decor('cow_skull', 'Calavera de vaca', 1, 1),
 
   // Estructuras de la calle. Como todo mueble, en rotación 0 miran a +x; en la
   // calle se colocan con rotación 1 para que su fachada mire a la carretera (+y).
