@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Barra inferior en el móvil
+
+**Qué se hizo**
+- Por debajo de 760 px, `#hud` ocupa el ancho de la pantalla menos el hueco de los botones de zoom: el chat arriba a todo lo ancho y los botones repartidos debajo, con letra más pequeña.
+- El comentario de la capa de bocadillos vuelve junto a su regla en `styles.css`.
+- Comprobado en Chrome con iframes de 355, 595 y 775 px: la barra cabe sin salirse ni tapar el zoom.
+
+**Decisiones**
+- Corte en 760 px y no en 640: con sesión iniciada hay un cuarto botón ("Salir") y la barra de escritorio mide unos 720 px.
+
+**Pendiente**
+- En el móvil, la cartera (arriba a la izquierda) sigue tapando el logo y el cartel de la escena.
+
 ## 2026-10-30 · Ventanas con scroll y responsive
 
 **Qué se hizo**

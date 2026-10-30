@@ -218,6 +218,35 @@ body {
     4px 4px 0 rgba(42, 26, 20, 0.45);
 }
 
+/* En pantallas estrechas, la barra ocupa el ancho (menos el hueco de los
+   botones de zoom, a la derecha): el chat arriba y los botones debajo. */
+@media (max-width: 760px) {
+  #hud {
+    left: 8px;
+    right: 56px;
+    bottom: 8px;
+    transform: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+  }
+
+  #hud .chat-form {
+    flex: 1 1 100%;
+  }
+
+  #hud .chat-input {
+    width: 100%;
+    max-width: none;
+  }
+
+  #hud .btn {
+    flex: 1 1 0;
+    padding: 8px 4px;
+    font-size: 9px;
+  }
+}
+
 /* ---------- Chat ---------- */
 
 .chat-form {
@@ -251,7 +280,6 @@ body {
   line-height: 1.1;
 }
 
-/* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
 /* ---------- Nombre del dueño en los locales ---------- */
 
 #ui > .lot-signs {
@@ -318,6 +346,9 @@ body {
   color: var(--mustard-light);
 }
 
+/* ---------- Bocadillos ---------- */
+
+/* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
 #ui > .bubbles {
   position: absolute;
   inset: 0;
