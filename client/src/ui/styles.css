@@ -252,6 +252,34 @@ body {
 }
 
 /* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
+/* ---------- Nombres de los jugadores ---------- */
+
+#ui > .name-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Cartelito oscuro y pequeño, para que no compita con los bocadillos. */
+.name-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 4px;
+  background: rgba(42, 26, 20, 0.75);
+  color: var(--cream);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* El tuyo, en mostaza para encontrarte de un vistazo. */
+.name-tag.me {
+  color: var(--mustard-light);
+}
+
 #ui > .bubbles {
   position: absolute;
   inset: 0;

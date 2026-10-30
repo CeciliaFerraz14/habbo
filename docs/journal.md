@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Nombre encima de los jugadores
+
+**Qué se hizo**
+- Nuevo `client/src/ui/nameTags.ts`: etiqueta HTML con el nombre de usuario encima de la cabeza de cada avatar que no es bot, recolocada en cada fotograma (como bocadillos y precios).
+- Tu propio nombre sale en mostaza (`.name-tag.me`); los demás, en crema sobre fondo oscuro semitransparente.
+- Los bocadillos de chat de los jugadores empiezan `NAME_TAG_SPACE` px más arriba para no tapar el nombre.
+- Comprobado en Chrome (offline): nombre sobre el jugador, NPC sin nombre y bocadillo por encima.
+
+**Decisiones**
+- HTML y no dibujado en el canvas: el texto sale nítido a cualquier zoom, igual que el resto de etiquetas.
+- `textContent`: el nombre lo elige el jugador y nunca se interpreta como HTML.
+
 ## 2026-10-30 · Siete muebles nuevos
 
 **Qué se hizo**

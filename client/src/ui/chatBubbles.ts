@@ -13,6 +13,7 @@ import type { Camera } from '../engine/camera';
 import type { Point } from '../engine/iso';
 import type { Renderer } from '../engine/renderer';
 import type { AvatarViews } from '../game/avatarViews';
+import { NAME_TAG_SPACE } from './nameTags';
 
 /** Cuánto vive un bocadillo, en ms. */
 const LIFETIME_MS = 7000;
@@ -108,7 +109,9 @@ export class ChatBubbles {
       }
 
       const head = toScreen(renderer.avatarHeadPosition(state, avatar, view, camera));
-      const rise = (age / 1000) * RISE_SPEED + b.pushed;
+      // Los jugadores llevan su nombre encima: el bocadillo empieza por encima de él.
+      const nameSpace = avatar.isBot ? 0 : NAME_TAG_SPACE;
+      const rise = (age / 1000) * RISE_SPEED + b.pushed + nameSpace;
       const x = Math.round(head.x - b.el.offsetWidth / 2);
       const y = Math.round(head.y - HEAD_MARGIN - b.el.offsetHeight - rise);
       b.el.style.transform = `translate(${x}px, ${y}px)`;

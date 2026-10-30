@@ -24,6 +24,7 @@ import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
 import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
+import { NameTags } from './ui/nameTags';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
@@ -217,6 +218,7 @@ const supplierWindow = createSupplierWindow((material, quantity) =>
   transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
 );
 const priceTags = new PriceTags();
+const nameTags = new NameTags();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -423,6 +425,7 @@ function frame(now: number): void {
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   priceTags.update(state, sceneId, renderer, canvasToScreen);
+  nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
   requestAnimationFrame(frame);
 }
 
