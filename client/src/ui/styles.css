@@ -490,6 +490,39 @@ body {
     inset 0 0 0 2px var(--ochre),
     4px 4px 0 rgba(42, 26, 20, 0.45);
   pointer-events: none;
+  /* Que no llegue al centro: ahí están el logo y el cartel de la escena (que
+     mide hasta unos 280 px). Si no cabe, los materiales bajan de fila. */
+  max-width: calc(50vw - 150px);
+}
+
+/* En el móvil no hay sitio para todo arriba: la cartera ocupa el ancho, el
+   logo se oculta y el cartel de la escena baja sobre la barra inferior.
+   (Hasta 900 px: por debajo, la cartera junto al logo quedaría demasiado estrecha.) */
+@media (max-width: 900px) {
+  #wallet {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    padding: 4px 8px;
+  }
+
+  #wallet .chips {
+    font-size: 14px;
+  }
+
+  #logo {
+    display: none;
+  }
+
+  #location {
+    top: auto;
+    bottom: 108px;
+  }
+
+  #toast {
+    bottom: 140px;
+  }
 }
 
 /* La cartera deja pasar el ratón, salvo su botón. */

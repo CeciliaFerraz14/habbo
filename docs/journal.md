@@ -2,6 +2,16 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Cartera sin tapar el logo
+
+**Qué se hizo**
+- `#wallet` tiene `max-width: calc(50vw - 150px)`: nunca llega al centro, donde están el logo y el cartel de la escena; si no cabe, los materiales bajan de fila.
+- Por debajo de 900 px: la cartera ocupa el ancho de arriba, el logo se oculta, el cartel de la escena baja justo encima de la barra inferior y los avisos (`#toast`) suben para no pisarlo.
+- Comprobado en Chrome con iframes de 362, 502, 642, 871 y 999 px: nada se solapa.
+
+**Decisiones**
+- Corte en 900 px y no en 640: entre 640 y 900, la cartera junto al logo quedaba tan estrecha que el botón de la subvención se partía en tres líneas.
+
 ## 2026-10-30 · Barra inferior en el móvil
 
 **Qué se hizo**
