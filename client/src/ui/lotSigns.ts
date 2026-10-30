@@ -1,0 +1,114 @@
+// Nombre del dueño en los locales:
+// - En la calle, escrito sobre la placa crema de la fachada de cada local abierto.
+// - Dentro del local, en un cartel colgado en la pared del fondo.
+//
+// Igual que los bocadillos y los precios: elementos HTML (texto nítido)
+// recolocados en cada fotograma. Como las paredes son isométricas, cada cartel
+// se inclina con skewY para que siga el plano de su pared.
+import { SCENES, type GameState } from '@juego/shared';
+import type { Camera } from '../engine/camera';
+import { tileToScreen, type Point } from '../engine/iso';
+import { OWNER_PLATE } from '../sprites/structures/shop';
+
+/**
+ * Inclinación de una pared que va a lo largo del eje x: cada baldosa en +x
+ * baja media baldosa en pantalla (pendiente 1/2).
+ */
+const WALL_SKEW_DEG = (Math.atan(0.5) * 180) / Math.PI;
+
+/** Cartel de la pared del fondo (y = 0) del interior de un local: de x = 2,5 a 5,5 y z de 44 a 62. */
+const WALL_SIGN = { x0: 2.5, x1: 5.5, z0: 44, z1: 62 };
+
+/** Un plano vertical a lo largo de x, en coordenadas del mundo (baldosas y px de altura). */
+interface WallRect {
+  x0: number;
+  x1: number;
+  y: number;
+  z0: number;
+  z1: number;
+}
+
+export class LotSigns {
+  private readonly layer: HTMLDivElement;
+  private readonly signs = new Map<string, HTMLDivElement>();
+
+  constructor() {
+    this.layer = document.createElement('div');
+    this.layer.className = 'lot-signs';
+    document.querySelector('#ui')!.prepend(this.layer);
+  }
+
+  update(state: GameState, sceneId: string, camera: Camera, toScreen: (p: Point) => Point): void {
+    const seen = new Set<string>();
+    const show = (key: string, className: string, lines: string[], rect: WallRect) => {
+      seen.add(key);
+      let el = this.signs.get(key);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = className;
+        this.layer.append(el);
+        this.signs.set(key, el);
+      }
+      // textContent: el nombre lo elige el jugador, nunca se interpreta como HTML.
+      const text = lines.join('\n');
+      if (el.textContent !== text) el.textContent = text;
+      placeOnWall(el, rect, lines, camera, toScreen);
+    };
+
+    if (sceneId === SCENES.street) {
+      for (const lot of Object.values(state.lots)) {
+        const building = state.furniture[`${lot.id}-building`];
+        // Los locales de la calle miran a la carretera (rotación 1): la placa,
+        // en x = OWNER_PLATE.x con rotación 0, queda en y = OWNER_PLATE.x al girar.
+        if (!lot.business || !lot.ownerName || !building || building.rotation !== 1) continue;
+        show(`street:${lot.id}`, 'lot-sign plate', [lot.ownerName], {
+          x0: building.x + 4 - OWNER_PLATE.y1 / 16,
+          x1: building.x + 4 - OWNER_PLATE.y0 / 16,
+          y: building.y + OWNER_PLATE.x / 16,
+          z0: OWNER_PLATE.z0,
+          z1: OWNER_PLATE.z1,
+        });
+      }
+    } else {
+      const lot = state.lots[sceneId];
+      if (lot?.business && lot.ownerName) {
+        show(`inside:${lot.id}`, 'lot-sign wall', ['Local de', lot.ownerName], { ...WALL_SIGN, y: 0 });
+      }
+    }
+
+    // Quitamos los de locales que se han cerrado o de otra escena.
+    for (const [key, el] of this.signs) {
+      if (!seen.has(key)) {
+        el.remove();
+        this.signs.delete(key);
+      }
+    }
+  }
+}
+
+/** Coloca e inclina `el` sobre el rectángulo de pared, con el texto a un tamaño que quepa. */
+function placeOnWall(
+  el: HTMLDivElement,
+  rect: WallRect,
+  lines: string[],
+  camera: Camera,
+  toScreen: (p: Point) => Point,
+): void {
+  const project = (x: number, z: number) => {
+    const p = tileToScreen(x, rect.y);
+    return toScreen({ x: camera.originX + p.x, y: camera.originY + p.y - z });
+  };
+  const topLeft = project(rect.x0, rect.z1);
+  const topRight = project(rect.x1, rect.z1);
+  const bottomLeft = project(rect.x0, rect.z0);
+  const width = topRight.x - topLeft.x;
+  const height = bottomLeft.y - topLeft.y;
+  // Que quepa a lo alto (todas las líneas) y a lo ancho (la línea más larga;
+  // cada carácter de la fuente mide algo más de media letra de ancho).
+  const longest = Math.max(...lines.map((l) => l.length));
+  const fontSize = Math.min((height / lines.length) * 0.8, width / (longest * 0.6));
+  el.style.width = `${width}px`;
+  el.style.height = `${height}px`;
+  el.style.fontSize = `${fontSize}px`;
+  el.style.transform = `translate(${topLeft.x}px, ${topLeft.y}px) skewY(${WALL_SKEW_DEG}deg)`;
+}

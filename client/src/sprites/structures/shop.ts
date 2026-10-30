@@ -19,6 +19,13 @@ const DARK = '#1a1414';
 const CREAM = '#f6e7c8';
 const CHROME = '#d8dde3';
 
+/**
+ * Placa del dueño: franja crema entre el escaparate y el cartel, en el plano
+ * x = 62..63, y de 8 a 56, z de 35 a 43. El nombre lo escribe encima la
+ * interfaz (ui/lotSigns.ts), que usa estas mismas medidas.
+ */
+export const OWNER_PLATE = { x: 63, y0: 8, y1: 56, z0: 35, z1: 43 };
+
 interface ShopLook {
   open: boolean;
   doorOpen: boolean;
@@ -55,12 +62,12 @@ export function shop(variant: string | undefined): FurniModel {
     // Fachada falsa y su remate, con los colores de la plantilla
     box(56, 0, 0, 62, 64, 66, open ? facade.wall : '#c9a77a'),
     box(56, 0, 66, 63, 64, 69, open ? facade.trim : '#8a5a34'),
-    // Cartel encima de la puerta, con su marco de neón
-    box(62, 6, 40, 64, 58, 60, open ? CREAM : '#a89880'),
-    neon(64, 8, 57, 65, 56, 58),
-    neon(64, 8, 42, 65, 56, 43),
-    neon(64, 8, 43, 65, 9, 57),
-    neon(64, 55, 43, 65, 56, 57),
+    // Cartel encima de la puerta (y de la placa del dueño), con su marco de neón
+    box(62, 6, 44, 64, 58, 64, open ? CREAM : '#a89880'),
+    neon(64, 8, 61, 65, 56, 62),
+    neon(64, 8, 46, 65, 56, 47),
+    neon(64, 8, 47, 65, 9, 61),
+    neon(64, 55, 47, 65, 56, 61),
     ...doorBoxes(look),
   ];
 
@@ -68,7 +75,15 @@ export function shop(variant: string | undefined): FurniModel {
     boxes.push(...closedFront());
     return { boxes };
   }
-  boxes.push(...templateFront(look), ...businessIcon(look.business, neon));
+  // El icono se diseñó para el cartel antiguo (z 43..57): lo subimos con él.
+  const iconNeon = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) =>
+    neon(x0, y0, z0 + 4, x1, y1, z1 + 4);
+  const plate = OWNER_PLATE;
+  boxes.push(
+    ...templateFront(look),
+    box(plate.x - 1, plate.y0, plate.z0, plate.x, plate.y1, plate.z1, CREAM),
+    ...businessIcon(look.business, iconNeon),
+  );
   // Abierto, el neón tiñe la acera delante de la fachada.
   return { boxes, light: { color: look.neon, radius: 36, dx: 2.4 } };
 }
@@ -90,11 +105,11 @@ function closedFront(): Box[] {
     box(62, 4, 14, 63, 13, 30, '#3b3440'),
     box(62, 38, 10, 63, 60, 32, '#3b3440'),
     // "Letras" apagadas del cartel
-    box(64, 14, 46, 65, 16, 54, off),
-    box(64, 22, 46, 65, 24, 54, off),
-    box(64, 30, 46, 65, 32, 54, off),
-    box(64, 38, 46, 65, 40, 54, off),
-    box(64, 46, 46, 65, 48, 54, off),
+    box(64, 14, 50, 65, 16, 58, off),
+    box(64, 22, 50, 65, 24, 58, off),
+    box(64, 30, 50, 65, 32, 58, off),
+    box(64, 38, 50, 65, 40, 58, off),
+    box(64, 46, 50, 65, 48, 58, off),
     // Tablones en la puerta y el escaparate
     box(63, 16, 8, 64, 34, 11, PLANK),
     box(63, 16, 20, 64, 34, 23, PLANK),
@@ -151,7 +166,8 @@ function businessIcon(
   business: BusinessType | undefined,
   neon: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => Box,
 ): Box[] {
-  // Coordenadas en el plano del cartel (x = 64..65): y de 20 a 44, z de 43 a 57.
+  // Coordenadas en el plano del cartel (x = 64..65): y de 20 a 44, z de 43 a 57
+  // (quien llama las sube a la altura actual del cartel).
   // Los tubos tienen 2 de grosor para que se lean bien sin zoom.
   switch (business) {
     case 'scrapyard':

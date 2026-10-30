@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Nombre del dueño en los locales
+
+**Qué se hizo**
+- Fachada: placa crema nueva en el sprite del local (`OWNER_PLATE` en `client/src/sprites/structures/shop.ts`), entre el escaparate y el cartel. El cartel de neón y su icono suben 4 px para dejarle sitio.
+- Nuevo `client/src/ui/lotSigns.ts`: escribe en HTML el nombre del dueño sobre la placa de cada local abierto (también Rosa y Elmer) y, dentro del local, un cartel de madera "Local de ‹nombre›" en la pared del fondo.
+- Los carteles se inclinan con `skewY(26,57°)` (pendiente 1/2 de las paredes isométricas) y el tamaño de letra se ajusta para que el nombre quepa.
+- Comprobado en Chrome (offline), de día y con zoom: "Rosa" en su fachada, "Tú" en un diner y una tienda alquilados, y el cartel dentro del diner.
+
+**Decisiones**
+- Texto en HTML, como nombres y precios: nítido a cualquier zoom. La placa sí va en el sprite, para que la fachada tenga su sitio aunque no haya texto.
+- Las posiciones salen de las mismas medidas del sprite (`OWNER_PLATE`), así no se desalinean si se retoca la fachada.
+
+**Pendiente**
+- Al ser HTML, el texto se dibuja por encima de lo que pase por delante (un avatar o una farola) y no se oscurece de noche, igual que las etiquetas de precio.
+
 ## 2026-10-30 · Nombre encima de los jugadores
 
 **Qué se hizo**

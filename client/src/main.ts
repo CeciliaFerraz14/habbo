@@ -24,6 +24,7 @@ import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
 import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
+import { LotSigns } from './ui/lotSigns';
 import { NameTags } from './ui/nameTags';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
@@ -219,6 +220,7 @@ const supplierWindow = createSupplierWindow((material, quantity) =>
 );
 const priceTags = new PriceTags();
 const nameTags = new NameTags();
+const lotSigns = new LotSigns();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -425,6 +427,7 @@ function frame(now: number): void {
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   priceTags.update(state, sceneId, renderer, canvasToScreen);
+  lotSigns.update(state, sceneId, camera, canvasToScreen);
   nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
   requestAnimationFrame(frame);
 }

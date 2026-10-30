@@ -252,6 +252,44 @@ body {
 }
 
 /* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
+/* ---------- Nombre del dueño en los locales ---------- */
+
+#ui > .lot-signs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Tamaño, posición e inclinación (la de la pared) los pone ui/lotSigns.ts. */
+.lot-sign {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-text);
+  line-height: 1;
+  white-space: pre-line;
+  overflow: hidden;
+}
+
+/* En la fachada: solo el texto, sobre la placa crema del propio sprite. */
+.lot-sign.plate {
+  color: var(--outline);
+}
+
+/* Dentro del local: cartel de madera colgado en la pared del fondo. */
+.lot-sign.wall {
+  background: var(--terracotta-dark);
+  color: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: inset 0 0 0 2px var(--ochre);
+}
+
 /* ---------- Nombres de los jugadores ---------- */
 
 #ui > .name-tags {
