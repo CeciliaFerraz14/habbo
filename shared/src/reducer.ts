@@ -8,10 +8,9 @@
 // devuelve el estado tal cual: la acción se ignora.
 import type { Action } from './actions';
 import { CATALOG } from './catalog';
-import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
+import { withChatMessage } from './chat';
 import {
   buyItem,
-  buyMaterial,
   canEditScene,
   claimSubsidy,
   collectCrafted,
@@ -25,12 +24,21 @@ import {
   startCraft,
 } from './economy';
 import { ECONOMY } from './economy.config';
+import {
+  buyMaterial,
+  buyScratch,
+  buySoda,
+  deliverOrder,
+  playPinball,
+  sellMaterial,
+  startShift,
+} from './gasStation';
 import { canPlaceFurni } from './furniture';
 import { isValidLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
-import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
+import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -160,8 +168,22 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
     case 'SET_FACADE':
       return setFacade(state, action.avatarId, action.lotId, action.facade);
+
+    // --- Gasolinera: la lógica está en gasStation.ts ---
     case 'BUY_MATERIAL':
       return buyMaterial(state, action.avatarId, action.material, action.quantity);
+    case 'SELL_MATERIAL':
+      return sellMaterial(state, action.avatarId, action.material, action.quantity);
+    case 'DELIVER_ORDER':
+      return deliverOrder(state, action.avatarId, action.orderId);
+    case 'START_SHIFT':
+      return startShift(state, action.avatarId);
+    case 'BUY_SCRATCH':
+      return buyScratch(state, action.avatarId);
+    case 'BUY_SODA':
+      return buySoda(state, action.avatarId);
+    case 'PLAY_PINBALL':
+      return playPinball(state, action.avatarId);
     case 'CLAIM_SUBSIDY':
       return claimSubsidy(state, action.avatarId);
 
@@ -172,24 +194,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return withAvatar(state, { ...avatar, look: { ...action.look } });
     }
 
-    case 'SAY': {
-      const avatar = state.avatars[action.avatarId];
-      const text = sanitizeMessage(action.text);
-      if (!avatar || text === '') return state;
-      const message: ChatMessage = {
-        id: `m${state.nextId}`,
-        sceneId: avatar.sceneId,
-        avatarId: avatar.id,
-        name: avatar.name,
-        text,
-      };
-      // Añadimos al final y nos quedamos solo con los últimos MAX_CHAT_HISTORY.
-      return {
-        ...state,
-        messages: [...state.messages, message].slice(-MAX_CHAT_HISTORY),
-        nextId: state.nextId + 1,
-      };
-    }
+    case 'SAY':
+      return withChatMessage(state, action.avatarId, action.text);
   }
 }
 

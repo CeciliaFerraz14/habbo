@@ -44,8 +44,15 @@ export type StructureId =
   | 'diner_grill'
   | 'barber_chair'
   | 'fruit_stand'
+  // Gasolinera (interior)
+  | 'gas_counter'
+  | 'minimart_shelf'
+  | 'soda_machine'
+  | 'arcade_cabinet'
+  | 'notice_board'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
-  | 'car';
+  | 'car'
+  | 'bus';
 
 export type FurniId = DecorId | StructureId;
 
@@ -129,7 +136,13 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   diner_grill: structure('diner_grill', 'Plancha', 1, 2),
   barber_chair: structure('barber_chair', 'Sillón de barbero', 1, 2),
   fruit_stand: structure('fruit_stand', 'Puesto de fruta', 1, 2),
+  gas_counter: structure('gas_counter', 'Mostrador de Hank', 1, 2),
+  minimart_shelf: structure('minimart_shelf', 'Estantería', 1, 2),
+  soda_machine: structure('soda_machine', 'Máquina de refrescos', 1, 1),
+  arcade_cabinet: structure('arcade_cabinet', 'Máquina recreativa', 1, 1),
+  notice_board: structure('notice_board', 'Tablón de anuncios', 1, 1),
   car: structure('car', 'Coche', 2, 1),
+  bus: structure('bus', 'Autobús', 3, 1),
 };
 
 /** Muebles que se pueden tener (excluye las estructuras fijas). */

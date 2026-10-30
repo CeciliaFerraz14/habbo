@@ -239,14 +239,77 @@ export const ECONOMY = {
   },
 
   /**
-   * Proveedor de materiales (en la gasolinera). Otra forma de conseguir
-   * materiales sin tener chatarrería, a cambio de dinero (salida de dinero).
+   * Proveedor de materiales (en el mostrador de la gasolinera). Otra forma de
+   * conseguir materiales sin tener chatarrería, a cambio de dinero (salida de
+   * dinero). También los compra, mucho más baratos (entrada de dinero).
    */
   supplier: {
     name: 'Suministros del Desierto',
+    /** Precio de compra base. Cada día cambia con la oferta del día (ver dailyDeal). */
     prices: { sheet_metal: 8, old_wood: 6, tires: 10, water: 4, fruit: 5 } satisfies Record<MaterialId, number>,
-    /** Máximo de unidades por compra. */
+    /** Máximo de unidades por compra o venta. */
     maxPerPurchase: 20,
+    /**
+     * Lo que paga el proveedor al comprarte materiales, como parte de su
+     * precio de venta del día. Bajo a propósito: los productores fabrican
+     * gratis y, si pagara mucho, vender materiales valdría más que abrir tiendas.
+     */
+    sellRatio: 0.3,
+    /** Cada día un material está rebajado y otro más caro (al azar, igual para todos). */
+    dailyDeal: { discount: 0.4, markup: 0.4 },
+  },
+
+  /** La gasolinera de Hank: encargos, turnos de trabajo, rasca y gana y máquinas. */
+  gasStation: {
+    /**
+     * Encargos: Hank pide muebles y paga más de lo que valen. Los comparte
+     * todo el pueblo: el primero que los entrega se lleva la recompensa.
+     */
+    orders: {
+      /** Encargos abiertos a la vez como mucho. */
+      max: 3,
+      /** Cada cuánto aparece uno nuevo si hay hueco. */
+      newEverySeconds: 3 * 60,
+      /** Si nadie lo entrega en este tiempo, Hank lo retira. */
+      expireSeconds: 24 * 60 * 60,
+      /** Recompensa = valor de referencia × cantidad × este multiplicador. */
+      rewardMultiplier: 1.4,
+      /** Cuántos muebles pide (los de valor 100 o más, siempre de uno en uno). */
+      quantity: { min: 1, max: 3 },
+    },
+    /** Turnos en la caja: quedarse dentro de la gasolinera hasta que acaba. */
+    shift: {
+      seconds: 2 * 60,
+      wage: 15,
+      /** Descanso obligatorio entre un turno y el siguiente. */
+      cooldownSeconds: 10 * 60,
+      /** Propina por cada coche que reposta mientras trabajas. */
+      tipPerCar: 3,
+    },
+    /** Rasca y gana: casi siempre pierdes (es una salida de dinero), a veces no. */
+    scratch: {
+      price: 10,
+      maxPerDay: 5,
+      /** Premios y su peso (probabilidad relativa). Premio medio ≈ $7,4. */
+      prizes: [
+        { amount: 0, weight: 65 },
+        { amount: 5, weight: 18 },
+        { amount: 15, weight: 10 },
+        { amount: 40, weight: 5 },
+        { amount: 150, weight: 2 },
+      ],
+    },
+    /** Máquina de refrescos: el avatar lleva la lata en la mano un rato. */
+    soda: { price: 3, seconds: 60 },
+    /** Máquina recreativa: una partida por un dólar. */
+    pinball: { price: 1 },
+    /** Coches de paso que paran a repostar delante de la gasolinera. */
+    refuel: { chance: 0.3, seconds: 5 },
+    /** Autobús de turistas: de vez en cuando bajan varios viajeros a la vez. */
+    bus: {
+      everySeconds: { min: 20 * 60, max: 40 * 60 },
+      passengers: { min: 4, max: 6 },
+    },
   },
 
   /**

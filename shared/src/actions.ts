@@ -52,7 +52,20 @@ export type Action =
   | { type: 'SET_SERVICE_PRICE'; avatarId: string; lotId: string; price: number }
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
-  /** Comprar materiales al proveedor de la gasolinera. */
+  // --- Gasolinera (hay que estar dentro) ---
+  /** Comprar materiales al proveedor. */
   | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number }
+  /** Vender materiales al proveedor. */
+  | { type: 'SELL_MATERIAL'; avatarId: string; material: MaterialId; quantity: number }
+  /** Entregar un encargo de Hank. */
+  | { type: 'DELIVER_ORDER'; avatarId: string; orderId: string }
+  /** Empezar un turno en la caja. */
+  | { type: 'START_SHIFT'; avatarId: string }
+  /** Comprar un boleto de rasca y gana. */
+  | { type: 'BUY_SCRATCH'; avatarId: string }
+  /** Comprar un refresco en la máquina. */
+  | { type: 'BUY_SODA'; avatarId: string }
+  /** Echar una partida en la máquina recreativa. */
+  | { type: 'PLAY_PINBALL'; avatarId: string }
   /** Recoger la subvención del pueblo (si ya toca). */
   | { type: 'CLAIM_SUBSIDY'; avatarId: string };

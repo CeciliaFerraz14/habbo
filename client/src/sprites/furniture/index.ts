@@ -1,16 +1,22 @@
 // Registro de modelos: relaciona cada mueble (y cada estructura de la calle)
 // del catálogo con su dibujo.
 import type { FurniId } from '@juego/shared';
+import { arcadeCabinet } from '../structures/arcadeCabinet';
 import { barberChair } from '../structures/barberChair';
+import { bus } from '../structures/bus';
 import { car } from '../structures/car';
 import { dinerGrill } from '../structures/dinerGrill';
 import { fruitPlanter } from '../structures/fruitPlanter';
 import { fruitStand } from '../structures/fruitStand';
+import { gasCounter } from '../structures/gasCounter';
 import { gasStation } from '../structures/gasStation';
+import { minimartShelf } from '../structures/minimartShelf';
+import { noticeBoard } from '../structures/noticeBoard';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
 import { shop } from '../structures/shop';
 import { shopCounter } from '../structures/shopCounter';
+import { sodaMachine } from '../structures/sodaMachine';
 import { streetLamp } from '../structures/streetLamp';
 import { trailer } from '../structures/trailer';
 import { waterWell } from '../structures/waterWell';
@@ -68,5 +74,13 @@ export const MODELS: Record<FurniId, ModelSource> = {
   diner_grill: dinerGrill,
   barber_chair: barberChair,
   fruit_stand: fruitStand,
+  // Gasolinera (interior)
+  gas_counter: gasCounter,
+  minimart_shelf: minimartShelf,
+  soda_machine: sodaMachine,
+  arcade_cabinet: arcadeCabinet,
+  notice_board: noticeBoard,
+  // Vehículos
   car,
+  bus,
 };

@@ -49,8 +49,16 @@ Abre http://localhost:5173
    pierdes el local (lo que había dentro vuelve a tu inventario).
    Para no quedarte nunca a cero, una vez al día puedes recoger la **subvención
    del pueblo** con el botón de la cartera (no se acumula si no la recoges).
-6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
-   las tiendas de los vecinos Rosa y Elmer.
+6. Al final de la calle está la **gasolinera de Hank**. Dentro:
+   - En el **mostrador**: comprar y vender materiales (con una oferta distinta
+     cada día), los **encargos** de Hank (muebles que paga por encima de su
+     valor; el primero que los entrega se lo lleva), **turnos** en la caja
+     (sueldo más propinas por cada coche que reposta) y **rasca y gana**.
+   - La **máquina de refrescos** (tu avatar lleva la lata en la mano un rato),
+     la **máquina recreativa** (con récord del pueblo) y el **tablón de
+     anuncios**, con todos los negocios, los encargos y la oferta del día.
+   - De vez en cuando para un **autobús de turistas** y bajan varios viajeros a la vez.
+   Los muebles también se compran en las tiendas de los vecinos Rosa y Elmer.
 7. Decora tu caravana con lo que compres o fabriques.
 
 ## Controles
@@ -92,15 +100,18 @@ escriben en segundos.
 | Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
 | Tiendas de los NPC y su reposición | `npcStores`, `npcRestock` |
-| Precios del proveedor de materiales | `supplier` |
+| Precios del proveedor, lo que paga al comprarte y la oferta del día | `supplier` |
+| Encargos de Hank, turnos, rasca y gana, máquinas, coches que repostan y autobús | `gasStation` |
 | Frecuencia de coches, probabilidad de parar y forma de comprar de los viajeros | `travelers` |
 
 Cómo fluye el dinero:
 
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
-  También con la **subvención** diaria que recoge cada jugador.
-- **Sale** con el **alquiler** de los locales, la **comisión** de cada venta y las
-  compras al **proveedor** de materiales.
+  También con la **subvención** diaria, los **encargos** y **turnos** de la
+  gasolinera y lo que paga el proveedor por tus materiales.
+- **Sale** con el **alquiler** de los locales, la **comisión** de cada venta, las
+  compras al **proveedor** de materiales, el **rasca y gana** (de media devuelve
+  menos de lo que cuesta) y las máquinas de la gasolinera.
 - **Circula** entre jugadores (y tiendas de NPC) cuando unos compran a otros.
 
 Pistas para equilibrar:

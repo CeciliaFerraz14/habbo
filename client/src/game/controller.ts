@@ -48,8 +48,12 @@ export interface ControllerEvents {
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
   openShop: (lotId: string) => void;
-  /** Abre el proveedor de materiales de la gasolinera. */
-  openSupplier: () => void;
+  /** Abre el mostrador de Hank (proveedor, encargos, trabajo, rasca y gana). */
+  openGasCounter: () => void;
+  /** Abre el tablón de anuncios de la gasolinera. */
+  openBoard: () => void;
+  /** Usa una máquina de la gasolinera: compra un refresco o echa una partida. */
+  useMachine: (machine: 'soda' | 'pinball') => void;
 }
 
 export class GameController {
@@ -242,11 +246,11 @@ export class GameController {
           else this.events.notify('Este negocio no es tuyo.');
           return;
         }
-        // La gasolinera es el proveedor de materiales.
-        if (item.defId === 'gas_station') {
-          this.events.openSupplier();
-          return;
-        }
+        // Dentro de la gasolinera: el mostrador, el tablón y las máquinas.
+        if (item.defId === 'gas_counter') return this.events.openGasCounter();
+        if (item.defId === 'notice_board') return this.events.openBoard();
+        if (item.defId === 'soda_machine') return this.events.useMachine('soda');
+        if (item.defId === 'arcade_cabinet') return this.events.useMachine('pinball');
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
         if (door) this.goToDoor(door);

@@ -9,6 +9,8 @@ export const SCENES = {
    * caravana del avatar que la cruza.
    */
   trailer: 'trailer',
+  /** Interior de la gasolinera (el minimarket de Hank). */
+  gas: 'gas',
 } as const;
 
 /** Id de la escena de la caravana de un jugador. */

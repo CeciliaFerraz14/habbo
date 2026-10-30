@@ -2,6 +2,28 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · La gasolinera de Hank
+
+**Qué se hizo**
+- Interior nuevo, el minimarket (escena `gas`, tema `minimart`), con puerta en la acera (x = 39). Dentro: Hank (NPC `npc-hank`, rol `clerk`) tras su mostrador, dos estanterías, máquina de refrescos, máquina recreativa y tablón de anuncios (sprites nuevos en `client/src/sprites/structures/`).
+- `shared/src/gasStation.ts`: proveedor de compra y venta con oferta del día, encargos de Hank, turnos en la caja (sueldo y propinas), rasca y gana, refresco en la mano y partida en la recreativa con récord. Acciones nuevas: `SELL_MATERIAL`, `DELIVER_ORDER`, `START_SHIFT`, `BUY_SCRATCH`, `BUY_SODA`, `PLAY_PINBALL`; `BUY_MATERIAL` pasa a pedir estar dentro.
+- `travelers.ts`: coches de paso que paran a repostar (`toPump` / `fueling`) y autobús de turistas (`kind: 'bus'`, 3 baldosas) que deja varios viajeros y avisa a todos.
+- Interfaz: ventana del mostrador con pestañas (`ui/gasWindow.ts`, sustituye a `supplierWindow.ts`) y tablón del pueblo (`ui/boardWindow.ts`). La lata se dibuja junto a la mano del avatar.
+- Fachada de la gasolinera "reabierta": escaparate iluminado, neón OPEN y cartel de precios con luz. Los vecinos ya no dicen que está cerrada.
+- Guardado: `profiles.gas_station` (boletos del día, descanso entre turnos) y `world.gas` (encargos y récord), migración `004_gas_station.sql` (aplicada en Supabase y comprobada).
+- Comprobado: typecheck, build, un script con la lógica (compra solo dentro, venta, encargo, turno con propina, límite de 5 boletos, refresco que caduca, récord, coches repostando y autobús) y en Chrome offline cada pestaña, las máquinas, el tablón, un coche repostando y el sprite del autobús.
+
+**Decisiones**
+- Todo con ticks y la semilla del estado, como el resto de la economía. La oferta del día sale del número de día, así es igual para todos sin guardarla.
+- El proveedor paga el 30 % de su precio: los productores fabrican gratis y, si pagara más, vender materiales rendiría más que abrir tiendas.
+- Encargos compartidos por todo el pueblo (el primero que entrega cobra) y que caducan en un día.
+- El autobús solo se programa al arrancar el servidor, no llega en el acto: Render se reinicia a menudo.
+- Hank se llama así; el viajero que se llamaba Hank pasa a ser Earl.
+
+**Pendiente**
+- El autobús llegando a la calle no se ha visto en el juego (tarda 20–40 min); sí el sprite y la lógica en el script.
+- La recreativa y el refresco no tienen animación propia; el turno es "quedarse dentro", sin minijuego.
+
 ## 2026-10-30 · Cartera sin tapar el logo
 
 **Qué se hizo**

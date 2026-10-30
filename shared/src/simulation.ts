@@ -8,6 +8,7 @@
 // El tick simula TODAS las escenas a la vez, no solo la que se ve.
 import { MOVE_TICK_MS } from './constants';
 import { economyTick } from './economy';
+import { gasStationTick } from './gasStation';
 import { createWalkableCheck, getSeatAt } from './furniture';
 import { directionTo, planPath, updateDoors, updateSitting } from './movement';
 import { npcTick } from './npcs';
@@ -22,13 +23,13 @@ export { MOVE_TICK_MS };
  * movimiento de los avatares.
  */
 export function tick(previous: GameState): GameState {
-  // 1. La economía y las decisiones de los NPC.
+  // 1. La economía (también la de la gasolinera) y las decisiones de los NPC.
   // 2. Las puertas: quien terminó su camino sobre una puerta en el tick
   //    ANTERIOR la cruza ahora. Ese tick de espera deja ver al avatar llegar
   //    hasta el umbral (con la puerta abierta) antes de cambiar de escena.
   // 3. El movimiento de los avatares.
   const state = updateDoors(
-    travelerTick(npcTick(economyTick({ ...previous, tick: previous.tick + 1 }))),
+    travelerTick(npcTick(gasStationTick(economyTick({ ...previous, tick: previous.tick + 1 })))),
   );
   // Una comprobación de "se puede pisar" por escena, creada solo si hace falta.
   const walkableByScene = new Map<string, (x: number, y: number) => boolean>();

@@ -15,6 +15,10 @@
 //      referencia.
 //   5. Vuelve al coche, desaparece y el coche se va.
 //
+// Además, algunos coches que no paran en el pueblo se detienen un momento a
+// repostar en la gasolinera, y de vez en cuando llega un AUTOBÚS de turistas
+// que deja a varios viajeros a la vez.
+//
 // Todo es determinista (semilla del estado) y ocurre dentro del tick, así que
 // en la fase 2 lo hará el servidor igual que aquí.
 // =============================================================================
@@ -30,7 +34,9 @@ import {
   servesCustomers,
   type Lot,
 } from './economy';
+import { addNotice } from './economy';
 import { ECONOMY, type BusinessType } from './economy.config';
+import { tipWorkers } from './gasStation';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
 import { move, say, updateBrain, wander } from './npcs';
@@ -38,17 +44,29 @@ import { createRandom } from './random';
 import type { Avatar, FurniItem, GameState } from './types';
 import { SCENES } from './world.ids';
 
-/** Un coche en la carretera. Circulan todos hacia +x (calle de sentido único). */
+/** Un coche (o autobús) en la carretera. Circulan todos hacia +x (calle de sentido único). */
 export interface Vehicle {
   id: string;
-  /** Baldosa de la parte trasera del coche (ocupa 2 baldosas en x). */
+  /** Baldosa de la parte trasera (un coche ocupa 2 baldosas en x; un autobús, 3). */
   x: number;
   y: number;
   color: string;
-  /** passing: sigue de largo · arriving: va a aparcar · parked · leaving: se va. */
-  mode: 'passing' | 'arriving' | 'parked' | 'leaving';
+  /**
+   * passing: sigue de largo · arriving: va a aparcar · parked · leaving: se va ·
+   * toPump: va a repostar · fueling: repostando (hasta leaveAt).
+   */
+  mode: 'passing' | 'arriving' | 'parked' | 'leaving' | 'toPump' | 'fueling';
   /** Dónde aparcará (x de la parte trasera). */
   parkX: number;
+  /** Autobús de turistas (si no se indica, es un coche). */
+  kind?: 'bus';
+  /** Repostando: tick en el que se va. */
+  leaveAt?: number;
+}
+
+/** Largo de un vehículo en baldosas. */
+export function vehicleLength(vehicle: Vehicle): number {
+  return vehicle.kind === 'bus' ? 3 : 2;
 }
 
 /** Lo que recuerda un viajero. */
@@ -77,9 +95,13 @@ const PASSING_LANE_Y = 9;
 const CURB_Y = 6;
 /** Los coches aparecen y desaparecen fuera de la calle. */
 const SPAWN_X = -3;
+/** Donde paran a repostar: delante de los surtidores de la gasolinera. */
+const PUMP_X = 41;
+/** Color del autobús de turistas. */
+const BUS_COLOR = '#f2b134';
 
 const CAR_COLORS = ['#c83c3c', '#2f8f8a', '#f2b134', '#6a4a8a', '#e8e0d0', '#4a78ab'];
-const TRAVELER_NAMES = ['Hank', 'Lupe', 'Moe', 'Irene', 'Sal', 'Trudy', 'Bo', 'Carmen', 'Walt', 'Rita'];
+const TRAVELER_NAMES = ['Earl', 'Lupe', 'Moe', 'Irene', 'Sal', 'Trudy', 'Bo', 'Carmen', 'Walt', 'Rita'];
 
 const PHRASES = {
   bought: ['¡Me lo llevo!', 'Esto quedará genial en casa.', 'Buen precio, sí señor.'],
@@ -97,6 +119,7 @@ const PHRASES = {
 export function travelerTick(state: GameState): GameState {
   let next = moveVehicles(state);
   next = maybeSpawnCar(next);
+  next = maybeSpawnBus(next);
   for (const brain of Object.values(next.npcs)) {
     if (brain.role === 'traveler') next = thinkTraveler(next, brain);
   }
@@ -132,14 +155,18 @@ function maybeSpawnCar(state: GameState): GameState {
   const stops = doors.length > 0 && travelers < t.maxActive && rng.random() < stopChance(state);
   const door = stops ? doors[Math.floor(rng.random() * doors.length)] : null;
 
+  // Si no para en el pueblo, quizá pare a repostar (si el surtidor está libre).
+  const pumpFree = !Object.values(state.vehicles).some((v) => v.mode === 'toPump' || v.mode === 'fueling');
+  const refuels = !door && pumpFree && rng.random() < ECONOMY.gasStation.refuel.chance;
+
   const vehicle: Vehicle = {
     id: `car${state.nextId}`,
     x: SPAWN_X,
-    y: door ? LANE_Y : PASSING_LANE_Y,
+    y: door || refuels ? LANE_Y : PASSING_LANE_Y,
     color: CAR_COLORS[Math.floor(rng.random() * CAR_COLORS.length)],
-    mode: door ? 'arriving' : 'passing',
-    // Aparca con la parte delantera justo frente a la puerta.
-    parkX: door ? door.x - 1 : 0,
+    mode: door ? 'arriving' : refuels ? 'toPump' : 'passing',
+    // Aparca con la parte delantera justo frente a la puerta (o al surtidor).
+    parkX: door ? door.x - 1 : refuels ? PUMP_X : 0,
   };
   // El siguiente coche llega dentro de carIntervalSeconds ± 30 %.
   const interval = t.carIntervalSeconds * (0.7 + rng.random() * 0.6);
@@ -187,7 +214,18 @@ function moveVehicles(state: GameState): GameState {
   for (const car of Object.values(state.vehicles)) {
     if (car.mode === 'parked') continue;
 
-    // Llega a su plaza: aparca y se baja el viajero.
+    // Repostando: cuando acaba, propina para quien trabaje en la caja y se va.
+    if (car.mode === 'fueling') {
+      if (next.tick >= (car.leaveAt ?? 0)) next = tipWorkers(setVehicle(next, { ...car, mode: 'leaving' }));
+      continue;
+    }
+    if (car.mode === 'toPump' && car.x >= car.parkX) {
+      const leaveAt = next.tick + secondsToTicks(ECONOMY.gasStation.refuel.seconds);
+      next = setVehicle(next, { ...car, x: car.parkX, mode: 'fueling', leaveAt });
+      continue;
+    }
+
+    // Llega a su plaza: aparca y se bajan los viajeros.
     if (car.mode === 'arriving' && car.x + 1 >= car.parkX) {
       next = setVehicle(next, { ...car, x: car.parkX, mode: 'parked' });
       next = dropOffTraveler(next, car.id);
@@ -208,13 +246,18 @@ function setVehicle(state: GameState, car: Vehicle): GameState {
   return { ...state, vehicles: { ...state.vehicles, [car.id]: car } };
 }
 
-/** El viajero aparece en la acera junto a su coche y va hacia la tienda. */
+/** Los viajeros de un vehículo (uno en un coche, varios en un autobús) se bajan. */
 function dropOffTraveler(state: GameState, vehicleId: string): GameState {
-  const brain = Object.values(state.npcs).find(
+  const passengers = Object.values(state.npcs).filter(
     (b): b is TravelerBrain => b.role === 'traveler' && b.vehicleId === vehicleId,
   );
-  const car = state.vehicles[vehicleId];
-  if (!brain || !car) return state;
+  return passengers.reduce((s, brain) => dropOffOne(s, brain), state);
+}
+
+/** El viajero aparece en la acera junto a su vehículo y va hacia la tienda. */
+function dropOffOne(state: GameState, brain: TravelerBrain): GameState {
+  const car = state.vehicles[brain.vehicleId];
+  if (!car) return state;
 
   const rng = createRandom(state.seed);
   const avatar: Avatar = {
@@ -368,11 +411,67 @@ function decideAndServe(
   return say(next, avatar.id, phrases, random);
 }
 
-/** El viajero desaparece y su coche se marcha. */
+/** El viajero desaparece. Su vehículo se marcha cuando ya no queda nadie por volver. */
 function leaveTown(state: GameState, brain: TravelerBrain): GameState {
   const { [brain.id]: _avatar, ...avatars } = state.avatars;
   const { [brain.id]: _brain, ...npcs } = state.npcs;
   const car = state.vehicles[brain.vehicleId];
-  const vehicles = car ? { ...state.vehicles, [car.id]: { ...car, mode: 'leaving' as const } } : state.vehicles;
+  const waiting = Object.values(npcs).some((b) => b.role === 'traveler' && b.vehicleId === brain.vehicleId);
+  const vehicles =
+    car && !waiting ? { ...state.vehicles, [car.id]: { ...car, mode: 'leaving' as const } } : state.vehicles;
   return { ...state, avatars, npcs, vehicles };
+}
+
+// --- Autobús de turistas --------------------------------------------------------
+
+/**
+ * De vez en cuando llega un autobús de turistas: aparca en la calle y bajan
+ * varios viajeros a la vez, cada uno hacia una tienda abierta al azar. No
+ * cuenta para el máximo de viajeros. Se avisa a todos los jugadores conectados.
+ */
+function maybeSpawnBus(state: GameState): GameState {
+  const { everySeconds, passengers } = ECONOMY.gasStation.bus;
+  const rng = createRandom(state.seed);
+  const interval = () =>
+    secondsToTicks(everySeconds.min + rng.random() * (everySeconds.max - everySeconds.min));
+
+  // Al arrancar (o tras reiniciar el servidor) solo se programa, no llega en el acto.
+  if (state.nextBusAt === 0) return { ...state, nextBusAt: state.tick + interval(), seed: rng.seed() };
+  if (state.tick < state.nextBusAt) return state;
+
+  const doors = openStoreDoors(state);
+  const busActive = Object.values(state.vehicles).some((v) => v.kind === 'bus');
+  // Sin tiendas abiertas (o con otro autobús aún en la calle), lo intenta en un minuto.
+  if (doors.length === 0 || busActive) {
+    return { ...state, nextBusAt: state.tick + secondsToTicks(60) };
+  }
+
+  const stop = doors[Math.floor(rng.random() * doors.length)];
+  const bus: Vehicle = {
+    id: `bus${state.nextId}`,
+    x: SPAWN_X - 1,
+    y: LANE_Y,
+    color: BUS_COLOR,
+    mode: 'arriving',
+    kind: 'bus',
+    // Aparca con la puerta (en medio del autobús) frente a la tienda.
+    parkX: stop.x - 1,
+  };
+  const count = passengers.min + Math.floor(rng.random() * (passengers.max - passengers.min + 1));
+  let next: GameState = {
+    ...state,
+    vehicles: { ...state.vehicles, [bus.id]: bus },
+    nextBusAt: state.tick + interval(),
+    nextId: state.nextId + 1,
+    seed: rng.seed(),
+  };
+  for (let i = 0; i < count; i++) {
+    const pick = createRandom(next.seed);
+    const door = doors[Math.floor(pick.random() * doors.length)];
+    next = withPendingLot({ ...next, seed: pick.seed() }, bus.id, door.lotId!);
+  }
+  for (const avatar of Object.values(next.avatars)) {
+    if (!avatar.isBot) next = addNotice(next, avatar.id, '¡Ha llegado un autobús de turistas!');
+  }
+  return next;
 }

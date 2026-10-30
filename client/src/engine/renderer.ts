@@ -15,6 +15,7 @@ import {
   type InteriorTheme,
   type Scene,
   type Vehicle,
+  vehicleLength,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
 import type { VehicleView, VehicleViews } from '../game/vehicleViews';
@@ -28,6 +29,7 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
+import { bakePixelArt } from '../sprites/pixelArt';
 import { getEmissiveSprite, getFurniSprite, getModel } from '../sprites/furniture/bake';
 import type { LightPool } from '../sprites/furniture/model';
 import { createBackdrop } from './backdrop';
@@ -44,6 +46,13 @@ const HALF_H = TILE_HEIGHT / 2;
 const WALK_FRAME_MS = 130;
 /** Desempate enorme para que un avatar sentado se dibuje después de su asiento. */
 const SEATED_TIE_BONUS = 1000;
+
+/** Lata de refresco que lleva un avatar en la mano (3x5 px, roja con tapa plateada). */
+const SODA_CAN = bakePixelArt(['.s.', 'rrr', 'rwr', 'rrr', 'rrr'], {
+  s: '#d8dde3',
+  r: '#c83c3c',
+  w: '#f6e7c8',
+});
 
 /** Mueble "fantasma" que sigue al ratón mientras lo colocamos o movemos. */
 export interface Ghost extends FurniPlacement {
@@ -405,13 +414,14 @@ export class Renderer {
       });
     }
 
-    // Los coches solo circulan por la calle. Ocupan 2 baldosas a lo largo de x.
+    // Los coches solo circulan por la calle. Ocupan 2 baldosas a lo largo de x
+    // (el autobús, 3).
     if (state.scenes[sceneId]?.kind === 'street') {
       for (const car of Object.values(state.vehicles)) {
         const view = vehicles.get(car.id);
         if (!view) continue;
         drawables.push({
-          box: { x0: view.x, y0: view.y, x1: view.x + 2, y1: view.y + 1 },
+          box: { x0: view.x, y0: view.y, x1: view.x + vehicleLength(car), y1: view.y + 1 },
           tie: 0,
           draw: () => this.drawVehicle(car, view, camera),
         });
@@ -429,14 +439,15 @@ export class Renderer {
   }
 
   /**
-   * Un coche se dibuja como un mueble 'car' (con su color como variante),
-   * pero en su posición VISUAL, para que avance suave entre baldosas.
+   * Un coche se dibuja como un mueble 'car' (o 'bus'), con su color como
+   * variante, pero en su posición VISUAL, para que avance suave entre baldosas.
    */
   private drawVehicle(car: Vehicle, view: VehicleView, camera: Camera): void {
-    const { sprite, offsetX, offsetY } = getFurniSprite('car', 0, 'all', car.color);
+    const defId = car.kind === 'bus' ? 'bus' : 'car';
+    const { sprite, offsetX, offsetY } = getFurniSprite(defId, 0, 'all', car.color);
     const at = this.drawAtTile(sprite, view.x, view.y, camera, offsetX, offsetY);
     this.lighting.occlude(sprite, at.x, at.y);
-    const lit = getEmissiveSprite('car', 0, car.color);
+    const lit = getEmissiveSprite(defId, 0, car.color);
     if (lit) {
       const p = tileToScreen(view.x, view.y);
       this.lighting.emit(
@@ -445,9 +456,9 @@ export class Renderer {
         Math.round(camera.originY + p.y + lit.offsetY),
       );
     }
-    const light = getModel('car', car.color).light;
+    const light = getModel(defId, car.color).light;
     if (light) {
-      this.addLightPool({ defId: 'car', x: view.x, y: view.y, rotation: 0 }, light, camera);
+      this.addLightPool({ defId, x: view.x, y: view.y, rotation: 0 }, light, camera);
     }
   }
 
@@ -489,6 +500,13 @@ export class Renderer {
     const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H + 2 - sprite.height);
     // Los avatares no dan luz, pero tapan las luces que tengan detrás.
     this.lighting.occlude(sprite, at.x, at.y);
+
+    // Un refresco en la mano: la lata, junto a la mano del lado que mira a la cámara.
+    if (avatar.holding?.item === 'soda') {
+      const toRight = avatar.direction === 'SE' || avatar.direction === 'NE';
+      const dx = toRight ? AVATAR_WIDTH / 2 - 2 : -AVATAR_WIDTH / 2 - 1;
+      this.drawAtTile(SODA_CAN, view.x, view.y, camera, dx, HALF_H - 12);
+    }
   }
 }
 

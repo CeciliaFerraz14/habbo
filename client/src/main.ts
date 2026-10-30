@@ -1,6 +1,7 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
 import {
   DEFAULT_LOOK,
+  ECONOMY,
   GAME_NAME,
   isValidLook,
   SCENES,
@@ -34,7 +35,8 @@ import { createInventoryWindow } from './ui/inventoryWindow';
 import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
-import { createSupplierWindow } from './ui/supplierWindow';
+import { createBoardWindow } from './ui/boardWindow';
+import { createGasWindow } from './ui/gasWindow';
 import { showToast } from './ui/toast';
 import logoUrl from './assets/pixel-springs-logo.png';
 
@@ -154,9 +156,23 @@ const controller = new GameController(
       shopWindow.open(lotId);
       shopWindow.update(state, PLAYER_ID);
     },
-    openSupplier: () => {
-      supplierWindow.open();
-      supplierWindow.update(state, PLAYER_ID);
+    openGasCounter: () => {
+      gasWindow.open();
+      gasWindow.update(state, PLAYER_ID);
+    },
+    openBoard: () => {
+      boardWindow.open();
+      boardWindow.update(state, PLAYER_ID);
+    },
+    useMachine: (machine) => {
+      const { soda, pinball } = ECONOMY.gasStation;
+      const price = machine === 'soda' ? soda.price : pinball.price;
+      if ((state.money[PLAYER_ID] ?? 0) < price) {
+        showToast(`Necesitas ${ECONOMY.currency}${price}.`);
+        return;
+      }
+      transport.dispatch({ type: machine === 'soda' ? 'BUY_SODA' : 'PLAY_PINBALL', avatarId: PLAYER_ID });
+      if (machine === 'soda') showToast(`Refresco: -${ECONOMY.currency}${price}. ¡Glup!`);
     },
   },
 );
@@ -215,9 +231,16 @@ const shopWindow = createShopWindow((itemId) => {
   transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
   if (state.money[PLAYER_ID] !== before) showToast('¡Comprado! Está en tu inventario.');
 });
-const supplierWindow = createSupplierWindow((material, quantity) =>
-  transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
-);
+const gasWindow = createGasWindow({
+  buyMaterial: (material, quantity) =>
+    transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+  sellMaterial: (material, quantity) =>
+    transport.dispatch({ type: 'SELL_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+  deliverOrder: (orderId) => transport.dispatch({ type: 'DELIVER_ORDER', avatarId: PLAYER_ID, orderId }),
+  startShift: () => transport.dispatch({ type: 'START_SHIFT', avatarId: PLAYER_ID }),
+  buyScratch: () => transport.dispatch({ type: 'BUY_SCRATCH', avatarId: PLAYER_ID }),
+});
+const boardWindow = createBoardWindow();
 const priceTags = new PriceTags();
 const nameTags = new NameTags();
 const lotSigns = new LotSigns();
@@ -289,7 +312,8 @@ function refreshUi(): void {
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
-  supplierWindow.update(state, PLAYER_ID);
+  gasWindow.update(state, PLAYER_ID);
+  boardWindow.update(state, PLAYER_ID);
   showNewNotices();
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look);

@@ -3,6 +3,7 @@
 import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
+import type { GasPlayerState, HankOrder, PinballRecord } from './gasStation';
 import type { NpcBrain } from './npcs';
 import type { Vehicle } from './travelers';
 import type { Scene } from './scene';
@@ -43,6 +44,8 @@ export interface Avatar {
   isBot: boolean;
   /** ¿Está sentado? Se calcula solo: al terminar de caminar sobre un mueble sentable. */
   sitting: boolean;
+  /** Algo que lleva en la mano (un refresco de la gasolinera) y hasta qué tick. */
+  holding?: { item: 'soda'; until: number };
 }
 
 /** Un mensaje del chat de la sala. */
@@ -113,6 +116,16 @@ export interface GameState {
    * pueblo. Si no aparece, puede recogerla ya.
    */
   subsidies: Record<string, number>;
+  /** Encargos de Hank abiertos (ver gasStation.ts). */
+  orders: HankOrder[];
+  /** Tick en el que Hank podrá pedir un encargo nuevo (si hay hueco). */
+  nextOrderAt: number;
+  /** Turnos y boletos de rasca y gana de cada jugador en la gasolinera. */
+  gasPlayers: Record<string, GasPlayerState>;
+  /** Mejor partida de la máquina recreativa (o null si nadie ha jugado). */
+  pinballRecord: PinballRecord | null;
+  /** Tick en el que llegará el próximo autobús de turistas (0 = sin programar). */
+  nextBusAt: number;
   /**
    * Contador de turnos de simulación. Es el "reloj" de la economía: los
    * tiempos (producción, fabricación...) se miden en ticks, no con la hora real,

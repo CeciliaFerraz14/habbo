@@ -81,6 +81,18 @@ const THEMES: Record<InteriorTheme, ThemeColors> = {
     baseboard: '#6e4428',
     plankEvery: 12,
   },
+  // Minimarket de la gasolinera: azulejo claro, paredes verde agua y rodapié rojo.
+  minimart: {
+    floorA: '#ece6da',
+    floorB: '#c9d3cf',
+    floorLine: '#a8a89c',
+    wallLeft: '#cfe0d8',
+    wallLeftSeam: '#b6c9c0',
+    wallRight: '#dceae4',
+    wallRightSeam: '#c2d4cc',
+    wallCap: '#f6f2e8',
+    baseboard: '#c83c3c',
+  },
 };
 
 /**

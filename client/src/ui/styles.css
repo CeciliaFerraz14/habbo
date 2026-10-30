@@ -826,6 +826,57 @@ body {
   flex-wrap: wrap;
 }
 
+/* Pestañas de una ventana (mostrador de Hank). La activa, hundida. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tabs .btn.active {
+  background: var(--mustard-light);
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 var(--mustard-dark);
+}
+
+/* Proveedor: una fila por material, con los botones a la derecha (o debajo si no caben). */
+.supplier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supplier-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  font-size: 16px;
+}
+
+/* Oferta del día: tira de papel amarillo. */
+.deal {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  background: #fff6a0;
+  border: 2px dashed var(--outline);
+  font-size: 16px;
+}
+
+/* Tablón: listas sencillas con viñeta cuadrada. */
+.board-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: square;
+  font-size: 16px;
+  line-height: 1.15;
+}
+
 .hint {
   margin: 8px 0 0;
   color: var(--muted);

@@ -679,36 +679,6 @@ function closeLot(state: GameState, lotId: string): GameState {
   };
 }
 
-// --- Proveedor de materiales --------------------------------------------------
-
-/**
- * Comprar materiales al proveedor. Está en la gasolinera, así que hay que
- * estar en la calle. Es una salida de dinero: lo pagado desaparece del pueblo.
- */
-export function buyMaterial(
-  state: GameState,
-  avatarId: string,
-  material: MaterialId,
-  quantity: number,
-): GameState {
-  const avatar = state.avatars[avatarId];
-  const unitPrice = ECONOMY.supplier.prices[material];
-  if (!avatar || avatar.sceneId !== 'street' || unitPrice === undefined) return state;
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > ECONOMY.supplier.maxPerPurchase) {
-    return state;
-  }
-  const cost = unitPrice * quantity;
-  const money = state.money[avatarId] ?? 0;
-  if (money < cost) return state;
-
-  const mine = state.materials[avatarId] ?? {};
-  return {
-    ...state,
-    money: { ...state.money, [avatarId]: money - cost },
-    materials: { ...state.materials, [avatarId]: addMaterials(mine, { [material]: quantity }) },
-  };
-}
-
 // --- Subvención del pueblo ----------------------------------------------------
 
 /** Ticks que faltan para poder recoger la subvención (0 si ya se puede). */

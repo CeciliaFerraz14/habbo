@@ -61,7 +61,7 @@ export interface Door {
  */
 export type GroundChar = '.' | 's' | 'r' | '-';
 
-export type InteriorTheme = 'adobe' | 'trailer';
+export type InteriorTheme = 'adobe' | 'trailer' | 'minimart';
 
 export interface Scene {
   id: string;
@@ -74,7 +74,8 @@ export interface Scene {
   doors: Door[];
   /**
    * Estilo de un interior: 'adobe' (paredes de adobe y barro cocido, el de los
-   * locales) o 'trailer' (madera y suelo de damero, el de la caravana).
+   * locales), 'trailer' (madera y suelo de damero, el de la caravana) o
+   * 'minimart' (azulejo claro, el de la tienda de la gasolinera).
    */
   theme?: InteriorTheme;
   /**

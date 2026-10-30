@@ -11,7 +11,8 @@
 // Al arrancar, el servidor reconstruye el mundo: crea el mundo inicial y le
 // "pega encima" lo guardado (locales, muebles, perfiles, inventarios...).
 //
-// Lo que NO se guarda: NPC, coches y chat (se regeneran solos).
+// Lo que NO se guarda: NPC, coches, chat y lo que llevan en la mano los
+// avatares (se regeneran solos).
 // =============================================================================
 
 import {
@@ -22,6 +23,7 @@ import {
   type AvatarLook,
   type FurniItem,
   type GameState,
+  type GasPlayerState,
   type InventoryItem,
   type Lot,
   type Materials,
@@ -131,13 +133,16 @@ export class Persistence {
     const profileRows = check(profiles, 'profiles') ?? [];
     const itemRows = check(items, 'inventory_items') ?? [];
 
-    // 1. Reloj y semilla: la simulación continúa donde se quedó.
+    // 1. Reloj y semilla: la simulación continúa donde se quedó. También los
+    //    encargos de Hank y el récord de la máquina recreativa.
     if (worldRow) {
       state = {
         ...state,
         tick: Number(worldRow.tick),
         seed: Number(worldRow.seed),
         nextId: Math.max(state.nextId, Number(worldRow.next_id)),
+        orders: worldRow.gas?.orders ?? [],
+        pinballRecord: worldRow.gas?.pinballRecord ?? null,
       };
     }
 
@@ -166,6 +171,7 @@ export class Persistence {
     const money: Record<string, number> = { ...state.money };
     const materials: Record<string, Materials> = { ...state.materials };
     const subsidies: Record<string, number> = { ...state.subsidies };
+    const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
     const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
     const persistence = new Persistence(state);
     for (const p of profileRows) {
@@ -173,6 +179,8 @@ export class Persistence {
       money[p.id] = p.money;
       materials[p.id] = p.materials ?? {};
       subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
+      // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
+      if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
       const trailer = createTrailer(p.id, p.name).scene;
       scenes[trailer.id] = trailer;
@@ -195,7 +203,17 @@ export class Persistence {
       };
     }
 
-    state = { ...state, scenes, furniture: furniMap, lots: lotMap, money, materials, subsidies, inventories };
+    state = {
+      ...state,
+      scenes,
+      furniture: furniMap,
+      lots: lotMap,
+      money,
+      materials,
+      subsidies,
+      gasPlayers,
+      inventories,
+    };
     persistence.saved = state;
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
@@ -217,9 +235,10 @@ export class Persistence {
     this.saving = true;
     const prev = this.saved;
     try {
-      // Perfiles: jugadores cuyo avatar, dinero, materiales o subvención han cambiado.
+      // Perfiles: jugadores cuyo avatar, dinero, materiales, subvención o datos
+      // de la gasolinera han cambiado.
       const changedPlayers = new Set<string>();
-      for (const key of ['avatars', 'money', 'materials', 'subsidies', 'inventories'] as const) {
+      for (const key of ['avatars', 'money', 'materials', 'subsidies', 'gasPlayers', 'inventories'] as const) {
         for (const id in state[key]) {
           if (isPlayerId(id) && state[key][id] !== prev[key][id]) changedPlayers.add(id);
         }
@@ -237,6 +256,7 @@ export class Persistence {
           money: state.money[id] ?? 0,
           materials: state.materials[id] ?? {},
           next_subsidy_at: state.subsidies[id] ?? 0,
+          gas_station: state.gasPlayers[id] ?? {},
           updated_at: new Date().toISOString(),
         }];
       });
@@ -276,6 +296,7 @@ export class Persistence {
           tick: state.tick,
           seed: state.seed,
           next_id: state.nextId,
+          gas: { orders: state.orders, pinballRecord: state.pinballRecord },
           saved_at: new Date().toISOString(),
         }),
         'world',

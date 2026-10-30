@@ -17,6 +17,9 @@
 // =============================================================================
 
 import { secondsToTicks, servesCustomers } from './economy';
+import { ECONOMY } from './economy.config';
+import { CATALOG } from './catalog';
+import { HANK_ID } from './gasStation';
 import { createWalkableCheck } from './furniture';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
@@ -38,8 +41,19 @@ export interface NeighborBrain {
   lastHeardId: string | null;
 }
 
-/** Cerebro de cualquier NPC: vecino o viajero (ver travelers.ts). */
-export type NpcBrain = NeighborBrain | TravelerBrain;
+/** Hank, el dueño de la gasolinera: no se mueve del mostrador, solo habla. */
+export interface ClerkBrain {
+  id: string;
+  role: 'clerk';
+  nextThinkAt: number;
+  lastHeardId: string | null;
+}
+
+/** Cerebro de cualquier NPC: vecino, Hank o viajero (ver travelers.ts). */
+export type NpcBrain = NeighborBrain | ClerkBrain | TravelerBrain;
+
+/** Dónde está Hank: detrás de su mostrador, mirando a la tienda. */
+const HANK = { name: 'Hank', x: 3, y: 0 };
 
 /** Los vecinos del pueblo y dónde aparecen. */
 const NEIGHBORS = [
@@ -59,7 +73,7 @@ const PHRASES = {
     'Qué calor hace hoy...',
     'Antes por aquí paraban muchos coches.',
     'Mi abuelo tenía un diner en esta calle.',
-    '¿Has visto la gasolinera? Lleva años cerrada.',
+    '¡Hank ha vuelto a abrir la gasolinera!',
     'Hoy sopla viento del desierto.',
     '¿Sabes si alguien va a abrir un taller?',
   ],
@@ -68,6 +82,15 @@ const PHRASES = {
   lively: ['¡Cuántos neones encendidos!', 'El pueblo está reviviendo.', 'Hoy he visto más coches que en todo el año.'],
   store: ['Mira qué precio...', '¿Eso es una máquina de discos de verdad?', 'Solo estoy mirando, gracias.', 'Qué cosas más bonitas.'],
   greeting: ['¡Hola, forastero!', '¡Buenas! Bienvenido a Pixel Springs.', 'Hola, hola. ¿Eres nuevo por aquí?'],
+  hankGreeting: ['¡Buenas! ¿Qué te pongo?', 'Bienvenido a la gasolinera de Hank.', '¡Hola! Pasa, pasa, que fuera hace calor.'],
+  hank: [
+    'Si necesitas materiales, aquí los tengo.',
+    'Tengo encargos pendientes, si te animas...',
+    '¿Un rasca y gana? Hoy tengo un pálpito.',
+    'Busco a alguien para la caja, por si te interesa.',
+    'El refresco de la máquina está bien fresquito.',
+    'Mira el tablón: ahí sale todo lo que pasa en el pueblo.',
+  ],
 };
 
 const GREETING = /\b(hola|buenas|hey|saludos)\b/i;
@@ -93,6 +116,20 @@ export function setupNeighbors(state: GameState): GameState {
     avatars[n.id] = avatar;
     npcs[n.id] = { id: n.id, role: 'neighbor', nextThinkAt: 0, visitLeft: 0, lastHeardId: null };
   }
+  // Hank, en su gasolinera.
+  avatars[HANK_ID] = {
+    id: HANK_ID,
+    name: HANK.name,
+    sceneId: SCENES.gas,
+    x: HANK.x,
+    y: HANK.y,
+    direction: 'SW',
+    path: [],
+    look: { hair: '#e8e0d0', skin: '#d9a066', shirt: '#d94040', pants: '#2a2a3a' }, // canoso, camisa roja
+    isBot: true,
+    sitting: false,
+  };
+  npcs[HANK_ID] = { id: HANK_ID, role: 'clerk', nextThinkAt: 0, lastHeardId: null };
   return { ...state, avatars, npcs, seed: rng.seed() };
 }
 
@@ -102,6 +139,10 @@ export function npcTick(state: GameState): GameState {
   let someoneGreeted = false;
 
   for (const brain of Object.values(state.npcs)) {
+    if (brain.role === 'clerk') {
+      next = thinkClerk(next, brain);
+      continue;
+    }
     // Los viajeros tienen su propia lógica (travelers.ts).
     if (brain.role !== 'neighbor') continue;
     const avatar = next.avatars[brain.id];
@@ -158,6 +199,37 @@ function think(state: GameState, brain: NeighborBrain, avatar: Avatar): GameStat
   const wait = THINK_SECONDS.min + rng.random() * (THINK_SECONDS.max - THINK_SECONDS.min);
   next = updateBrain<NeighborBrain>(next, brain.id, { nextThinkAt: next.tick + secondsToTicks(wait) });
   return { ...next, seed: rng.seed() };
+}
+
+/**
+ * Hank contesta a los saludos de su tienda y, de vez en cuando, si hay algún
+ * jugador dentro, comenta algo (encargos, ofertas...). Nunca se mueve.
+ */
+function thinkClerk(state: GameState, brain: ClerkBrain): GameState {
+  const avatar = state.avatars[brain.id];
+  if (!avatar) return state;
+  let next = state;
+  const heard = lastPlayerMessage(next, avatar.sceneId);
+  if (heard && heard.id !== brain.lastHeardId) {
+    next = updateBrain<ClerkBrain>(next, brain.id, { lastHeardId: heard.id });
+    if (GREETING.test(heard.text)) return say(next, avatar.id, PHRASES.hankGreeting, () => (next.tick % 5) / 5);
+  }
+  if (next.tick < brain.nextThinkAt) return next;
+
+  const rng = createRandom(next.seed);
+  const playersInside = Object.values(next.avatars).some((a) => !a.isBot && a.sceneId === avatar.sceneId);
+  if (playersInside && rng.random() < 0.35) next = say(next, avatar.id, hankPhrases(next), rng.random);
+  const wait = 12 + rng.random() * 18;
+  next = updateBrain<ClerkBrain>(next, brain.id, { nextThinkAt: next.tick + secondsToTicks(wait) });
+  return { ...next, seed: rng.seed() };
+}
+
+/** Lo que comenta Hank, con alguna frase sobre el primer encargo abierto. */
+function hankPhrases(state: GameState): string[] {
+  const order = state.orders[0];
+  if (!order) return PHRASES.hank;
+  const what = `${order.quantity} × ${CATALOG[order.defId].name}`;
+  return [...PHRASES.hank, `Pago ${ECONOMY.currency}${order.reward} por ${what}. ¿Alguien?`];
 }
 
 // --- Ayudantes ----------------------------------------------------------------

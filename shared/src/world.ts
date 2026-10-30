@@ -6,7 +6,7 @@
 // carretera queda en diagonal):
 //
 //   y 0-3   [caravana]  [local1] [local2] ... [local6]  [gasolinera]
-//   y 4     acera con las puertas (D) de los edificios
+//   y 4     acera con las puertas (D) de los edificios (la de la gasolinera, en x = 39)
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus y el cartel de bienvenida
@@ -68,6 +68,14 @@ function createScenes(): Scene[] {
       to: { sceneId: SCENES.trailer, doorId: 'trailer-exit' },
       buildingId: 'trailer-building',
     },
+    {
+      id: 'street-gas',
+      x: 39,
+      y: 4,
+      spawn: { x: 39, y: 5 },
+      to: { sceneId: SCENES.gas, doorId: 'gas-exit' },
+      buildingId: 'gas-station',
+    },
     ...LOT_XS.map((x, i): Door => {
       const id = lotId(i + 1);
       return {
@@ -116,6 +124,41 @@ function createScenes(): Scene[] {
       ground: streetGround(),
     },
     ...lotInteriors,
+    // El minimarket de la gasolinera: Hank, el mostrador y las máquinas.
+    {
+      id: SCENES.gas,
+      name: 'Gasolinera de Hank',
+      kind: 'interior',
+      theme: 'minimart',
+      width: 8,
+      depth: 6,
+      doors: [
+        {
+          id: 'gas-exit',
+          x: 0,
+          y: 4,
+          spawn: { x: 1, y: 4 },
+          to: { sceneId: s, doorId: 'street-gas' },
+        },
+      ],
+    },
+  ];
+}
+
+/**
+ * Muebles fijos del minimarket. Hank está detrás del mostrador, en (3, 0).
+ * Al hacer clic: el mostrador abre la tienda de Hank, el tablón muestra lo que
+ * pasa en el pueblo y las máquinas venden un refresco o una partida.
+ */
+function createGasInterior(): FurniItem[] {
+  const g = SCENES.gas;
+  return [
+    { id: 'gas-counter', sceneId: g, defId: 'gas_counter', x: 2, y: 1, rotation: 1 },
+    { id: 'gas-soda', sceneId: g, defId: 'soda_machine', x: 6, y: 0, rotation: 1 },
+    { id: 'gas-arcade', sceneId: g, defId: 'arcade_cabinet', x: 7, y: 0, rotation: 1 },
+    { id: 'gas-board', sceneId: g, defId: 'notice_board', x: 0, y: 1, rotation: 0 },
+    { id: 'gas-shelf-1', sceneId: g, defId: 'minimart_shelf', x: 4, y: 3, rotation: 1 },
+    { id: 'gas-shelf-2', sceneId: g, defId: 'minimart_shelf', x: 6, y: 3, rotation: 1 },
   ];
 }
 
@@ -206,7 +249,7 @@ export function createTrailer(ownerId: string, ownerName: string) {
 
 export function createInitialState(): GameState {
   // Las caravanas de los jugadores se crean al entrar cada uno (JOIN).
-  const furniture = createStreetStructures();
+  const furniture = [...createStreetStructures(), ...createGasInterior()];
   const state: GameState = {
     scenes: Object.fromEntries(createScenes().map((s) => [s.id, s])),
     avatars: {},
@@ -217,6 +260,11 @@ export function createInitialState(): GameState {
     money: {},
     materials: {},
     subsidies: {},
+    orders: [],
+    nextOrderAt: 0,
+    gasPlayers: {},
+    pinballRecord: null,
+    nextBusAt: 0,
     tick: 0,
     seed: 20240917,
     npcs: {},
@@ -225,6 +273,7 @@ export function createInitialState(): GameState {
     notices: [],
     nextId: 100,
   };
-  // Las tiendas de los NPC abren desde el principio y los vecinos salen a la calle.
+  // Las tiendas de los NPC abren desde el principio, los vecinos salen a la
+  // calle y Hank se pone detrás de su mostrador.
   return setupNeighbors(setupNpcStores(state));
 }
