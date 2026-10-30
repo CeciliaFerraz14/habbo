@@ -8,10 +8,16 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-/** Cliente de Supabase, o null si no está configurado (entonces se entra como invitado). */
-export const supabase: SupabaseClient | null = url && anonKey ? createClient(url, anonKey) : null;
+/**
+ * Cliente de Supabase, o null si no está configurado (entonces se entra como invitado).
+ * La sesión se guarda en sessionStorage, que es de cada pestaña: así se puede
+ * jugar con una cuenta distinta en cada pestaña del mismo navegador. Sobrevive
+ * a recargar la página, pero al cerrar la pestaña hay que volver a entrar.
+ */
+export const supabase: SupabaseClient | null =
+  url && anonKey ? createClient(url, anonKey, { auth: { storage: sessionStorage } }) : null;
 
-/** Token de la sesión guardada en este navegador, si la hay. */
+/** Token de la sesión guardada en esta pestaña, si la hay. */
 export async function currentToken(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();

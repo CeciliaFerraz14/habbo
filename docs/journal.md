@@ -2,6 +2,15 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Una sesión por pestaña
+
+**Qué se hizo**
+- `client/src/game/auth.ts`: el cliente de Supabase guarda la sesión en `sessionStorage` en vez de `localStorage`.
+
+**Decisiones**
+- Con `localStorage` todas las pestañas del navegador compartían cuenta, y el servidor echa la conexión anterior de una misma cuenta: solo se podía probar con dos jugadores (ventana normal + incógnito).
+- Contrapartida: al cerrar la pestaña hay que volver a iniciar sesión (recargar sí la conserva).
+
 ## 2026-10-29 · Subvención del pueblo
 
 **Qué se hizo**
