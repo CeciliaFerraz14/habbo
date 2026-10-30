@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-30 · Ventanas con scroll y responsive
+
+**Qué se hizo**
+- `.win` tiene alto máximo (`100dvh - 16px`) y es una columna: la barra de título queda fija y `.win-body` hace scroll (barra en ocre y crema).
+- `PixelWindow.fitToScreen()` (`client/src/ui/window.ts`): al abrir una ventana y al cambiar el tamaño de la pantalla, la recoloca para que quepa entera.
+- Por debajo de 480 px, las opciones (`.option`) ponen el botón debajo del texto.
+- Ventana de alquiler: el texto de ayuda va arriba, antes de la lista.
+- Comprobado en Chrome: a 1536x695, la ventana de alquiler (8 negocios) sube y hace scroll; en un iframe de 386x686 cabe a lo ancho, con botones debajo y scroll hasta la Frutería.
+
+**Decisiones**
+- El arreglo va en la ventana base, así sirve para todas (negocio, tienda, inventario...), no solo para la de alquiler.
+
+**Pendiente**
+- A ancho de móvil, la barra inferior (chat y botones) se sale por la derecha.
+
 ## 2026-10-30 · Nombre del dueño en los locales
 
 **Qué se hizo**

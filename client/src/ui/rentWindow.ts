@@ -59,7 +59,7 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
       card.append(title, desc, button);
       list.append(card);
     }
-    win.body.replaceChildren(list, intro);
+    win.body.replaceChildren(intro, list);
     win.open();
   };
 

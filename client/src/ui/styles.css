@@ -385,7 +385,12 @@ body {
     inset 0 0 0 5px var(--outline),
     4px 4px 0 rgba(42, 26, 20, 0.45);
   padding: 5px;
+  /* Nunca más grande que la pantalla: la barra de título queda fija y el
+     contenido hace scroll (ver .win-body). El JS la recoloca para que quepa. */
   max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
 }
 
 .win[hidden] {
@@ -432,6 +437,12 @@ body {
 .win-body {
   padding: 10px;
   font-size: 17px;
+  /* min-height: 0 deja que el cuerpo encoja dentro de la ventana y haga scroll. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Barra de scroll a juego con el letrero. */
+  scrollbar-color: var(--ochre) var(--cream-dark);
 }
 
 /* ---------- Economía ---------- */
@@ -528,6 +539,17 @@ body {
   width: 8px;
   height: 8px;
   border: 2px solid var(--outline);
+}
+
+/* En pantallas estrechas, el botón de cada opción va debajo del texto. */
+@media (max-width: 480px) {
+  .option {
+    grid-template-columns: 1fr;
+  }
+
+  .option .btn {
+    justify-self: start;
+  }
 }
 
 /* Taller: recetas y cola de fabricación. */
