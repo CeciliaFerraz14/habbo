@@ -43,20 +43,27 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  /* En el móvil: sin rebote al deslizar ni recuadro azul al tocar. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   background: var(--sky);
   color: var(--text);
   font-family: var(--font-text);
 }
 
 /* El canvas ocupa toda la ventana. Su resolución interna es menor y se
-   escala con "pixelated" para que cada píxel del juego se vea como un bloque. */
+   escala con "pixelated" para que cada píxel del juego se vea como un bloque.
+   El tamaño en pantalla lo pone main.ts (resize), siempre un múltiplo exacto
+   de la resolución, para que nunca se estire.
+   touch-action: none → el dedo mueve el mapa y el pellizco hace zoom del
+   juego, en vez de desplazar o ampliar la página. */
 #game {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  left: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  touch-action: none;
 }
 
 /* Capa de interfaz HTML por encima del canvas. Solo sus hijos capturan el ratón,
@@ -154,6 +161,8 @@ body {
 
 /* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */
 .btn {
+  /* Sin el retraso del doble toque (que en el móvil amplía la página). */
+  touch-action: manipulation;
   font-family: var(--font-title);
   font-size: 11px;
   color: var(--outline);

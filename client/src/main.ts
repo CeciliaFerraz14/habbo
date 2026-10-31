@@ -389,8 +389,18 @@ window.addEventListener('keydown', (e) => {
 
 /** Ajusta la resolución interna del canvas al tamaño de la ventana y al zoom. */
 function resize(): void {
-  canvas.width = Math.floor(window.innerWidth / scale);
-  canvas.height = Math.floor(window.innerHeight / scale);
+  // El canvas mide exactamente `scale` veces su resolución, en las dos
+  // direcciones: así cada píxel del juego es un cuadrado de scale x scale y la
+  // imagen nunca se estira. Redondeamos hacia arriba para cubrir toda la
+  // pantalla (lo que sobra, menos de un píxel del juego, queda fuera).
+  // En el móvil usamos la parte visible (visualViewport): sin la barra del
+  // navegador, la ventana "oficial" es más alta que lo que se ve.
+  const width = window.visualViewport?.width ?? window.innerWidth;
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  canvas.width = Math.ceil(width / scale);
+  canvas.height = Math.ceil(height / scale);
+  canvas.style.width = `${canvas.width * scale}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
   // Al cambiar el tamaño, el contexto se reinicia: hay que volver a desactivar el suavizado.
   ctx.imageSmoothingEnabled = false;
   updateCamera();
@@ -496,6 +506,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', resize);
+// En el móvil, la barra del navegador aparece y desaparece sin cambiar la ventana.
+window.visualViewport?.addEventListener('resize', resize);
 resize();
 refreshUi();
 requestAnimationFrame(frame);

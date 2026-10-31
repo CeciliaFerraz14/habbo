@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Juego bien en el móvil
+
+**Qué se hizo**
+- La imagen ya no se estira: `resize()` (`client/src/main.ts`) da al canvas un tamaño en pantalla que es exactamente `scale` veces su resolución en los dos ejes, y usa `visualViewport` (la parte visible, sin la barra del navegador). Antes el CSS lo estiraba al 100 % de la pantalla, que en el móvil no coincide con `innerHeight`.
+- Entrada con pointer events (`client/src/engine/input.ts`): arrastrar con el dedo mueve el mapa y pellizcar hace zoom del juego. El hover solo con ratón. Margen de arrastre mayor con el dedo (10 px).
+- Sin zoom de página: `touch-action: none` en el canvas, `manipulation` en los botones y `user-scalable=no` en el viewport. Sin rebote ni resaltado azul al tocar.
+- Comprobado en Chrome con un iframe de 387x684: escala exacta 2x2 (y 4x4 tras pellizcar), arrastre y pellizco con eventos táctiles simulados.
+
+**Decisiones**
+- Escala entera y redondeo hacia arriba: lo que sobra (menos de un píxel del juego) queda fuera de la pantalla en vez de deformar la imagen.
+- El zoom de página se desactiva porque el juego ya tiene el suyo (botones, rueda y pellizco).
+
+**Pendiente**
+- Probarlo en un móvil de verdad (iOS y Android): solo se ha simulado.
+
 ## 2026-10-30 · La gasolinera de Hank
 
 **Qué se hizo**
