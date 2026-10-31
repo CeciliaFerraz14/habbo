@@ -5,6 +5,17 @@
     <!-- Sin zoom de página en el móvil: el juego tiene su propio zoom (botones y pellizco). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Pixel Springs</title>
+    <!-- App instalable: icono y nombre al añadirla a la pantalla de inicio del
+         móvil, y sin barra del navegador al abrirla desde ahí. Los iconos
+         están en public/icons (generados a partir del logo). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#3fb8af" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Pixel Springs" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

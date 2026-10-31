@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Icono para la pantalla de inicio del móvil
+
+**Qué se hizo**
+- App instalable (PWA): `client/public/manifest.webmanifest` con nombre, colores del cielo y `display_override: fullscreen` (al abrirla desde el icono no hay barra del navegador).
+- Iconos en `client/public/icons/`: 192 y 512 (logo grande apoyado en el horizonte de arena), 512 "maskable" para Android (logo centrado dentro del círculo del 80 %), 180 para iPhone y favicon de 32.
+- `client/index.html`: enlaces al manifiesto, `apple-touch-icon`, favicon, `theme-color` y etiquetas `apple-mobile-web-app-*`.
+- Comprobado: build (manifiesto válido e iconos copiados a `dist`) y los iconos vistos uno a uno.
+
+**Decisiones**
+- Iconos generados a partir del logo con sharp desde un script fuera del repo (fondo: cielo `--sky`, arena `--sand` y línea `--outline`, como la pantalla de carga). Para regenerarlos: componer el logo sobre ese fondo a 86 % del ancho (68 % y centrado en el maskable).
+- Sin service worker: el juego necesita conexión al servidor, y Chrome ya permite instalar sin él.
+
+**Pendiente**
+- Probar "Añadir a pantalla de inicio" en un iPhone y un Android de verdad.
+
 ## 2026-10-31 · Números legibles
 
 **Qué se hizo**
