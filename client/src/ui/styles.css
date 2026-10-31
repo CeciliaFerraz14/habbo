@@ -997,6 +997,18 @@ body {
   image-rendering: pixelated;
 }
 
+/* Cabecera plegable de la fachada: el título a la izquierda y Cambiar/Ocultar a la derecha. */
+.facade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.facade-header .section-title {
+  margin: 0;
+}
+
 .facade-picker {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

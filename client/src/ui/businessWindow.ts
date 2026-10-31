@@ -91,14 +91,35 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
    * pierda si la ventana se reconstruye mientras el ratón está encima.
    */
   let previewFacade: FacadeId | null = null;
+  /**
+   * ¿Está desplegado el selector de fachada? Plegado por defecto: ocupa mucho
+   * (sobre todo en el móvil) y casi nunca hace falta. Se recuerda mientras la
+   * ventana sigue abierta, aunque se reconstruya.
+   */
+  let facadeOpen = false;
 
   /**
-   * Plantillas de fachada: una vista previa del local, tal como se verá desde
-   * la calle, y un botón por plantilla con sus dos colores. Al pasar el ratón
-   * (o el foco) por una opción, la vista previa la muestra; al hacer clic se
-   * aplica. El icono del cartel lo pone el tipo de negocio.
+   * Plantillas de fachada. Plegadas, solo una línea ("Fachada: Clásica" y el
+   * botón Cambiar). Desplegadas: una vista previa del local, tal como se verá
+   * desde la calle, y un botón por plantilla con sus dos colores. Al pasar el
+   * ratón (o el foco) por una opción, la vista previa la muestra; al hacer
+   * clic se aplica. El icono del cartel lo pone el tipo de negocio.
    */
   const buildFacadePicker = (lot: Lot) => {
+    const header = document.createElement('div');
+    header.className = 'facade-header';
+    const title = text(`Fachada: ${lot.facade ? FACADES[lot.facade].name : '—'}`, 'section-title');
+    const toggle = button('', true, () => {
+      facadeOpen = !facadeOpen;
+      showOpen();
+    });
+    header.append(title, toggle);
+    const panel = document.createElement('div');
+    const showOpen = () => {
+      panel.hidden = !facadeOpen;
+      toggle.textContent = facadeOpen ? 'Ocultar' : 'Cambiar';
+    };
+
     const preview = document.createElement('div');
     preview.className = 'facade-preview';
     const caption = document.createElement('span');
@@ -135,7 +156,9 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     }
     row.addEventListener('mouseleave', () => showPreview(null));
     showPreview(previewFacade);
-    win.body.append(text('Fachada:', 'section-title'), preview, row);
+    panel.append(preview, row);
+    showOpen();
+    win.body.append(header, panel);
   };
 
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------
@@ -393,6 +416,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     open(id) {
       lotId = id;
       signature = '';
+      // Cada vez que se abre, la fachada empieza plegada.
+      facadeOpen = false;
       win.open();
     },
     update,

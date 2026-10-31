@@ -2,6 +2,16 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Fachada plegable
+
+**Qué se hizo**
+- En la ventana del negocio, la fachada empieza plegada: una línea "Fachada: Clásica" con el botón **Cambiar**, que despliega la vista previa y las plantillas (y pasa a **Ocultar**). `client/src/ui/businessWindow.ts`.
+- Se recuerda mientras la ventana sigue abierta (aunque se reconstruya); al volver a abrirla, plegada otra vez.
+- Comprobado en Chrome (offline) con un taller: plegada en una línea y desplegada con vista previa y plantillas.
+
+**Decisiones**
+- Plegada por defecto: en el móvil la vista previa ocupaba media pantalla y casi nunca hace falta.
+
 ## 2026-10-31 · Icono para la pantalla de inicio del móvil
 
 **Qué se hizo**
