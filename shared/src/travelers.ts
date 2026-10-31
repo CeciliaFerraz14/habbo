@@ -37,6 +37,7 @@ import {
 import { addNotice } from './economy';
 import { ECONOMY, type BusinessType } from './economy.config';
 import { tipWorkers } from './gasStation';
+import { addSaleXp } from './levels';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
 import { move, say, updateBrain, wander } from './npcs';
@@ -385,6 +386,7 @@ function decideAndBuy(
   // El viajero se lleva el mueble fuera del pueblo: no va a ningún inventario.
   // (Si el dueño es un jugador, sellProduct ya le deja un aviso de la venta.)
   let next = sellProduct(state, product, lot.ownerId, (s) => s);
+  next = addSaleXp(next, lot.ownerId, product.price!);
   next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - product.price! });
   return say(next, avatar.id, PHRASES.bought, random);
 }
@@ -400,6 +402,7 @@ function decideAndServe(
   if (!decideService(lot, brain.budget, random)) return say(state, avatar.id, PHRASES.nothing, random);
 
   let next = serveCustomer(state, lot.id);
+  next = addSaleXp(next, lot.ownerId, lot.price);
   next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - lot.price });
   // En la peluquería el viajero sale con el pelo de otro color.
   if (lot.business === 'barber') {

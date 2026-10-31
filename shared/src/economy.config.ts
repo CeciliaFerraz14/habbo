@@ -202,6 +202,33 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
   },
 };
 
+/** Recompensa de un rango (todo opcional; las ventajas se suman entre rangos). */
+export interface RankReward {
+  /** Lo que se enseña al jugador ("+1 hueco en la cola del taller"). */
+  text: string;
+  /** Dinero al subir. */
+  money?: number;
+  /** Muebles al inventario al subir. */
+  items?: DecorId[];
+  /** Huecos extra en la cola del taller. */
+  workshopQueue?: number;
+  /** Huecos de venta extra en la tienda. */
+  storeListings?: number;
+  /** Subvención diaria nueva (sustituye a la normal si es mayor). */
+  subsidy?: number;
+  /** Descuento al comprar en el mostrador de Hank (0,1 = 10 %). */
+  hankDiscount?: number;
+  /** Aún no existe en el juego: se enseña como "próximamente". */
+  soon?: boolean;
+}
+
+export interface RankConfig {
+  name: string;
+  /** XP total necesaria para llegar a este rango. */
+  xp: number;
+  reward: RankReward | null;
+}
+
 export interface Recipe {
   /** Materiales que consume. */
   materials: Materials;
@@ -236,6 +263,56 @@ export const ECONOMY = {
   subsidy: {
     amount: 30,
     periodSeconds: 24 * 60 * 60, // una vez al día
+  },
+
+  /**
+   * Niveles y rangos. La experiencia (XP) solo se gana con cosas que hacen
+   * avanzar el pueblo (vender a viajeros, fabricar, encargos...), nunca
+   * comprando o vendiendo entre jugadores: así no se puede subir haciendo
+   * trampas con dos cuentas. Ver shared/src/levels.ts.
+   */
+  levels: {
+    xp: {
+      /** Un viajero te compra o paga tu servicio: 1 XP por cada tantos dólares. */
+      saleDollarsPerXp: 10,
+      /** Recoger del taller cada mueble fabricado. */
+      craft: 5,
+      /** Recoger lo producido por una chatarrería, pozo o invernadero. */
+      collect: 2,
+      /** Entregar un encargo de Hank. */
+      order: 25,
+      /** Completar un turno en la gasolinera. */
+      shift: 10,
+      /** Alquilar un local y abrir un negocio. */
+      openBusiness: 30,
+      /** Entrar a jugar (una vez al día). */
+      daily: 5,
+    },
+    /**
+     * Rangos, del primero al último: XP total para llegar y recompensa. Las
+     * ventajas se acumulan (al llegar a Empresario sigues teniendo las de los
+     * rangos anteriores). `soon` = recompensa que aún no existe en el juego.
+     */
+    ranks: [
+      { name: 'Forastero', xp: 0, reward: null },
+      {
+        name: 'Recién llegado',
+        xp: 50,
+        reward: { text: '$50 y un cactus en maceta', money: 50, items: ['potted_cactus'] as DecorId[] },
+      },
+      { name: 'Vecino', xp: 150, reward: { text: '+1 hueco en la cola del taller', workshopQueue: 1 } },
+      { name: 'Tendero', xp: 350, reward: { text: 'Cartel de neón con tu nombre', soon: true } },
+      { name: 'Comerciante', xp: 700, reward: { text: 'Subvención diaria de $45', subsidy: 45 } },
+      { name: 'Empresario', xp: 1200, reward: { text: '+2 huecos de venta en tu tienda', storeListings: 2 } },
+      { name: 'Cowboy del asfalto', xp: 2000, reward: { text: 'Sombrero de vaquero y colores nuevos', soon: true } },
+      {
+        name: 'Magnate de la carretera',
+        xp: 3200,
+        reward: { text: '10 % de descuento en el mostrador de Hank', hankDiscount: 0.1 },
+      },
+      { name: 'Leyenda de la Ruta', xp: 5000, reward: { text: 'Jukebox dorada', soon: true } },
+      { name: 'Alcalde de Pixel Springs', xp: 8000, reward: { text: 'Estatua en la plaza con tu nombre', soon: true } },
+    ] as RankConfig[],
   },
 
   /**

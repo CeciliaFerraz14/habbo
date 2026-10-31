@@ -5,7 +5,9 @@ import {
   CATALOG,
   ECONOMY,
   getListings,
+  rankOf,
   SCENES,
+  topPlayers,
   type GameState,
   type Lot,
 } from '@juego/shared';
@@ -71,7 +73,8 @@ export function createBoardWindow(): BoardWindow {
       (o) => `${o.quantity} × ${CATALOG[o.defId].name} · paga ${formatMoney(o.reward)}`,
     );
     const record = state.pinballRecord;
-    const next = JSON.stringify([lines, orders, dealText(state.tick), record]);
+    const top = topPlayers(state).map((p, i) => `${i + 1}. ${p.name} · nivel ${p.level} (${rankOf(p.level).name})`);
+    const next = JSON.stringify([lines, orders, dealText(state.tick), record, top]);
     if (next === signature) return;
     signature = next;
 
@@ -79,6 +82,7 @@ export function createBoardWindow(): BoardWindow {
     section('Negocios', lines);
     section('Encargos de Hank', orders.length > 0 ? orders : ['Ninguno ahora mismo.']);
     section('Oferta de hoy en el mostrador', [dealText(state.tick)]);
+    section('Vecinos de más rango', top.length > 0 ? top : ['Todavía nadie.']);
     section('Récord de la máquina recreativa', [
       record ? `${record.name}: ${record.score.toLocaleString('es-ES')} puntos` : 'Nadie ha jugado todavía.',
     ]);

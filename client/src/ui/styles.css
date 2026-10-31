@@ -364,6 +364,16 @@ body {
   white-space: nowrap;
 }
 
+/* La insignia de nivel, un poco más pequeña sobre la cabeza. */
+.name-tag .level-badge {
+  min-width: 12px;
+  margin-right: 3px;
+  padding: 0 2px;
+  border-width: 1px;
+  font-size: 7px;
+  vertical-align: 1px;
+}
+
 /* El tuyo, en mostaza para encontrarte de un vistazo. */
 .name-tag.me {
   color: var(--mustard-light);
@@ -409,6 +419,67 @@ body {
     1px -1px 0 var(--outline),
     -1px 1px 0 var(--outline);
   white-space: nowrap;
+}
+
+/* ---------- Subida de nivel ---------- */
+
+#ui > .level-ups {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Punto de la explosión (sobre la cabeza): las chispas salen de aquí. */
+.level-up {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.level-up i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  animation: level-spark 1.2s steps(8) forwards;
+}
+
+.level-up span {
+  position: absolute;
+  left: 0;
+  top: -24px;
+  translate: -50% 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--neon-yellow);
+  text-shadow:
+    2px 2px 0 var(--outline),
+    -1px -1px 0 var(--outline);
+  white-space: nowrap;
+  animation: level-text 2.2s steps(11) forwards;
+}
+
+@keyframes level-spark {
+  to {
+    translate: var(--dx) var(--dy);
+    opacity: 0;
+  }
+}
+
+@keyframes level-text {
+  0% {
+    translate: -50% 10px;
+    opacity: 0;
+  }
+  20%,
+  80% {
+    translate: -50% 0;
+    opacity: 1;
+  }
+  100% {
+    translate: -50% -10px;
+    opacity: 0;
+  }
 }
 
 /* ---------- Bocadillos ---------- */
@@ -588,6 +659,111 @@ body {
   #toast {
     bottom: 140px;
   }
+}
+
+/* Rango en la cartera: insignia, nombre y barra de XP. Se puede tocar (abre "Mi rango"). */
+.wallet-rank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--outline);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.wallet-rank .xp-bar {
+  flex: 1 0 100%;
+}
+
+/* Insignia de nivel: cuadradito con el número, de bronce, plata, oro o neón. */
+.level-badge {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 3px;
+  border: 2px solid var(--outline);
+  font-family: var(--font-title);
+  font-size: 8px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--outline);
+}
+
+.level-badge.bronze { background: #d08a4e; }
+.level-badge.silver { background: #d8dde3; }
+.level-badge.gold { background: var(--neon-yellow); }
+.level-badge.legend {
+  background: var(--neon-pink);
+  color: var(--cream);
+}
+
+/* Barra de XP: del rango actual al siguiente. */
+.xp-bar {
+  height: 8px;
+  background: #3a3434;
+  border: 2px solid var(--outline);
+}
+
+.xp-bar i {
+  display: block;
+  height: 100%;
+  background: var(--turquoise-light);
+}
+
+/* Ventana "Mi rango". */
+.rank-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rank-head .level-badge {
+  font-size: 12px;
+}
+
+.rank-name {
+  font-family: var(--font-title);
+  font-size: 12px;
+}
+
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--cream-dark);
+  border: 2px solid var(--outline);
+  font-size: 15px;
+  opacity: 0.7;
+}
+
+.rank-row.reached {
+  background: var(--sand);
+  opacity: 1;
+}
+
+.rank-row.current {
+  outline: 3px solid var(--mustard);
+}
+
+.rank-reward {
+  color: var(--muted);
 }
 
 /* La cartera deja pasar el ratón, salvo su botón. */

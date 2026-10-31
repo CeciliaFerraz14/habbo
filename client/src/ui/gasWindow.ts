@@ -10,6 +10,7 @@ import {
   dailyDeal,
   ECONOMY,
   gasPlayer,
+  hankPrice,
   MATERIAL_IDS,
   MOVE_TICK_MS,
   SCENES,
@@ -116,7 +117,8 @@ export function createGasWindow(actions: GasActions): GasWindow {
     for (const id of MATERIAL_IDS) {
       const row = document.createElement('div');
       row.className = 'supplier-row';
-      const buy = buyPrice(state.tick, id);
+      // Precio con el descuento de rango (Magnate), si lo tiene.
+      const buy = hankPrice(state, playerId, buyPrice(state.tick, id));
       const sell = sellPrice(state.tick, id);
       const info = document.createElement('div');
       info.className = 'recipe-info';

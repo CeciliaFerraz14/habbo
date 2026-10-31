@@ -17,7 +17,8 @@
 
 import { withChatMessage } from './chat';
 import { CATALOG, DECOR_IDS, type DecorId } from './catalog';
-import { addMaterials, addNotice, secondsToTicks } from './economy';
+import { addMaterials, addNotice, dayIndex, secondsToTicks } from './economy';
+import { addXpFor, hankPrice } from './levels';
 import { ECONOMY, MATERIAL_IDS, type MaterialId } from './economy.config';
 import { planPath } from './movement';
 import { createRandom } from './random';
@@ -54,7 +55,6 @@ export interface PinballRecord {
 }
 
 const GAS = ECONOMY.gasStation;
-const DAY_SECONDS = 24 * 60 * 60;
 
 const EMPTY_PLAYER: GasPlayerState = { scratchDay: -1, scratches: 0, shiftEndsAt: 0, nextShiftAt: 0 };
 
@@ -77,11 +77,6 @@ function withMoney(state: GameState, avatarId: string, delta: number): GameState
 }
 
 // --- Proveedor y oferta del día ------------------------------------------------
-
-/** Número de día de la simulación (cambia cada 24 h de servidor en marcha). */
-export function dayIndex(tick: number): number {
-  return Math.floor(tick / secondsToTicks(DAY_SECONDS));
-}
 
 /**
  * Oferta del día: un material rebajado y otro más caro. Sale del número de
@@ -125,7 +120,8 @@ export function buyMaterial(
   if (!isInside(state, avatarId) || !MATERIAL_IDS.includes(material) || !isValidQuantity(quantity)) {
     return state;
   }
-  const cost = buyPrice(state.tick, material) * quantity;
+  // Con el rango de Magnate, Hank hace descuento.
+  const cost = hankPrice(state, avatarId, buyPrice(state.tick, material)) * quantity;
   if ((state.money[avatarId] ?? 0) < cost) return state;
   const mine = state.materials[avatarId] ?? {};
   return {
@@ -201,7 +197,8 @@ export function deliverOrder(state: GameState, avatarId: string, orderId: string
     orders: state.orders.filter((o) => o.id !== orderId),
   };
   const what = `${order.quantity} × ${CATALOG[order.defId].name}`;
-  return addNotice(next, avatarId, `Encargo entregado (${what}): +${ECONOMY.currency}${order.reward}`);
+  const noticed = addNotice(next, avatarId, `Encargo entregado (${what}): +${ECONOMY.currency}${order.reward}`);
+  return addXpFor(noticed, avatarId, 'order');
 }
 
 // --- Turnos en la caja ------------------------------------------------------------
@@ -250,6 +247,7 @@ function updateShifts(state: GameState): GameState {
       const nextShiftAt = next.tick + secondsToTicks(GAS.shift.cooldownSeconds);
       next = withGasPlayer(withMoney(next, id, GAS.shift.wage), id, { shiftEndsAt: 0, nextShiftAt });
       next = addNotice(next, id, `Fin del turno. Sueldo: +${ECONOMY.currency}${GAS.shift.wage}`);
+      next = addXpFor(next, id, 'shift');
     }
   }
   return next;

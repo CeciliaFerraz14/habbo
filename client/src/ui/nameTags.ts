@@ -2,11 +2,12 @@
 //
 // Igual que los bocadillos: elementos HTML (texto nítido) recolocados en cada
 // fotograma sobre la cabeza de cada avatar.
-import type { GameState } from '@juego/shared';
+import { levelOf, type GameState } from '@juego/shared';
 import type { Camera } from '../engine/camera';
 import type { Point } from '../engine/iso';
 import type { Renderer } from '../engine/renderer';
 import type { AvatarViews } from '../game/avatarViews';
+import { levelBadge } from './rankWindow';
 
 /** Distancia entre la cabeza del avatar y la etiqueta. */
 const HEAD_MARGIN = 2;
@@ -49,8 +50,14 @@ export class NameTags {
         this.layer.append(tag);
         this.tags.set(avatar.id, tag);
       }
-      // textContent: el nombre lo elige el jugador, nunca se interpreta como HTML.
-      if (tag.textContent !== avatar.name) tag.textContent = avatar.name;
+      // Insignia de nivel y nombre. textContent (dentro de un nodo de texto): el
+      // nombre lo elige el jugador, nunca se interpreta como HTML.
+      const level = levelOf(state, avatar.id);
+      const key = `${level}|${avatar.name}`;
+      if (tag.dataset.key !== key) {
+        tag.dataset.key = key;
+        tag.replaceChildren(levelBadge(level), document.createTextNode(avatar.name));
+      }
       const head = toScreen(renderer.avatarHeadPosition(state, avatar, view, camera));
       const x = Math.round(head.x - tag.offsetWidth / 2);
       const y = Math.round(head.y - HEAD_MARGIN - tag.offsetHeight);

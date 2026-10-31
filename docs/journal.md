@@ -2,6 +2,24 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Niveles y rangos (parte 1)
+
+**Qué se hizo**
+- `shared/src/levels.ts` y `ECONOMY.levels`: experiencia (XP) y 10 rangos del oeste, de Forastero (0 XP) a Alcalde de Pixel Springs (8.000 XP).
+- XP por: ventas y servicios a viajeros (+1 cada $10), recoger muebles fabricados (+5), recoger de un productor (+2), encargos de Hank (+25), turnos (+10), abrir negocio (+30) y entrar cada día (+5).
+- Recompensas al subir: dinero y muebles (nivel 2: $50 y un cactus). Ventajas que se suman: +1 cola del taller (Vecino), subvención de $45 (Comerciante), +2 huecos en la tienda (Empresario, con 2 sitios de exposición nuevos) y 10 % de descuento con Hank (Magnate). Las de los niveles 4, 7, 9 y 10 se enseñan como "próximamente".
+- Al subir: aviso con la recompensa, aviso a los demás jugadores conectados y celebración con chispas y "¡NIVEL N! Rango" sobre el avatar (`ui/levelUp.ts`), que ve todo el que esté en la escena.
+- Interfaz: rango y barra de XP en la cartera (al tocarlo se abre "Mi rango", `ui/rankWindow.ts`), insignia de nivel (bronce, plata, oro, neón) junto a cada nombre y "Vecinos de más rango" en el tablón.
+- Guardado: `profiles.progress` (XP, último día con XP diaria y nombre), migración `006_progress.sql` (aplicada en Supabase y comprobada). `dayIndex` pasa a `economy.ts`.
+- Comprobado: script (XP diaria una vez al día, subida con dinero y cactus, varios rangos de golpe con las ventajas sumadas, descuento de Hank, subvención de $45, XP por ventas del diner) y en Chrome (subida a nivel 2, cartera, ventana "Mi rango" y chispas).
+
+**Decisiones**
+- La XP solo sale del "exterior" (viajeros, fabricar, Hank...), nunca de comprar o vender entre jugadores: así no se sube con dos cuentas.
+- Los NPC (Rosa, Elmer) no tienen rango ni ventajas.
+
+**Pendiente**
+- Parte 2: cartel de neón con tu nombre, sombrero y colores nuevos, jukebox dorada y estatua del alcalde.
+
 ## 2026-10-31 · Fachada plegable
 
 **Qué se hizo**

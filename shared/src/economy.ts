@@ -29,6 +29,7 @@ import {
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
+import { addXpFor, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
 import { createRandom } from './random';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
@@ -73,6 +74,11 @@ export interface Lot {
 /** Convierte segundos de la configuración a ticks de simulación. */
 export function secondsToTicks(seconds: number): number {
   return Math.round((seconds * 1000) / MOVE_TICK_MS);
+}
+
+/** Número de día de la simulación (cambia cada 24 h de servidor en marcha). */
+export function dayIndex(tick: number): number {
+  return Math.floor(tick / secondsToTicks(24 * 60 * 60));
 }
 
 export function createLot(id: string, label: string): Lot {
@@ -153,11 +159,13 @@ const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rot
 /**
  * Huecos de exposición de una tienda (local de 8x8). Al poner algo a la venta
  * se coloca en el primer hueco donde quepa. Están separados para dejar
- * pasillos entre los productos.
+ * pasillos entre los productos. Los dos últimos solo se usan con el rango de
+ * Empresario (ver storeListingsMax en levels.ts).
  */
 const DISPLAY_SLOTS = [
   { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 3, y: 3 }, { x: 5, y: 3 },
   { x: 7, y: 1 }, { x: 7, y: 3 }, { x: 5, y: 6 }, { x: 7, y: 6 },
+  { x: 3, y: 6 }, { x: 1, y: 7 },
 ];
 /** Los productos se exponen mirando a SW (hacia la cámara). */
 const DISPLAY_ROTATION: Rotation = 1;
@@ -210,7 +218,7 @@ export function rentLot(
   if (!lot || !avatar || lot.ownerId !== null || !config || money < config.deposit) return state;
 
   const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
-  return openBusiness(paid, lotId, avatarId, avatar.name, business);
+  return addXpFor(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, 'openBusiness');
 }
 
 /**
@@ -274,11 +282,12 @@ export function collectMaterials(state: GameState, avatarId: string, lotId: stri
   if (totalMaterials(lot.storage) === 0) return state;
 
   const mine = state.materials[avatarId] ?? {};
-  return {
+  const collected = {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, storage: {} } },
     materials: { ...state.materials, [avatarId]: addMaterials(mine, lot.storage) },
   };
+  return addXpFor(collected, avatarId, 'collect');
 }
 
 /** Taller: empezar a fabricar un mueble. Los materiales se gastan al empezar. */
@@ -291,7 +300,7 @@ export function startCraft(
   const lot = state.lots[lotId];
   const recipe = ECONOMY.recipes[defId];
   if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
-  if (lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
+  if (lot.jobs.length >= workshopQueueSize(state, avatarId)) return state;
 
   const mine = state.materials[avatarId] ?? {};
   if (!hasMaterials(mine, recipe.materials)) return state;
@@ -318,7 +327,7 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
   if (done.length === 0) return state;
 
   const items: InventoryItem[] = done.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
-  return {
+  const collected = {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => j.readyAt > state.tick) } },
     inventories: {
@@ -327,6 +336,7 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
     },
     nextId: state.nextId + items.length,
   };
+  return addXpFor(collected, avatarId, 'craft', items.length);
 }
 
 // --- Simulación ---------------------------------------------------------------
@@ -383,7 +393,8 @@ function placeOnDisplay(
   defId: DecorId,
   price: number,
 ): FurniItem | null {
-  if (getListings(state, lotId).length >= ECONOMY.store.maxListings) return null;
+  const owner = state.lots[lotId]?.ownerId ?? '';
+  if (getListings(state, lotId).length >= storeListingsMax(state, owner)) return null;
   const slot = DISPLAY_SLOTS.find((s) =>
     canPlaceFurni(state, lotId, defId, s.x, s.y, DISPLAY_ROTATION),
   );
@@ -687,13 +698,15 @@ export function subsidyTicksLeft(state: GameState, avatarId: string): number {
 }
 
 /**
- * Recoger la subvención: da ECONOMY.subsidy.amount y la siguiente no estará
- * lista hasta dentro de un periodo. Es una entrada de dinero al pueblo.
+ * Recoger la subvención: da ECONOMY.subsidy.amount (más con el rango de
+ * Comerciante) y la siguiente no estará lista hasta dentro de un periodo. Es
+ * una entrada de dinero al pueblo.
  */
 export function claimSubsidy(state: GameState, avatarId: string): GameState {
   const avatar = state.avatars[avatarId];
   if (!avatar || avatar.isBot || subsidyTicksLeft(state, avatarId) > 0) return state;
-  const { amount, periodSeconds } = ECONOMY.subsidy;
+  const { periodSeconds } = ECONOMY.subsidy;
+  const amount = subsidyAmount(state, avatarId);
   const next = {
     ...state,
     money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + amount },

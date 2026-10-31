@@ -4,7 +4,10 @@ import {
   ECONOMY,
   GAME_NAME,
   isValidLook,
+  levelOf,
+  progressOf,
   SCENES,
+  subsidyAmount,
   subsidyTicksLeft,
   trailerSceneId,
   type AvatarLook,
@@ -28,6 +31,8 @@ import { ChatBubbles } from './ui/chatBubbles';
 import { LotSigns } from './ui/lotSigns';
 import { NameTags } from './ui/nameTags';
 import { WorkTags } from './ui/workTags';
+import { LevelUps } from './ui/levelUp';
+import { createRankWindow } from './ui/rankWindow';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
@@ -244,8 +249,13 @@ function playerSceneId(): string {
 
 // --- Interfaz -----------------------------------------------------------------
 
-const wallet = createWallet(() =>
-  transport.dispatch({ type: 'CLAIM_SUBSIDY', avatarId: PLAYER_ID }),
+const rankWindow = createRankWindow();
+const wallet = createWallet(
+  () => transport.dispatch({ type: 'CLAIM_SUBSIDY', avatarId: PLAYER_ID }),
+  () => {
+    rankWindow.open();
+    rankWindow.update(state, PLAYER_ID);
+  },
 );
 const rentWindow = createRentWindow((lotId, business) => {
   transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
@@ -288,6 +298,7 @@ const priceTags = new PriceTags();
 const nameTags = new NameTags();
 const lotSigns = new LotSigns();
 const workTags = new WorkTags();
+const levelUps = new LevelUps();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -348,11 +359,15 @@ function refreshUi(): void {
   }
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
-  wallet.update(
-    state.money[PLAYER_ID] ?? 0,
-    state.materials[PLAYER_ID] ?? {},
-    subsidyTicksLeft(state, PLAYER_ID),
-  );
+  wallet.update({
+    money: state.money[PLAYER_ID] ?? 0,
+    materials: state.materials[PLAYER_ID] ?? {},
+    subsidyTicksLeft: subsidyTicksLeft(state, PLAYER_ID),
+    subsidyAmount: subsidyAmount(state, PLAYER_ID),
+    level: levelOf(state, PLAYER_ID),
+    xp: progressOf(state, PLAYER_ID).xp,
+  });
+  rankWindow.update(state, PLAYER_ID);
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
@@ -508,6 +523,7 @@ function frame(now: number): void {
   lotSigns.update(state, sceneId, camera, canvasToScreen);
   nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
   workTags.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
+  levelUps.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
 }
 

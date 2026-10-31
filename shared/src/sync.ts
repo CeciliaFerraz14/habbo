@@ -30,6 +30,7 @@ const RECORD_KEYS = [
   'materials',
   'subsidies',
   'gasPlayers',
+  'progress',
   'vehicles',
 ] as const;
 

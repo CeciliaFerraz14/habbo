@@ -7,6 +7,7 @@ export * from './economy';
 export * from './economy.config';
 export * from './furniture';
 export * from './gasStation';
+export * from './levels';
 export * from './looks';
 export * from './movement';
 export * from './npcs';

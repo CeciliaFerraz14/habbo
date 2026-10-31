@@ -34,6 +34,7 @@ import {
   startShift,
 } from './gasStation';
 import { canPlaceFurni } from './furniture';
+import { addDailyXp } from './levels';
 import { isValidLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
@@ -84,6 +85,8 @@ export function applyAction(state: GameState, action: Action): GameState {
           nextId: next.nextId + items.length,
         };
       }
+      // XP por entrar a jugar (una vez al día).
+      if (!avatar.isBot) next = addDailyXp(next, avatar.id);
       return updateSitting(next);
     }
 

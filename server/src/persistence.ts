@@ -24,6 +24,7 @@ import {
   type FurniItem,
   type GameState,
   type GasPlayerState,
+  type PlayerProgress,
   type SavedPosition,
   type InventoryItem,
   type Lot,
@@ -174,6 +175,7 @@ export class Persistence {
     const subsidies: Record<string, number> = { ...state.subsidies };
     const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
     const lastPositions: Record<string, SavedPosition> = { ...state.lastPositions };
+    const progress: Record<string, PlayerProgress> = { ...state.progress };
     const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
     const persistence = new Persistence(state);
     for (const p of profileRows) {
@@ -182,6 +184,7 @@ export class Persistence {
       materials[p.id] = p.materials ?? {};
       subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
       if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
+      if (p.progress?.xp !== undefined) progress[p.id] = { ...p.progress, name: p.name };
       // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
       if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
@@ -216,6 +219,7 @@ export class Persistence {
       subsidies,
       gasPlayers,
       lastPositions,
+      progress,
       inventories,
     };
     persistence.saved = state;
@@ -249,6 +253,7 @@ export class Persistence {
         'subsidies',
         'gasPlayers',
         'lastPositions',
+        'progress',
         'inventories',
       ] as const) {
         for (const id in state[key]) {
@@ -269,6 +274,7 @@ export class Persistence {
           materials: state.materials[id] ?? {},
           next_subsidy_at: state.subsidies[id] ?? 0,
           gas_station: state.gasPlayers[id] ?? {},
+          progress: state.progress[id] ?? {},
           // Dónde está (si está conectado) o dónde se desconectó.
           last_position: avatar
             ? { sceneId: avatar.sceneId, x: avatar.x, y: avatar.y, direction: avatar.direction }

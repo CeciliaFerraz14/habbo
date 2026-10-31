@@ -18,7 +18,9 @@ import {
   hasMaterials,
   MOVE_TICK_MS,
   secondsToTicks,
+  storeListingsMax,
   totalMaterials,
+  workshopQueueSize,
   type DecorId,
   type FacadeId,
   type GameState,
@@ -202,7 +204,9 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   // --- Tienda ----------------------------------------------------------------
   const buildStore = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const products = getListings(state, lot.id);
-    const full = products.length >= ECONOMY.store.maxListings;
+    // Con el rango de Empresario caben más productos.
+    const maxListings = storeListingsMax(state, playerId);
+    const full = products.length >= maxListings;
 
     // Productos a la venta, con su precio editable.
     const onSale = document.createElement('div');
@@ -260,7 +264,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
 
     const commission = Math.round(ECONOMY.store.commissionRate * 100);
     win.body.append(
-      text(`A la venta (${products.length}/${ECONOMY.store.maxListings}):`, 'section-title'),
+      text(`A la venta (${products.length}/${maxListings}):`, 'section-title'),
       onSale,
       text('Poner a la venta:', 'section-title'),
       forSale,
@@ -319,7 +323,9 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   // --- Taller ----------------------------------------------------------------
   const buildWorkshop = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const mine = state.materials[playerId] ?? {};
-    const queueFull = lot.jobs.length >= ECONOMY.workshop.queueSize;
+    // Con el rango de Vecino, la cola tiene un hueco más.
+    const queueSize = workshopQueueSize(state, playerId);
+    const queueFull = lot.jobs.length >= queueSize;
 
     // Cola de fabricación con barras de progreso.
     const queue = document.createElement('div');
@@ -368,7 +374,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     }
 
     win.body.append(
-      text(`En fabricación (${lot.jobs.length}/${ECONOMY.workshop.queueSize}):`, 'section-title'),
+      text(`En fabricación (${lot.jobs.length}/${queueSize}):`, 'section-title'),
       queue,
       button(`Recoger muebles (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
       text('Recetas:', 'section-title'),

@@ -4,6 +4,7 @@ import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
 import type { GasPlayerState, HankOrder, PinballRecord } from './gasStation';
+import type { PlayerProgress } from './levels';
 import type { NpcBrain } from './npcs';
 import type { Vehicle } from './travelers';
 import type { Scene } from './scene';
@@ -124,6 +125,8 @@ export interface GameState {
    * pueblo. Si no aparece, puede recogerla ya.
    */
   subsidies: Record<string, number>;
+  /** Experiencia y rango de cada jugador (ver levels.ts). */
+  progress: Record<string, PlayerProgress>;
   /**
    * Última posición de cada jugador desconectado. Al volver a entrar (por
    * ejemplo, tras bloquear el móvil) aparece ahí y no en su caravana.
