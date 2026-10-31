@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Animación del turno en la gasolinera
+
+**Qué se hizo**
+- Al empezar el turno, el avatar camina solo a su puesto detrás del mostrador (`TILL_TILE`, junto a Hank), se gira hacia los clientes y Hank le da la bienvenida en el chat (`shared/src/gasStation.ts`).
+- Mientras trabaja: gorra roja de la gasolinera (sprite `WORK_CAP` en `renderer.ts`) y un vaivén de 1 px cada 260 ms, como si cobrara.
+- Nuevo `client/src/ui/workTags.ts`: barra del turno encima del nombre y dinero que sube flotando ("+$3" de propina, "+$15" de sueldo). Lo ven todos los que estén en la gasolinera.
+- Comprobado en Chrome (offline): el avatar va al puesto y mira a SW, saludo de Hank, gorra, barra avanzando y "+$3" al repostar un coche.
+
+**Decisiones**
+- El dinero flotante se detecta en el cliente (sube el dinero de alguien que trabaja o acaba de terminar), sin estado nuevo en el servidor.
+- La barra es oscura con relleno mostaza: la primera versión, clara, no se distinguía de la pared.
+
 ## 2026-10-31 · Juego bien en el móvil
 
 **Qué se hizo**

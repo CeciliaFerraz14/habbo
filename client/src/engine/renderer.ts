@@ -6,7 +6,9 @@ import {
   getFootprint,
   getSeatAt,
   isInsideScene,
+  SCENES,
   type Avatar,
+  type Direction,
   type Door,
   type FurniItem,
   type FurniPlacement,
@@ -34,6 +36,7 @@ import { getEmissiveSprite, getFurniSprite, getModel } from '../sprites/furnitur
 import type { LightPool } from '../sprites/furniture/model';
 import { createBackdrop } from './backdrop';
 import { PHASE_DARKNESS, type DayPhase } from './daylight';
+import { PALETTE } from '../sprites/palette';
 import { Lighting } from './lighting';
 import { buildRoomSprites, WALL_HEIGHT, type RoomSprites } from '../sprites/room';
 import type { Camera } from './camera';
@@ -46,6 +49,23 @@ const HALF_H = TILE_HEIGHT / 2;
 const WALK_FRAME_MS = 130;
 /** Desempate enorme para que un avatar sentado se dibuje después de su asiento. */
 const SEATED_TIE_BONUS = 1000;
+
+/**
+ * Gorra roja de la gasolinera, para quien trabaja en la caja. Se pinta encima
+ * de las 4 primeras filas de la cabeza (ver HEAD_FRONT en avatar.ts). De frente
+ * la visera asoma hacia donde mira; de espaldas solo se ve la copa.
+ */
+const CAP_PALETTE = { O: PALETTE.outline, R: '#c83c3c', r: '#8f2b2b', W: PALETTE.cream };
+const CAP_FRONT = ['....OOOOOOOO....', '...ORRRRRRRRO...', '..ORRRRRWWRRRO..', '..OrrrrrrrrrrrrO'];
+const CAP_BACK = ['....OOOOOOOO....', '...ORRRRRRRRO...', '..ORRRRRRRRRRO..', '..OrrrrrrrrrrO..'];
+const WORK_CAP: Record<Direction, Sprite> = {
+  SE: bakePixelArt(CAP_FRONT, CAP_PALETTE),
+  SW: bakePixelArt(CAP_FRONT, CAP_PALETTE, true),
+  NE: bakePixelArt(CAP_BACK, CAP_PALETTE),
+  NW: bakePixelArt(CAP_BACK, CAP_PALETTE, true),
+};
+/** Cada cuánto sube y baja quien trabaja en la caja (como si cobrara), en ms. */
+const WORK_BOB_MS = 260;
 
 /** Lata de refresco que lleva un avatar en la mano (3x5 px, roja con tapa plateada). */
 const SODA_CAN = bakePixelArt(['.s.', 'rrr', 'rwr', 'rrr', 'rrr'], {
@@ -496,10 +516,15 @@ export class Renderer {
       ? WALK_CYCLE[Math.floor(now / WALK_FRAME_MS) % WALK_CYCLE.length]
       : FRAME_STAND;
     const sprite = frames[frameIndex];
+    // En la caja de la gasolinera: gorra y un vaivén de 1 px mientras está quieto.
+    const working = avatar.sceneId === SCENES.gas && (state.gasPlayers[avatar.id]?.shiftEndsAt ?? 0) > 0;
+    const bob = working && !view.walking && Math.floor(now / WORK_BOB_MS) % 2 === 1 ? -1 : 0;
     this.drawAtTile(SHADOW, view.x, view.y, camera, -SHADOW.width / 2, HALF_H - 2);
-    const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H + 2 - sprite.height);
+    const top = HALF_H + 2 - sprite.height + bob;
+    const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
     // Los avatares no dan luz, pero tapan las luces que tengan detrás.
     this.lighting.occlude(sprite, at.x, at.y);
+    if (working) this.drawAtTile(WORK_CAP[avatar.direction], view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
 
     // Un refresco en la mano: la lata, junto a la mano del lado que mira a la cámara.
     if (avatar.holding?.item === 'soda') {

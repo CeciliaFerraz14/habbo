@@ -19,6 +19,7 @@ import { withChatMessage } from './chat';
 import { CATALOG, DECOR_IDS, type DecorId } from './catalog';
 import { addMaterials, addNotice, secondsToTicks } from './economy';
 import { ECONOMY, MATERIAL_IDS, type MaterialId } from './economy.config';
+import { planPath } from './movement';
 import { createRandom } from './random';
 import type { GameState } from './types';
 import { SCENES } from './world.ids';
@@ -210,10 +211,23 @@ export function shiftCooldownLeft(state: GameState, avatarId: string): number {
   return Math.max(0, gasPlayer(state, avatarId).nextShiftAt - state.tick);
 }
 
+/** Puesto de la caja: detrás del mostrador, al lado de Hank (que está en (3, 0)). */
+export const TILL_TILE = { x: 2, y: 0 };
+
+/**
+ * Empezar un turno: el jugador va solo a su puesto detrás del mostrador y
+ * Hank le da la bienvenida. (Si el puesto está ocupado, trabaja desde donde esté.)
+ */
 export function startShift(state: GameState, avatarId: string): GameState {
   const player = gasPlayer(state, avatarId);
-  if (!isInside(state, avatarId) || player.shiftEndsAt > 0 || state.tick < player.nextShiftAt) return state;
-  return withGasPlayer(state, avatarId, { shiftEndsAt: state.tick + secondsToTicks(GAS.shift.seconds) });
+  const avatar = state.avatars[avatarId];
+  if (!avatar || !isInside(state, avatarId) || player.shiftEndsAt > 0 || state.tick < player.nextShiftAt) {
+    return state;
+  }
+  let next = withGasPlayer(state, avatarId, { shiftEndsAt: state.tick + secondsToTicks(GAS.shift.seconds) });
+  const path = planPath(next, avatar, TILL_TILE);
+  if (path) next = { ...next, avatars: { ...next.avatars, [avatarId]: { ...avatar, path } } };
+  return withChatMessage(next, HANK_ID, `¡Bienvenido al equipo, ${avatar.name}! Ponte la gorra.`);
 }
 
 /**
@@ -224,6 +238,11 @@ function updateShifts(state: GameState): GameState {
   let next = state;
   for (const [id, player] of Object.entries(state.gasPlayers)) {
     if (player.shiftEndsAt === 0) continue;
+    // Ya en su puesto: se gira hacia los clientes (la caja mira a SW).
+    const worker = next.avatars[id];
+    if (worker && worker.path.length === 0 && worker.x === TILL_TILE.x && worker.y === TILL_TILE.y && worker.direction !== 'SW') {
+      next = { ...next, avatars: { ...next.avatars, [id]: { ...worker, direction: 'SW' } } };
+    }
     if (!isInside(next, id)) {
       next = withGasPlayer(next, id, { shiftEndsAt: 0 });
       next = addNotice(next, id, 'Has dejado el turno a medias: esta vez no cobras.');

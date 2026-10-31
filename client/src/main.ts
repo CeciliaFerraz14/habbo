@@ -27,6 +27,7 @@ import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
 import { LotSigns } from './ui/lotSigns';
 import { NameTags } from './ui/nameTags';
+import { WorkTags } from './ui/workTags';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
@@ -244,6 +245,7 @@ const boardWindow = createBoardWindow();
 const priceTags = new PriceTags();
 const nameTags = new NameTags();
 const lotSigns = new LotSigns();
+const workTags = new WorkTags();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -463,6 +465,7 @@ function frame(now: number): void {
   priceTags.update(state, sceneId, renderer, canvasToScreen);
   lotSigns.update(state, sceneId, camera, canvasToScreen);
   nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
+  workTags.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
 }
 

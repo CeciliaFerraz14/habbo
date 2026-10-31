@@ -355,6 +355,48 @@ body {
   color: var(--mustard-light);
 }
 
+/* ---------- Turnos en la gasolinera ---------- */
+
+#ui > .work-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Barra del turno encima del nombre: se llena de mostaza según pasa el tiempo. */
+.work-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  height: 8px;
+  background: #3a3434;
+  border: 2px solid var(--outline);
+}
+
+.work-bar i {
+  display: block;
+  height: 100%;
+  background: var(--mustard);
+}
+
+/* Dinero que sube flotando al cobrar una propina o el sueldo. */
+.money-float {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: #7be35b;
+  text-shadow:
+    1px 1px 0 var(--outline),
+    -1px -1px 0 var(--outline),
+    1px -1px 0 var(--outline),
+    -1px 1px 0 var(--outline);
+  white-space: nowrap;
+}
+
 /* ---------- Bocadillos ---------- */
 
 /* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
