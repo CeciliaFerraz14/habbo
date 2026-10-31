@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Números legibles
+
+**Qué se hizo**
+- En Pixelify Sans el 5 es igual que la S ("$ 1S", "Te quedan S boletos"). Ahora las cifras salen de VT323: `@font-face` "Pixel Digits" con `unicode-range: U+0030-0039` y `size-adjust: 125%`, delante en `--font-text` (`client/src/ui/styles.css`).
+- Fuente en `client/src/assets/fonts/vt323-latin.woff2` (sacada del paquete npm `@fontsource/vt323@5.1.0`) con su licencia OFL al lado.
+- Comprobado en Chrome: "Compra $ 15", "Te quedan 5 boletos", "Premios: $ 5, $ 15…" y la cartera, con las letras S intactas.
+
+**Decisiones**
+- Solo los números cambian de fuente: el resto del texto conserva Pixelify Sans.
+- Fuente incluida en el proyecto (no de Google Fonts): así se puede limitar a las cifras con unicode-range.
+
 ## 2026-10-31 · Animación de carga
 
 **Qué se hizo**

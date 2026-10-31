@@ -7,6 +7,20 @@
   - Los detalles pequeños (remaches, piquitos) se pintan con bloques de color.
 */
 
+/*
+  Números del texto: en Pixelify Sans el 5 es igual que la S ("$ 1S"), así que
+  las cifras (y solo ellas, por unicode-range) salen de VT323, que las tiene
+  muy claras. Es más bajita: size-adjust la iguala al resto del texto.
+  (Fuente con licencia OFL: ver assets/fonts/VT323-OFL.txt.)
+*/
+@font-face {
+  font-family: 'Pixel Digits';
+  src: url('../assets/fonts/vt323-latin.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+  size-adjust: 125%;
+  font-display: swap;
+}
+
 :root {
   /* Desierto */
   --sand: #e8c48a;
@@ -31,7 +45,7 @@
   --text: var(--outline);
   --muted: #7a5a40;
   --font-title: 'Press Start 2P', monospace;
-  --font-text: 'Pixelify Sans', 'VT323', monospace;
+  --font-text: 'Pixel Digits', 'Pixelify Sans', 'VT323', monospace;
 }
 
 * {
