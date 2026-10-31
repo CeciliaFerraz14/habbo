@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Animación de carga
+
+**Qué se hizo**
+- Pantalla de carga animada (`client/index.html` y `styles.css`): un coche pixelado (SVG) que cruza el horizonte a saltos y botando, un matorral rodante en sentido contrario y una barra de 8 bloques que se encienden en bucle.
+- `main.ts`: si conectar tarda más de 4 s, el estado va rotando cada 3 s ("Hank está abriendo la gasolinera…", "Encendiendo los neones…"...) y aparece la explicación de que el servidor gratuito se duerme y tarda hasta un minuto en despertar.
+- Con el login delante o si falla la conexión (`#splash.failed`), la barra y la explicación se ocultan. Con `prefers-reduced-motion`, todo quieto.
+- Comprobado en Chrome superponiendo la pantalla de carga sobre el juego (en modo local conecta al instante).
+
+**Decisiones**
+- La animación es HTML y CSS en `index.html`: se mueve desde el primer instante, antes de que cargue el JS.
+- Los mensajes solo rotan si tarda: si el servidor ya está despierto, no da tiempo a verlos.
+
 ## 2026-10-31 · Más sueldo en la gasolinera
 
 **Qué se hizo**

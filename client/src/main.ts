@@ -66,6 +66,44 @@ document.title = GAME_NAME;
 const splash = document.querySelector<HTMLDivElement>('#splash')!;
 const splashContent = splash.querySelector<HTMLDivElement>('.splash-content')!;
 const splashStatus = splash.querySelector<HTMLParagraphElement>('.splash-status')!;
+const splashHint = splash.querySelector<HTMLParagraphElement>('.splash-hint')!;
+
+/** Mensajes que van rotando mientras se conecta al servidor (si tarda). */
+const LOADING_MESSAGES = [
+  'Despertando el servidor…',
+  'Hank está abriendo la gasolinera…',
+  'Encendiendo los neones…',
+  'Barriendo la arena de la calle…',
+  'Llenando el depósito del autobús…',
+  'Afinando la máquina de discos…',
+];
+/** A partir de cuándo se nota que tarda (ms) y cada cuánto cambia el mensaje. */
+const SLOW_CONNECT_MS = 4000;
+const MESSAGE_EVERY_MS = 3000;
+
+/**
+ * Mientras se conecta: si tarda, el mensaje va cambiando y aparece una
+ * explicación (el servidor gratuito se duerme cuando no hay nadie y tarda en
+ * despertar). Devuelve una función para pararlo.
+ */
+function startLoadingMessages(): () => void {
+  let index = 0;
+  let rotate: ReturnType<typeof setInterval> | undefined;
+  const slow = setTimeout(() => {
+    splashHint.textContent =
+      'El servidor se echa la siesta cuando no hay nadie. Despertarlo puede tardar hasta un minuto.';
+    splashStatus.textContent = LOADING_MESSAGES[0];
+    rotate = setInterval(() => {
+      index = (index + 1) % LOADING_MESSAGES.length;
+      splashStatus.textContent = LOADING_MESSAGES[index];
+    }, MESSAGE_EVERY_MS);
+  }, SLOW_CONNECT_MS);
+  return () => {
+    clearTimeout(slow);
+    clearInterval(rotate);
+    splashHint.textContent = '';
+  };
+}
 
 // Logo del juego y, debajo, el nombre del sitio donde estás.
 const logo = document.createElement('img');
@@ -112,9 +150,13 @@ function saveLook(look: AvatarLook): void {
  */
 let connection: Connection;
 splashStatus.textContent = 'Conectando…';
+const stopLoadingMessages = startLoadingMessages();
 try {
   connection = await connect(loadLook(), splashContent);
+  stopLoadingMessages();
 } catch (error) {
+  stopLoadingMessages();
+  splash.classList.add('failed');
   // Si la sesión guardada ya no vale, la borramos para que salga el login.
   if ((error as Error).message === 'Sesión no válida') {
     await signOut();

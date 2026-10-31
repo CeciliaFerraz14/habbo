@@ -1057,6 +1057,148 @@ body {
   display: none;
 }
 
+/* Bajo el logo: el estado, la barra de carga y la pista (o el login), en columna. */
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Barra de carga: 8 bloques que se encienden uno detrás de otro, en bucle. */
+.splash-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--outline);
+}
+
+.splash-bar i {
+  width: 14px;
+  height: 14px;
+  background: var(--cream-dark);
+  animation: splash-block 1.6s steps(1) infinite;
+}
+
+.splash-bar i:nth-child(2) { animation-delay: 0.2s; }
+.splash-bar i:nth-child(3) { animation-delay: 0.4s; }
+.splash-bar i:nth-child(4) { animation-delay: 0.6s; }
+.splash-bar i:nth-child(5) { animation-delay: 0.8s; }
+.splash-bar i:nth-child(6) { animation-delay: 1s; }
+.splash-bar i:nth-child(7) { animation-delay: 1.2s; }
+.splash-bar i:nth-child(8) { animation-delay: 1.4s; }
+
+@keyframes splash-block {
+  0% {
+    background: var(--mustard);
+  }
+  25% {
+    background: var(--cream-dark);
+  }
+}
+
+/* Aclaración que aparece si el servidor tarda (ver main.ts). */
+.splash-hint {
+  max-width: 340px;
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  color: var(--cream);
+  text-shadow: 1px 1px 0 var(--outline);
+}
+
+/* Con el login delante, o si no se ha podido conectar, la barra y la pista sobran. */
+.splash-hint:empty,
+.splash-content:has(.login) .splash-bar,
+.splash-content:has(.login) .splash-hint,
+#splash.failed .splash-bar {
+  display: none;
+}
+
+/* Carretera del horizonte: una franja justo encima de la arena (que empieza
+   al 78 % de la altura), por la que pasan el coche y el matorral. */
+.splash-road {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(78% - 36px);
+  height: 36px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.splash-car,
+.splash-weed {
+  position: absolute;
+  bottom: 0;
+}
+
+/* El coche cruza de izquierda a derecha a saltos (steps), con aire retro, y
+   bota 1 píxel al ritmo del motor. */
+.splash-car {
+  width: 64px;
+  height: 36px;
+  animation:
+    splash-drive 5s steps(60) infinite,
+    splash-bounce 0.3s steps(1) infinite;
+}
+
+/* El matorral rueda despacio en sentido contrario. */
+.splash-weed {
+  width: 21px;
+  height: 21px;
+  animation:
+    splash-roll-across 9s steps(90) infinite,
+    splash-spin 0.8s steps(4) infinite;
+}
+
+@keyframes splash-drive {
+  from {
+    left: -80px;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes splash-bounce {
+  50% {
+    translate: 0 -2px;
+  }
+}
+
+@keyframes splash-roll-across {
+  from {
+    left: 100%;
+  }
+  to {
+    left: -30px;
+  }
+}
+
+@keyframes splash-spin {
+  to {
+    rotate: -360deg;
+  }
+}
+
+/* Quien prefiere menos movimiento ve el coche aparcado y la barra quieta. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-car,
+  .splash-weed,
+  .splash-bar i {
+    animation: none;
+  }
+
+  .splash-car {
+    left: 20%;
+  }
+
+  .splash-weed {
+    display: none;
+  }
+}
+
 /* ---------- Pantalla de login ---------- */
 
 /* Va dentro de la pantalla de carga, debajo del logo. */
