@@ -60,6 +60,15 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       // 'trailer' es un alias de "tu caravana".
       if (avatar.sceneId === SCENES.trailer) avatar = { ...avatar, sceneId: trailerId };
+      // Un jugador que vuelve aparece donde estaba: donde sigue su avatar (si
+      // aún no se había ido, por ejemplo al reconectar tras bloquear el móvil)
+      // o donde se desconectó la última vez. Si esa escena ya no existe, entra
+      // por la normal.
+      const back = avatar.isBot ? undefined : (state.avatars[avatar.id] ?? state.lastPositions[avatar.id]);
+      if (back && next.scenes[back.sceneId]) {
+        const { sceneId, x, y, direction } = back;
+        avatar = { ...avatar, sceneId, x, y, direction, path: [] };
+      }
       // Solo se puede entrar en una escena que existe.
       if (!next.scenes[avatar.sceneId]) return state;
       next = withAvatar(next, avatar);
@@ -79,9 +88,17 @@ export function applyAction(state: GameState, action: Action): GameState {
     }
 
     case 'LEAVE': {
-      if (!state.avatars[action.avatarId]) return state;
+      const leaving = state.avatars[action.avatarId];
+      if (!leaving) return state;
       const { [action.avatarId]: _gone, ...avatars } = state.avatars;
-      return { ...state, avatars };
+      if (leaving.isBot) return { ...state, avatars };
+      // Recordamos dónde estaba, para devolverlo ahí cuando vuelva.
+      const { sceneId, x, y, direction } = leaving;
+      return {
+        ...state,
+        avatars,
+        lastPositions: { ...state.lastPositions, [leaving.id]: { sceneId, x, y, direction } },
+      };
     }
 
     case 'MOVE': {

@@ -24,6 +24,7 @@ import {
   type FurniItem,
   type GameState,
   type GasPlayerState,
+  type SavedPosition,
   type InventoryItem,
   type Lot,
   type Materials,
@@ -172,6 +173,7 @@ export class Persistence {
     const materials: Record<string, Materials> = { ...state.materials };
     const subsidies: Record<string, number> = { ...state.subsidies };
     const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
+    const lastPositions: Record<string, SavedPosition> = { ...state.lastPositions };
     const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
     const persistence = new Persistence(state);
     for (const p of profileRows) {
@@ -179,6 +181,7 @@ export class Persistence {
       money[p.id] = p.money;
       materials[p.id] = p.materials ?? {};
       subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
+      if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
       // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
       if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
@@ -212,6 +215,7 @@ export class Persistence {
       materials,
       subsidies,
       gasPlayers,
+      lastPositions,
       inventories,
     };
     persistence.saved = state;
@@ -238,7 +242,15 @@ export class Persistence {
       // Perfiles: jugadores cuyo avatar, dinero, materiales, subvención o datos
       // de la gasolinera han cambiado.
       const changedPlayers = new Set<string>();
-      for (const key of ['avatars', 'money', 'materials', 'subsidies', 'gasPlayers', 'inventories'] as const) {
+      for (const key of [
+        'avatars',
+        'money',
+        'materials',
+        'subsidies',
+        'gasPlayers',
+        'lastPositions',
+        'inventories',
+      ] as const) {
         for (const id in state[key]) {
           if (isPlayerId(id) && state[key][id] !== prev[key][id]) changedPlayers.add(id);
         }
@@ -257,6 +269,10 @@ export class Persistence {
           materials: state.materials[id] ?? {},
           next_subsidy_at: state.subsidies[id] ?? 0,
           gas_station: state.gasPlayers[id] ?? {},
+          // Dónde está (si está conectado) o dónde se desconectó.
+          last_position: avatar
+            ? { sceneId: avatar.sceneId, x: avatar.x, y: avatar.y, direction: avatar.direction }
+            : (state.lastPositions[id] ?? null),
           updated_at: new Date().toISOString(),
         }];
       });

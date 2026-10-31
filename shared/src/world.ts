@@ -260,6 +260,7 @@ export function createInitialState(): GameState {
     money: {},
     materials: {},
     subsidies: {},
+    lastPositions: {},
     orders: [],
     nextOrderAt: 0,
     gasPlayers: {},

@@ -48,6 +48,14 @@ export interface Avatar {
   holding?: { item: 'soda'; until: number };
 }
 
+/** Dónde estaba un jugador al desconectarse, para devolverlo ahí al volver. */
+export interface SavedPosition {
+  sceneId: string;
+  x: number;
+  y: number;
+  direction: Direction;
+}
+
 /** Un mensaje del chat de la sala. */
 export interface ChatMessage {
   id: string;
@@ -116,6 +124,11 @@ export interface GameState {
    * pueblo. Si no aparece, puede recogerla ya.
    */
   subsidies: Record<string, number>;
+  /**
+   * Última posición de cada jugador desconectado. Al volver a entrar (por
+   * ejemplo, tras bloquear el móvil) aparece ahí y no en su caravana.
+   */
+  lastPositions: Record<string, SavedPosition>;
   /** Encargos de Hank abiertos (ver gasStation.ts). */
   orders: HankOrder[];
   /** Tick en el que Hank podrá pedir un encargo nuevo (si hay hueco). */

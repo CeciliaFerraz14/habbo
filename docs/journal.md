@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Volver a donde estabas
+
+**Qué se hizo**
+- `LEAVE` guarda la última posición del jugador (escena, baldosa y dirección) en `GameState.lastPositions`; `JOIN` lo devuelve ahí en vez de a su caravana (`shared/src/reducer.ts`).
+- Si el avatar aún sigue en el mundo al reconectar (el servidor todavía no había notado el corte, típico al bloquear el móvil), `JOIN` respeta su posición actual en vez de sobrescribirla.
+- Si esa escena ya no existe, entra por su caravana como siempre.
+- Se guarda en `profiles.last_position` (migración `005_last_position.sql`, aplicada en Supabase y comprobada): sobrevive a un reinicio del servidor.
+- Comprobado con un script: primera vez en la caravana; reconexión sin salir, salir y volver, ambos en la gasolinera (2,0) mirando a SW; escena inexistente → caravana.
+
+**Decisiones**
+- La posición la decide el servidor (reducer), no el cliente: así nadie puede pedir aparecer donde quiera.
+- `lastPositions` no va en los parches (el cliente no lo necesita).
+
 ## 2026-10-31 · Animación del turno en la gasolinera
 
 **Qué se hizo**
