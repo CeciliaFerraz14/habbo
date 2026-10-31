@@ -10,6 +10,7 @@ import { fruitPlanter } from '../structures/fruitPlanter';
 import { fruitStand } from '../structures/fruitStand';
 import { gasCounter } from '../structures/gasCounter';
 import { gasStation } from '../structures/gasStation';
+import { mayorStatue } from '../structures/mayorStatue';
 import { minimartShelf } from '../structures/minimartShelf';
 import { noticeBoard } from '../structures/noticeBoard';
 import { saguaro } from '../structures/saguaro';
@@ -27,9 +28,11 @@ import { bed } from './bed';
 import { cowSkull } from './cowSkull';
 import { dinerBooth } from './dinerBooth';
 import { formicaTable } from './formicaTable';
+import { goldenJukebox } from './goldenJukebox';
 import { jukebox } from './jukebox';
 import { milkshakeMachine } from './milkshakeMachine';
 import type { ModelSource } from './model';
+import { nameSign } from './nameSign';
 import { neonLamp } from './neonLamp';
 import { openSign } from './openSign';
 import { pottedCactus } from './pottedCactus';
@@ -80,6 +83,10 @@ export const MODELS: Record<FurniId, ModelSource> = {
   soda_machine: sodaMachine,
   arcade_cabinet: arcadeCabinet,
   notice_board: noticeBoard,
+  // Exclusivos (recompensas de rango) y la estatua del alcalde
+  name_sign: nameSign,
+  golden_jukebox: goldenJukebox,
+  mayor_statue: mayorStatue,
   // Vehículos
   car,
   bus,

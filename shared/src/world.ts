@@ -262,6 +262,7 @@ export function createInitialState(): GameState {
     subsidies: {},
     lastPositions: {},
     progress: {},
+    mayors: [],
     orders: [],
     nextOrderAt: 0,
     gasPlayers: {},

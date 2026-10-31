@@ -28,6 +28,8 @@ export interface AvatarLook {
   skin: string;
   shirt: string;
   pants: string;
+  /** Sombrero de vaquero (recompensa del rango Cowboy del asfalto). */
+  hat?: boolean;
 }
 
 export interface Avatar {
@@ -125,6 +127,8 @@ export interface GameState {
    * pueblo. Si no aparece, puede recogerla ya.
    */
   subsidies: Record<string, number>;
+  /** Nombres de los alcaldes (jugadores que han llegado a nivel 10), en orden. */
+  mayors: string[];
   /** Experiencia y rango de cada jugador (ver levels.ts). */
   progress: Record<string, PlayerProgress>;
   /**

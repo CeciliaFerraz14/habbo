@@ -20,6 +20,7 @@ import {
   createInitialState,
   createTrailer,
   lotSceneName,
+  withStatue,
   type AvatarLook,
   type FurniItem,
   type GameState,
@@ -145,6 +146,7 @@ export class Persistence {
         nextId: Math.max(state.nextId, Number(worldRow.next_id)),
         orders: worldRow.gas?.orders ?? [],
         pinballRecord: worldRow.gas?.pinballRecord ?? null,
+        mayors: worldRow.gas?.mayors ?? [],
       };
     }
 
@@ -209,7 +211,8 @@ export class Persistence {
       };
     }
 
-    state = {
+    // La estatua de la calle no se guarda: se pone si hay algún alcalde.
+    state = withStatue({
       ...state,
       scenes,
       furniture: furniMap,
@@ -221,7 +224,7 @@ export class Persistence {
       lastPositions,
       progress,
       inventories,
-    };
+    });
     persistence.saved = state;
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
@@ -318,7 +321,7 @@ export class Persistence {
           tick: state.tick,
           seed: state.seed,
           next_id: state.nextId,
-          gas: { orders: state.orders, pinballRecord: state.pinballRecord },
+          gas: { orders: state.orders, pinballRecord: state.pinballRecord, mayors: state.mayors },
           saved_at: new Date().toISOString(),
         }),
         'world',

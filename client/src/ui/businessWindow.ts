@@ -235,7 +235,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     // Lo que hay en tu inventario y se puede poner a la venta (agrupado por tipo).
     const forSale = document.createElement('div');
     forSale.className = 'recipes';
-    const inventory = state.inventories[playerId] ?? [];
+    // Los exclusivos (recompensas de rango) no se venden.
+    const inventory = (state.inventories[playerId] ?? []).filter((i) => !CATALOG[i.defId].exclusive);
     const groups = new Map<DecorId, string[]>();
     for (const item of inventory) {
       const defId = item.defId as DecorId;

@@ -34,8 +34,8 @@ import {
   startShift,
 } from './gasStation';
 import { canPlaceFurni } from './furniture';
-import { addDailyXp } from './levels';
-import { isValidLook } from './looks';
+import { addDailyXp, perksOf } from './levels';
+import { isValidLook, sanitizeLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
@@ -85,8 +85,13 @@ export function applyAction(state: GameState, action: Action): GameState {
           nextId: next.nextId + items.length,
         };
       }
-      // XP por entrar a jugar (una vez al día).
-      if (!avatar.isBot) next = addDailyXp(next, avatar.id);
+      // XP por entrar a jugar (una vez al día). Y fuera del aspecto lo que su
+      // rango aún no permite (colores especiales y sombrero).
+      if (!avatar.isBot) {
+        next = addDailyXp(next, avatar.id);
+        const look = sanitizeLook(avatar.look, perksOf(next, avatar.id).premiumLook);
+        next = withAvatar(next, { ...next.avatars[avatar.id], look });
+      }
       return updateSitting(next);
     }
 
@@ -132,6 +137,8 @@ export function applyAction(state: GameState, action: Action): GameState {
         x: action.x,
         y: action.y,
         rotation: action.rotation,
+        // El cartel de neón lleva el nombre de quien lo coloca.
+        ...(item.defId === 'name_sign' ? { variant: avatar.name } : {}),
       };
       const next = withInventory(
         state,
@@ -209,8 +216,9 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];
-      // Solo se aceptan colores de la lista de LOOK_COLORS.
-      if (!avatar || !isValidLook(action.look)) return state;
+      // Solo se aceptan colores de la lista de LOOK_COLORS (y los especiales y
+      // el sombrero, con el rango Cowboy del asfalto).
+      if (!avatar || !isValidLook(action.look, perksOf(state, avatar.id).premiumLook)) return state;
       return withAvatar(state, { ...avatar, look: { ...action.look } });
     }
 

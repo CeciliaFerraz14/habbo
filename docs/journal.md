@@ -2,6 +2,22 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Niveles y rangos (parte 2): recompensas exclusivas
+
+**Qué se hizo**
+- Muebles **exclusivos** (`ExclusiveId` y `FurniDef.exclusive` en `catalog.ts`): se colocan como cualquier mueble, pero no se fabrican, no se venden y Hank no los pide (fuera de `DECOR_IDS`; `listItem` los rechaza).
+- Nivel 4 (Tendero): **cartel de neón con tu nombre** (`name_sign`). Al colocarlo, su `variant` guarda el nombre de quien lo coloca, y `ui/furniLabels.ts` lo escribe en neón sobre el panel.
+- Nivel 7 (Cowboy del asfalto): **sombrero de vaquero** (`AvatarLook.hat`, sprite en `sprites/hat.ts`) y **colores especiales** (`PREMIUM_LOOK_COLORS`), con candado en el editor hasta tener el rango. `SET_LOOK` los valida con el rango y `JOIN` los quita si no se tiene (`sanitizeLook`).
+- Nivel 9 (Leyenda de la Ruta): **jukebox dorada** (`golden_jukebox`).
+- Nivel 10 (Alcalde): el nombre pasa a `GameState.mayors` y aparece la **estatua del alcalde** en el desierto (16, 11), con los nombres en su placa. Se guarda en `world.gas.mayors` (sin migración) y la estatua se pone al cargar (`withStatue`).
+- `furniLabels.ts` es general: gira el plano del texto con el mueble (como `bake.ts`) y lo encaja con una matriz CSS del tamaño real del panel, así las letras no se deforman.
+- Comprobado: script (nivel 1 sin aspecto especial; nivel 4 con cartel y nombre al colocarlo; nivel 7 con sombrero y colores; nivel 10 con jukebox, alcalde y estatua; aspecto especial limpiado al entrar sin rango; exclusivos fuera de `DECOR_IDS`) y en Chrome (cartel con "Tú" en neón, jukebox dorada, sombrero, estatua con "Alcalde Tú" y editor con candados).
+
+**Decisiones**
+- El cartel lleva el nombre de quien lo coloca (no hace falta guardar nada nuevo: va en la `variant` del mueble).
+- Una sola estatua para todos los alcaldes, con todos los nombres en la placa.
+- Primera versión del texto del cartel con caja fija de 120x30: las letras salían estiradas; ahora la caja mide lo que el panel.
+
 ## 2026-10-31 · Niveles y rangos (parte 1)
 
 **Qué se hizo**

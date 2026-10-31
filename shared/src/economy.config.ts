@@ -8,7 +8,7 @@
 // Los tiempos se escriben en SEGUNDOS para que sean fáciles de leer. La
 // simulación los convierte a ticks (ver secondsToTicks en economy.ts).
 // =============================================================================
-import type { DecorId } from './catalog';
+import type { DecorId, FurniId } from './catalog';
 
 export type BusinessType =
   | 'scrapyard'
@@ -208,8 +208,12 @@ export interface RankReward {
   text: string;
   /** Dinero al subir. */
   money?: number;
-  /** Muebles al inventario al subir. */
-  items?: DecorId[];
+  /** Muebles al inventario al subir (también exclusivos). */
+  items?: FurniId[];
+  /** Desbloquea los colores especiales y el sombrero del editor de avatar. */
+  premiumLook?: boolean;
+  /** Pasa a ser alcalde: su nombre en la estatua de la calle. */
+  mayor?: boolean;
   /** Huecos extra en la cola del taller. */
   workshopQueue?: number;
   /** Huecos de venta extra en la tienda. */
@@ -298,20 +302,32 @@ export const ECONOMY = {
       {
         name: 'Recién llegado',
         xp: 50,
-        reward: { text: '$50 y un cactus en maceta', money: 50, items: ['potted_cactus'] as DecorId[] },
+        reward: { text: '$50 y un cactus en maceta', money: 50, items: ['potted_cactus'] as FurniId[] },
       },
       { name: 'Vecino', xp: 150, reward: { text: '+1 hueco en la cola del taller', workshopQueue: 1 } },
-      { name: 'Tendero', xp: 350, reward: { text: 'Cartel de neón con tu nombre', soon: true } },
+      {
+        name: 'Tendero',
+        xp: 350,
+        reward: { text: 'Cartel de neón con tu nombre', items: ['name_sign'] as FurniId[] },
+      },
       { name: 'Comerciante', xp: 700, reward: { text: 'Subvención diaria de $45', subsidy: 45 } },
       { name: 'Empresario', xp: 1200, reward: { text: '+2 huecos de venta en tu tienda', storeListings: 2 } },
-      { name: 'Cowboy del asfalto', xp: 2000, reward: { text: 'Sombrero de vaquero y colores nuevos', soon: true } },
+      {
+        name: 'Cowboy del asfalto',
+        xp: 2000,
+        reward: { text: 'Sombrero de vaquero y colores nuevos para el avatar', premiumLook: true },
+      },
       {
         name: 'Magnate de la carretera',
         xp: 3200,
         reward: { text: '10 % de descuento en el mostrador de Hank', hankDiscount: 0.1 },
       },
-      { name: 'Leyenda de la Ruta', xp: 5000, reward: { text: 'Jukebox dorada', soon: true } },
-      { name: 'Alcalde de Pixel Springs', xp: 8000, reward: { text: 'Estatua en la plaza con tu nombre', soon: true } },
+      { name: 'Leyenda de la Ruta', xp: 5000, reward: { text: 'Jukebox dorada', items: ['golden_jukebox'] as FurniId[] } },
+      {
+        name: 'Alcalde de Pixel Springs',
+        xp: 8000,
+        reward: { text: 'Tu nombre en la estatua del alcalde, en la calle', mayor: true },
+      },
     ] as RankConfig[],
   },
 

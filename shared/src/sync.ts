@@ -43,6 +43,7 @@ const VALUE_KEYS = [
   'nextId',
   'orders',
   'pinballRecord',
+  'mayors',
 ] as const;
 
 // No se sincronizan: los "cerebros" de los NPC, la semilla del azar y cuándo

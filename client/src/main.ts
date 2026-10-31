@@ -5,6 +5,7 @@ import {
   GAME_NAME,
   isValidLook,
   levelOf,
+  perksOf,
   progressOf,
   SCENES,
   subsidyAmount,
@@ -32,6 +33,7 @@ import { LotSigns } from './ui/lotSigns';
 import { NameTags } from './ui/nameTags';
 import { WorkTags } from './ui/workTags';
 import { LevelUps } from './ui/levelUp';
+import { FurniLabels } from './ui/furniLabels';
 import { createRankWindow } from './ui/rankWindow';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
@@ -131,7 +133,8 @@ const LOOK_STORAGE_KEY = 'pixel-springs:look';
 function loadLook(): AvatarLook {
   try {
     const saved = JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null');
-    if (saved && isValidLook(saved)) return saved;
+    // Con los especiales: si el rango aún no los permite, el juego los quita al entrar.
+    if (saved && isValidLook(saved, true)) return saved;
   } catch {
     // Sin acceso o datos corruptos: usamos el aspecto por defecto.
   }
@@ -299,6 +302,7 @@ const nameTags = new NameTags();
 const lotSigns = new LotSigns();
 const workTags = new WorkTags();
 const levelUps = new LevelUps();
+const furniLabels = new FurniLabels();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -375,7 +379,7 @@ function refreshUi(): void {
   boardWindow.update(state, PLAYER_ID);
   showNewNotices();
   const me = state.avatars[PLAYER_ID];
-  if (me) avatarEditor.update(me.look);
+  if (me) avatarEditor.update(me.look, perksOf(state, PLAYER_ID).premiumLook);
   chatHistory.update(state.messages, sceneId);
   bubbles?.sync(state.messages, sceneId, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);
@@ -521,6 +525,7 @@ function frame(now: number): void {
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   priceTags.update(state, sceneId, renderer, canvasToScreen);
   lotSigns.update(state, sceneId, camera, canvasToScreen);
+  furniLabels.update(state, sceneId, camera, canvasToScreen);
   nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
   workTags.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   levelUps.update(state, sceneId, views, renderer, camera, canvasToScreen, now);

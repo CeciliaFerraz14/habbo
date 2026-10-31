@@ -416,7 +416,8 @@ export function listItem(
   }
   const inventory = state.inventories[avatarId] ?? [];
   const item = inventory.find((i) => i.id === itemId);
-  if (!item) return state;
+  // Los exclusivos (recompensas de rango) no se venden.
+  if (!item || CATALOG[item.defId].exclusive) return state;
 
   const product = placeOnDisplay(state, lotId, item.id, item.defId as DecorId, price);
   if (!product) return state;

@@ -52,9 +52,18 @@ export type StructureId =
   | 'notice_board'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
   | 'car'
-  | 'bus';
+  | 'bus'
+  // Estatua del alcalde (aparece en la calle con el primer jugador de nivel 10)
+  | 'mayor_statue';
 
-export type FurniId = DecorId | StructureId;
+/**
+ * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango. Se colocan
+ * como cualquier mueble, pero no se fabrican, no se venden en tiendas y Hank
+ * no los pide.
+ */
+export type ExclusiveId = 'name_sign' | 'golden_jukebox';
+
+export type FurniId = DecorId | ExclusiveId | StructureId;
 
 /**
  * Rotación de un mueble: 0, 1, 2 o 3 cuartos de vuelta.
@@ -84,6 +93,8 @@ export interface FurniDef {
   walkable: boolean;
   /** Estructura fija del escenario: no se puede mover, recoger ni comprar. */
   fixed?: true;
+  /** Recompensa de rango: no se fabrica ni se vende (ver ExclusiveId). */
+  exclusive?: true;
 }
 
 /** Atajo para definir muebles normales. */
@@ -141,11 +152,15 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   soda_machine: structure('soda_machine', 'Máquina de refrescos', 1, 1),
   arcade_cabinet: structure('arcade_cabinet', 'Máquina recreativa', 1, 1),
   notice_board: structure('notice_board', 'Tablón de anuncios', 1, 1),
+  // Exclusivos (recompensas de rango)
+  name_sign: { id: 'name_sign', name: 'Cartel de neón con tu nombre', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
+  golden_jukebox: { id: 'golden_jukebox', name: 'Jukebox dorada', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
+  mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
   car: structure('car', 'Coche', 2, 1),
   bus: structure('bus', 'Autobús', 3, 1),
 };
 
 /** Muebles que se pueden tener (excluye las estructuras fijas). */
 export const DECOR_IDS = (Object.keys(CATALOG) as FurniId[]).filter(
-  (id): id is DecorId => !CATALOG[id].fixed,
+  (id): id is DecorId => !CATALOG[id].fixed && !CATALOG[id].exclusive,
 );

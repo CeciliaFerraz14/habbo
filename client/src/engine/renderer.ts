@@ -32,6 +32,7 @@ import {
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
 import { bakePixelArt } from '../sprites/pixelArt';
+import { HAT, HAT_RISE } from '../sprites/hat';
 import { getEmissiveSprite, getFurniSprite, getModel } from '../sprites/furniture/bake';
 import type { LightPool } from '../sprites/furniture/model';
 import { createBackdrop } from './backdrop';
@@ -524,7 +525,9 @@ export class Renderer {
     const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
     // Los avatares no dan luz, pero tapan las luces que tengan detrás.
     this.lighting.occlude(sprite, at.x, at.y);
+    // En la caja, la gorra de la gasolinera; si no, el sombrero de vaquero si lo lleva.
     if (working) this.drawAtTile(WORK_CAP[avatar.direction], view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
+    else if (avatar.look.hat) this.drawAtTile(HAT, view.x, view.y, camera, -AVATAR_WIDTH / 2, top - HAT_RISE);
 
     // Un refresco en la mano: la lata, junto a la mano del lado que mira a la cámara.
     if (avatar.holding?.item === 'soda') {

@@ -15,6 +15,7 @@
 import { addNotice, dayIndex, isNpcId } from './economy';
 import { ECONOMY, type RankConfig } from './economy.config';
 import type { GameState } from './types';
+import { SCENES } from './world.ids';
 
 /** Lo que el juego recuerda del progreso de cada jugador. */
 export interface PlayerProgress {
@@ -59,7 +60,7 @@ export function rankOf(level: number): RankConfig {
  */
 export function perksOf(state: GameState, playerId: string) {
   const level = isNpcId(playerId) ? 1 : levelOf(state, playerId);
-  const perks = { workshopQueue: 0, storeListings: 0, subsidy: 0, hankDiscount: 0 };
+  const perks = { workshopQueue: 0, storeListings: 0, subsidy: 0, hankDiscount: 0, premiumLook: false };
   for (const rank of RANKS.slice(0, level)) {
     const r = rank.reward;
     if (!r) continue;
@@ -67,6 +68,7 @@ export function perksOf(state: GameState, playerId: string) {
     perks.storeListings += r.storeListings ?? 0;
     perks.subsidy = Math.max(perks.subsidy, r.subsidy ?? 0);
     perks.hankDiscount = Math.max(perks.hankDiscount, r.hankDiscount ?? 0);
+    perks.premiumLook ||= r.premiumLook ?? false;
   }
   return perks;
 }
@@ -127,12 +129,33 @@ function rankUp(state: GameState, playerId: string, name: string, level: number)
       nextId: next.nextId + items.length,
     };
   }
+  if (reward?.mayor && !next.mayors.includes(name)) next = withStatue({ ...next, mayors: [...next.mayors, name] });
   const gift = reward ? ` Recompensa: ${reward.text}${reward.soon ? ' (próximamente)' : ''}.` : '';
   next = addNotice(next, playerId, `¡Subes a nivel ${level}: ${rank.name}!${gift}`);
   for (const other of Object.values(next.avatars)) {
     if (!other.isBot && other.id !== playerId) next = addNotice(next, other.id, `${name} ya es ${rank.name} (nivel ${level}).`);
   }
   return next;
+}
+
+/** Dónde está la estatua del alcalde: en el desierto, frente a la calle. */
+const STATUE = { id: 'mayor-statue', x: 16, y: 11 };
+
+/**
+ * Pone la estatua del alcalde en la calle si ya hay algún alcalde (y no estaba).
+ * Se llama al llegar alguien a nivel 10 y al cargar el mundo guardado.
+ */
+export function withStatue(state: GameState): GameState {
+  if (state.mayors.length === 0 || state.furniture[STATUE.id]) return state;
+  const statue = {
+    id: STATUE.id,
+    sceneId: SCENES.street,
+    defId: 'mayor_statue' as const,
+    x: STATUE.x,
+    y: STATUE.y,
+    rotation: 1 as const,
+  };
+  return { ...state, furniture: { ...state.furniture, [statue.id]: statue } };
 }
 
 /** XP de una acción (ver ECONOMY.levels.xp). */
