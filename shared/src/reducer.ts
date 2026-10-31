@@ -37,7 +37,7 @@ import { canPlaceFurni } from './furniture';
 import { isInsideScene } from './scene';
 import { addDailyXp, markSeen, perksOf } from './levels';
 import { isValidLook, sanitizeLook } from './looks';
-import { addHome, createTrailer, homeSceneId, nextHomeSlot } from './world';
+import { addHome, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
@@ -53,7 +53,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       // Cada jugador tiene su caravana: se crea la primera vez que entra.
       const trailerId = trailerSceneId(avatar.id);
       if (!avatar.isBot && !next.scenes[trailerId]) {
-        const trailer = createTrailer(avatar.id, avatar.name, homeSceneId(next.homes[avatar.id] ?? 0));
+        const trailer = createTrailer(avatar.id, avatar.name);
         next = {
           ...next,
           scenes: { ...next.scenes, [trailerId]: trailer.scene },

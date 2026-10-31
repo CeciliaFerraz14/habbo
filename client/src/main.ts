@@ -1,5 +1,6 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
 import {
+  areaNameAt,
   DEFAULT_LOOK,
   ECONOMY,
   GAME_NAME,
@@ -557,7 +558,10 @@ function updateLocationSign(): void {
   const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const forced = clock.isForced ? ` (${PHASE_NAMES[clock.phase()]})` : '';
   // Tu propia caravana se llama "Tu caravana" (para los demás, "Caravana de ...").
-  const name = scene?.id === trailerSceneId(PLAYER_ID) ? 'Tu caravana' : (scene?.name ?? '');
+  // En una plaza, su nombre (está en el mismo mapa que la calle).
+  const me = state.avatars[PLAYER_ID];
+  const area = me && scene?.id === SCENES.street ? areaNameAt(state, me.x, me.y) : null;
+  const name = scene?.id === trailerSceneId(PLAYER_ID) ? 'Tu caravana' : (area ?? scene?.name ?? '');
   locationSign.textContent = `${name} · ${time}${forced}`;
 }
 setInterval(updateLocationSign, 10_000);

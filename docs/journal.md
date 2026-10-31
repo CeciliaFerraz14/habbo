@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Todo el pueblo en un mapa
+
+**Qué se hizo**
+- Las plazas dejan de ser escenas aparte: son zonas de la escena de la calle, al otro lado de la carretera (desde y = 14), una al lado de otra desde x = 2 (`plazaOrigin`, `plazaAt` en `shared/src/world.ts`). Al abrir una, el mapa se alarga hacia abajo (hasta 41) y se ensancha si hace falta; la carretera sigue hasta el final.
+- `streetGround(width, plazas)` pinta las losas y el barro de cada plaza abierta sobre la arena. Decoración, parcelas y puertas, igual que antes pero con las coordenadas desplazadas a su plaza.
+- Fuera los pasos entre escenas, las señales y los nombres de escena de las plazas; `createTrailer` vuelve a no necesitar la escena de fuera. El cartel de dónde estás dice el nombre de la plaza (`areaNameAt`).
+- Viajeros: aparcan frente a la puerta de la tienda, también si está en una plaza (cruzan la carretera a pie).
+- Comprobado: script (6 jugadores: mapa de 56x41 con dos plazas y ninguna escena aparte, zonas bien detectadas, camino andando de la calle a la plaza, un viajero que compra en el diner de la plaza) y en Chrome (calle y plaza en la misma vista, cartel "Plaza del Pueblo").
+
+**Decisiones**
+- Un solo mapa: se ve a la gente de la calle desde la plaza y al revés, sin pantallas de cambio. Sustituye a la versión de plazas en escenas aparte (sin migración: todo sale de `homes`).
+
 ## 2026-10-31 · Plazas
 
 **Qué se hizo**

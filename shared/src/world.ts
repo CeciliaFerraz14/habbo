@@ -5,18 +5,19 @@
 // Plano de la calle (x hacia la derecha, y hacia abajo; en pantalla la
 // carretera queda en diagonal):
 //
-//   y 0-3   [caravana 1]  [local1] ... [local6]  [gasolinera] [señal]
+//   y 0-3   [caravana 1]  [local1] ... [local6]  [gasolinera]
 //   y 4     acera con las puertas (D) de los edificios (la de la gasolinera, en x = 39)
-//   y 5-6   acera (con farolas en y = 6); al final, en x = 43, el paso a la plaza
+//   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus, el cartel de bienvenida y la estatua del alcalde
+//   y 14-40 PLAZAS, una al lado de otra: [Plaza del Pueblo] [Plaza del Cactus] ...
 //
-// El pueblo CRECE con los jugadores. El primero ocupa la caravana del principio
-// de la calle. Los demás reciben su parcela (su caravana y un local nuevo) en
-// las PLAZAS: escenas cuadradas, al final de la calle, con edificios en los dos
-// lados que se ven de frente (arriba y a la izquierda) y una fuente en medio.
-// Caben 4 parcelas por plaza; cuando se llena, se abre la siguiente, a la que
-// se llega por el sur. Ver addHome.
+// El pueblo CRECE con los jugadores, todo en el mismo mapa. El primero ocupa la
+// caravana del principio de la calle. Los demás reciben su parcela (su
+// caravana y un local nuevo) en las plazas, al otro lado de la carretera:
+// zonas cuadradas con edificios en los dos lados que se ven de frente (arriba
+// y a la izquierda) y una fuente en medio. Caben 4 parcelas por plaza; cuando
+// se llena, se abre la siguiente a su derecha y el mapa se ensancha. Ver addHome.
 import { createLot, setupNpcStores } from './economy';
 import type { Lot } from './economy';
 import { setupNeighbors } from './npcs';
@@ -56,18 +57,29 @@ interface DoorSpot {
   spawn: { x: number; y: number };
 }
 
-/** Genera el mapa de suelo de la calle, fila a fila. */
-function streetGround(): string[] {
+/**
+ * Genera el mapa de suelo, fila a fila: la calle arriba (con el ancho que
+ * tenga el mapa) y, debajo, las `plazas` que haya abiertas (losas y, alrededor
+ * de cada fuente, barro cocido) sobre la arena.
+ */
+function streetGround(width: number, plazas: number): string[] {
   const rows: string[] = [];
-  for (let y = 0; y < STREET_DEPTH; y++) {
+  const depth = plazas > 0 ? PLAZA_TOP + PLAZA_SIZE : STREET_DEPTH;
+  for (let y = 0; y < depth; y++) {
     let tile: string;
     if (y >= 4 && y <= 6) tile = 's'; // acera
     else if (y === 7 || y === 9) tile = 'r'; // carriles
     else if (y === 8) tile = '-'; // línea central (con raya cada dos baldosas)
     else tile = '.'; // arena
     let row = '';
-    for (let x = 0; x < STREET_WIDTH; x++) {
-      row += tile === '-' && x % 2 === 1 ? 'r' : tile;
+    for (let x = 0; x < width; x++) {
+      const p = plazaAt(x, y);
+      if (p !== null && p <= plazas) {
+        const { x: px, y: py } = plazaOrigin(p);
+        row += Math.hypot(x - px - 13.5, y - py - 13.5) < 5 ? 'c' : 'p';
+      } else {
+        row += tile === '-' && x % 2 === 1 ? 'r' : tile;
+      }
     }
     rows.push(row);
   }
@@ -142,7 +154,7 @@ function createScenes(): Scene[] {
       width: STREET_WIDTH,
       depth: STREET_DEPTH,
       doors: streetDoors,
-      ground: streetGround(),
+      ground: streetGround(STREET_WIDTH, 0),
     },
     ...lotInteriors,
     // El minimarket de la gasolinera: Hank, el mostrador y las máquinas.
@@ -220,7 +232,7 @@ function createStreetStructures(): FurniItem[] {
  * Los ids de los muebles llevan delante el id del dueño para que no choquen
  * con los de otras caravanas.
  */
-export function createTrailer(ownerId: string, ownerName: string, outsideSceneId: string = SCENES.street) {
+export function createTrailer(ownerId: string, ownerName: string) {
   const id = trailerSceneId(ownerId);
   const scene: Scene = {
     id,
@@ -235,7 +247,7 @@ export function createTrailer(ownerId: string, ownerName: string, outsideSceneId
         x: 6,
         y: 0,
         spawn: { x: 6, y: 1 },
-        to: { sceneId: outsideSceneId, doorId: trailerDoorId(ownerId) },
+        to: { sceneId: SCENES.street, doorId: trailerDoorId(ownerId) },
       },
     ],
   };
@@ -259,9 +271,25 @@ export function createTrailer(ownerId: string, ownerName: string, outsideSceneId
 
 // --- Plazas y parcelas --------------------------------------------------------------
 
-/** Lado de cada plaza (cuadrada) y parcelas que caben en ella. */
+/** Lado de cada plaza (cuadrada), dónde empiezan y parcelas que caben en cada una. */
 const PLAZA_SIZE = 27;
+/** Fila donde empiezan las plazas (debajo del desierto, al otro lado de la carretera). */
+const PLAZA_TOP = 14;
+/** Columna donde empieza la primera plaza. */
+const PLAZA_LEFT = 2;
 const HOMES_PER_PLAZA = 4;
+
+/** Esquina superior izquierda de la plaza número p (empezando en 1). */
+function plazaOrigin(p: number): { x: number; y: number } {
+  return { x: PLAZA_LEFT + (p - 1) * PLAZA_SIZE, y: PLAZA_TOP };
+}
+
+/** Número de la plaza en la que cae la baldosa (x, y), o null si no cae en ninguna. */
+function plazaAt(x: number, y: number): number | null {
+  if (y < PLAZA_TOP || y >= PLAZA_TOP + PLAZA_SIZE || x < PLAZA_LEFT) return null;
+  return Math.floor((x - PLAZA_LEFT) / PLAZA_SIZE) + 1;
+}
+
 /** Nombres de las plazas, en el orden en que se abren (luego, "Plaza 7", "Plaza 8"...). */
 const PLAZA_NAMES = [
   'Plaza del Pueblo',
@@ -272,19 +300,24 @@ const PLAZA_NAMES = [
   'Plaza del Sol',
 ];
 
-/** Id de la escena de la plaza número p (empezando en 1). */
-export const plazaId = (p: number) => `plaza-${p}`;
+/**
+ * Nombre de la zona de la calle en la que está la baldosa (x, y): el de la
+ * plaza si cae en una (para el cartel de dónde estás), o null.
+ */
+export function areaNameAt(state: GameState, x: number, y: number): string | null {
+  const p = plazaAt(x, y);
+  if (p === null || !state.furniture[`plaza-${p}:fountain`]) return null;
+  return PLAZA_NAMES[p - 1] ?? `Plaza ${p}`;
+}
 
-/** Paso de la calle a la primera plaza: en la acera, al final, pasada la gasolinera. */
-const STREET_TO_PLAZA: DoorSpot = { x: STREET_WIDTH - 1, y: 5, spawn: { x: STREET_WIDTH - 2, y: 5 } };
-/** Entrada de cada plaza (borde derecho, abajo) y salida a la siguiente (borde de abajo). */
-const PLAZA_ENTRANCE: DoorSpot = { x: PLAZA_SIZE - 1, y: 22, spawn: { x: PLAZA_SIZE - 2, y: 22 } };
-const PLAZA_EXIT: DoorSpot = { x: 13, y: PLAZA_SIZE - 1, spawn: { x: 13, y: PLAZA_SIZE - 2 } };
+/** Plaza de la parcela `slot` (0 = la calle, sin plaza). */
+const plazaOfSlot = (slot: number) => (slot === 0 ? 0 : Math.floor((slot - 1) / HOMES_PER_PLAZA) + 1);
 
 /**
- * Las 4 parcelas de una plaza: dos arriba (fachada hacia +y, rotación 1) y dos
- * a la izquierda (fachada hacia +x, rotación 0), que son los lados que la
- * cámara ve de frente. Cada una: caravana (5x3 o 3x5) y local (4x4), con sus puertas.
+ * Las 4 parcelas de una plaza, en coordenadas de la plaza: dos arriba
+ * (fachada hacia +y, rotación 1) y dos a la izquierda (fachada hacia +x,
+ * rotación 0), que son los lados que la cámara ve de frente. Cada una:
+ * caravana (5x3 o 3x5) y local (4x4), con sus puertas.
  */
 const PLAZA_HOMES: {
   trailer: { x: number; y: number; rotation: 0 | 1 };
@@ -318,27 +351,16 @@ const PLAZA_HOMES: {
   },
 ];
 
-/** Escena donde está la caravana de la parcela `slot` (0 = la calle). */
-export function homeSceneId(slot: number): string {
-  return slot === 0 ? SCENES.street : plazaId(Math.floor((slot - 1) / HOMES_PER_PLAZA) + 1);
-}
-
-/** Suelo de la plaza: losas y, alrededor de la fuente, un círculo de barro cocido. */
-function plazaGround(): string[] {
-  const rows: string[] = [];
-  for (let y = 0; y < PLAZA_SIZE; y++) {
-    let row = '';
-    for (let x = 0; x < PLAZA_SIZE; x++) {
-      row += Math.hypot(x - 13.5, y - 13.5) < 5 ? 'c' : 'p';
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-
-/** Fuente, bancos, farolas y cactus de una plaza. */
-function plazaDecor(sceneId: string): FurniItem[] {
-  const f = (id: string, item: Omit<FurniItem, 'id' | 'sceneId'>): FurniItem => ({ id: `${sceneId}:${id}`, sceneId, ...item });
+/** Fuente, bancos, farolas y cactus de la plaza número p (en coordenadas del mapa). */
+function plazaDecor(p: number): FurniItem[] {
+  const o = plazaOrigin(p);
+  const f = (id: string, item: Omit<FurniItem, 'id' | 'sceneId'>): FurniItem => ({
+    ...item,
+    id: `plaza-${p}:${id}`,
+    sceneId: SCENES.street,
+    x: o.x + item.x,
+    y: o.y + item.y,
+  });
   return [
     f('fountain', { defId: 'fountain', x: 13, y: 13, rotation: 0 }),
     // Bancos mirando a la fuente
@@ -353,65 +375,48 @@ function plazaDecor(sceneId: string): FurniItem[] {
     f('lamp-4', { defId: 'street_lamp', x: 18, y: 18, rotation: 0 }),
     // Cactus en la esquina del fondo y junto a los bordes abiertos
     f('cactus-1', { defId: 'saguaro', x: 1, y: 1, rotation: 0 }),
-    f('cactus-2', { defId: 'saguaro', x: 3, y: 3, rotation: 0 }),
-    f('cactus-3', { defId: 'saguaro', x: 22, y: 25, rotation: 0 }),
-    f('cactus-4', { defId: 'saguaro', x: 25, y: 9, rotation: 0 }),
+    f('cactus-2', { defId: 'saguaro', x: 22, y: 25, rotation: 0 }),
   ];
 }
 
 /**
- * Abre la plaza número p (si no existe): su escena, su decoración y el camino
- * desde la anterior (la calle, para la primera). Las parcelas se añaden luego.
+ * Abre la plaza número p (y las anteriores, si faltan): su suelo y su
+ * decoración. El mapa se ensancha (y se alarga) para que quepa, y la
+ * carretera sigue hasta el final. Las parcelas se añaden luego.
  */
 function ensurePlaza(state: GameState, p: number): GameState {
-  const id = plazaId(p);
-  if (state.scenes[id]) return state;
-  // Si falta la anterior, se abre antes (para que el camino exista).
-  let next = p > 1 ? ensurePlaza(state, p - 1) : state;
-  const prevId = p === 1 ? SCENES.street : plazaId(p - 1);
-  const prevDoorId = p === 1 ? 'door-to-plaza-1' : `${prevId}-exit`;
-  const prevSpot = p === 1 ? STREET_TO_PLAZA : PLAZA_EXIT;
-
-  const plaza: Scene = {
-    id,
-    name: PLAZA_NAMES[p - 1] ?? `Plaza ${p}`,
-    kind: 'street',
-    width: PLAZA_SIZE,
-    depth: PLAZA_SIZE,
-    ground: plazaGround(),
-    doors: [{ id: `${id}-entrance`, ...PLAZA_ENTRANCE, to: { sceneId: prevId, doorId: prevDoorId } }],
-  };
-  const prev = next.scenes[prevId];
-  const prevDoor: Door = { id: prevDoorId, ...prevSpot, to: { sceneId: id, doorId: `${id}-entrance` } };
+  if (state.furniture[`plaza-${p}:fountain`]) return state;
+  const next = p > 1 ? ensurePlaza(state, p - 1) : state;
+  const street = next.scenes[SCENES.street];
+  const width = Math.max(street.width, plazaOrigin(p).x + PLAZA_SIZE);
+  const ground = streetGround(width, p);
   const furniture = { ...next.furniture };
-  for (const item of plazaDecor(id)) furniture[item.id] = item;
-  // Una señal junto al paso, para que se vea que por ahí se va a la plaza.
-  const signId = `${prevId}:sign-to-${id}`;
-  furniture[signId] =
-    p === 1
-      ? { id: signId, sceneId: prevId, defId: 'road_sign', x: STREET_WIDTH - 1, y: 3, rotation: 1 }
-      : { id: signId, sceneId: prevId, defId: 'road_sign', x: PLAZA_EXIT.x + 1, y: PLAZA_SIZE - 1, rotation: 1 };
-  next = {
+  for (const item of plazaDecor(p)) furniture[item.id] = item;
+  return {
     ...next,
     furniture,
-    scenes: { ...next.scenes, [id]: plaza, [prevId]: { ...prev, doors: [...prev.doors, prevDoor] } },
+    scenes: { ...next.scenes, [SCENES.street]: { ...street, width, depth: ground.length, ground } },
   };
-  return next;
 }
 
 /**
  * Da a un jugador su parcela: su caravana (con su puerta, que lleva a su
  * caravana por dentro; cualquiera puede entrar de visita) y, desde la segunda
  * parcela, un local nuevo. La primera está al principio de la Calle Mayor; las
- * demás, en las plazas (que se abren cuando hacen falta). Se llama al entrar un
- * jugador por primera vez (JOIN) y al cargar el mundo guardado.
+ * demás, en las plazas (que se abren cuando hacen falta). Todo en el mismo
+ * mapa. Se llama al entrar un jugador por primera vez (JOIN) y al cargar el
+ * mundo guardado.
  */
 export function addHome(state: GameState, playerId: string, slot: number): GameState {
   if (state.homes[playerId] !== undefined) return state;
-  const sceneId = homeSceneId(slot);
-  let next = slot === 0 ? state : ensurePlaza(state, Math.floor((slot - 1) / HOMES_PER_PLAZA) + 1);
+  const p = plazaOfSlot(slot);
+  let next = p > 0 ? ensurePlaza(state, p) : state;
+  // Coordenadas: en la plaza se suma su esquina; la parcela 0 va en la calle.
+  const o = p > 0 ? plazaOrigin(p) : { x: 0, y: 0 };
+  const at = <T extends { x: number; y: number }>(v: T): T => ({ ...v, x: v.x + o.x, y: v.y + o.y });
+  const spot = (d: DoorSpot): DoorSpot => ({ ...at(d), spawn: at(d.spawn) });
   const layout =
-    slot === 0
+    p === 0
       ? {
           trailer: { x: 1, y: 1, rotation: 1 as const },
           trailerDoor: { x: 3, y: 4, spawn: { x: 3, y: 5 } },
@@ -420,44 +425,33 @@ export function addHome(state: GameState, playerId: string, slot: number): GameS
         }
       : PLAZA_HOMES[(slot - 1) % HOMES_PER_PLAZA];
 
-  const scene = next.scenes[sceneId];
+  const s = SCENES.street;
+  const scene = next.scenes[s];
   const furniture = { ...next.furniture };
   const scenes = { ...next.scenes };
   const doors: Door[] = [
     ...scene.doors,
     {
       id: trailerDoorId(playerId),
-      ...layout.trailerDoor,
+      ...spot(layout.trailerDoor),
       to: { sceneId: trailerSceneId(playerId), doorId: 'trailer-exit' },
       buildingId: trailerBuildingId(playerId),
     },
   ];
-  furniture[trailerBuildingId(playerId)] = { id: trailerBuildingId(playerId), sceneId, defId: 'trailer', ...layout.trailer };
+  furniture[trailerBuildingId(playerId)] = { id: trailerBuildingId(playerId), sceneId: s, defId: 'trailer', ...at(layout.trailer) };
   let lots: Record<string, Lot> = next.lots;
   if (layout.lot && layout.lotDoor) {
     const n = BASE_LOT_XS.length + slot;
-    const building = lotBuilding(n, sceneId, layout.lot.x, layout.lot.y, layout.lot.rotation);
+    const { x, y, rotation } = at(layout.lot);
+    const building = lotBuilding(n, s, x, y, rotation);
     furniture[building.id] = building;
-    doors.push(lotDoor(n, layout.lotDoor));
-    scenes[lotId(n)] = lotInterior(n, sceneId);
+    doors.push(lotDoor(n, spot(layout.lotDoor)));
+    scenes[lotId(n)] = lotInterior(n, s);
     // Si el local ya existía (mundo guardado), se conserva tal cual.
     if (!lots[lotId(n)]) lots = { ...lots, [lotId(n)]: createLot(lotId(n), `Local ${n}`) };
   }
-  scenes[sceneId] = { ...scene, doors };
-  // Si su caravana ya existe (mundo guardado o recién creada), su puerta lleva aquí.
-  const trailer = scenes[trailerSceneId(playerId)];
-  if (trailer) scenes[trailer.id] = withTrailerExit(trailer, playerId, sceneId);
+  scenes[s] = { ...scene, doors };
   return { ...next, scenes, furniture, lots, homes: { ...next.homes, [playerId]: slot } };
-}
-
-/** La puerta de una caravana, apuntando a la escena donde está aparcada. */
-function withTrailerExit(trailer: Scene, ownerId: string, outsideSceneId: string): Scene {
-  return {
-    ...trailer,
-    doors: trailer.doors.map((d) =>
-      d.id === 'trailer-exit' ? { ...d, to: { sceneId: outsideSceneId, doorId: trailerDoorId(ownerId) } } : d,
-    ),
-  };
 }
 
 /** Primera parcela libre (la siguiente a la última dada). */

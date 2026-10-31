@@ -97,11 +97,6 @@ const PASSING_LANE_Y = 9;
 const CURB_Y = 6;
 /** Los coches aparecen y desaparecen fuera de la calle. */
 const SPAWN_X = -3;
-/**
- * Donde aparcan los que van a una tienda de las plazas: en la calle, antes de
- * la gasolinera (luego siguen a pie por el paso del final de la calle).
- */
-const PLAZA_PARK_X = 34;
 /** Donde paran a repostar: delante de los surtidores de la gasolinera. */
 const PUMP_X = 41;
 /** Color del autobús de turistas. */
@@ -164,9 +159,12 @@ function storeDoorOf(state: GameState, lotId: string): StoreDoor | null {
   return null;
 }
 
-/** Dónde aparca quien va a esa puerta: delante si está en la calle; si no, antes de la gasolinera. */
+/**
+ * Dónde aparca quien va a esa puerta: con la puerta del coche a su altura en
+ * la carretera (las tiendas de las plazas quedan al otro lado: cruza a pie).
+ */
 function parkXFor(store: StoreDoor, length: number): number {
-  return store.sceneId === SCENES.street ? store.door.x - length / 2 : PLAZA_PARK_X;
+  return store.door.x - length / 2;
 }
 
 /** Probabilidad de que un coche pare, según los negocios abiertos. */
