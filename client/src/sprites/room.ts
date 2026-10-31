@@ -33,6 +33,9 @@ const C = {
   doorKnob: '#f2b134',
   doorway: '#1a1414',
   sidewalk: '#cdbb9c',
+  plazaA: '#dcc8a4',
+  plazaB: '#d0b994',
+  plazaLine: '#b49c78',
   sidewalkLine: '#a8987c',
   asphalt: '#5e5450',
   asphaltLine: '#574d49',
@@ -273,6 +276,8 @@ export interface RoomSprites {
   doorLeftOpen: Sprite;
   doorRightOpen: Sprite;
   sidewalk: Sprite;
+  plazaA: Sprite;
+  plazaB: Sprite;
   asphalt: Sprite;
   asphaltLine: Sprite;
   hover: Sprite;
@@ -300,6 +305,8 @@ export function buildRoomSprites(theme: InteriorTheme = 'adobe'): RoomSprites {
     doorLeftOpen: doorSegment('left', true),
     doorRightOpen: doorSegment('right', true),
     sidewalk: floorTile(C.sidewalk, C.sidewalkLine),
+    plazaA: floorTile(C.plazaA, C.plazaLine),
+    plazaB: floorTile(C.plazaB, C.plazaLine),
     asphalt: floorTile(C.asphalt, C.asphaltLine),
     asphaltLine: roadLineTile(),
     hover: outlineTile(C.hover),

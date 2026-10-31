@@ -306,6 +306,10 @@ export class Renderer {
         return s.asphalt;
       case '-':
         return s.asphaltLine;
+      case 'p':
+        return even ? s.plazaA : s.plazaB;
+      case 'c':
+        return even ? s.floorA : s.floorB;
       default:
         return even ? s.sandA : s.sandB;
     }
@@ -435,9 +439,9 @@ export class Renderer {
       });
     }
 
-    // Los coches solo circulan por la calle. Ocupan 2 baldosas a lo largo de x
-    // (el autobús, 3).
-    if (state.scenes[sceneId]?.kind === 'street') {
+    // Los coches solo circulan por la Calle Mayor (no por las plazas). Ocupan 2
+    // baldosas a lo largo de x (el autobús, 3).
+    if (sceneId === SCENES.street) {
       for (const car of Object.values(state.vehicles)) {
         const view = vehicles.get(car.id);
         if (!view) continue;

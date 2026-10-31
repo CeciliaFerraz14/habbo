@@ -1,5 +1,6 @@
 // Textos pintados sobre muebles: el nombre en el cartel de neón (recompensa de
-// Tendero) y los nombres de los alcaldes en la placa de su estatua.
+// Tendero), los nombres de los alcaldes en la placa de su estatua y el del
+// dueño en la placa crema de la fachada de cada local abierto.
 //
 // Como los demás textos del juego, son elementos HTML recolocados en cada
 // fotograma. Cada texto ocupa un rectángulo vertical del modelo del mueble
@@ -11,6 +12,7 @@ import type { Camera } from '../engine/camera';
 import { tileToScreen, type Point } from '../engine/iso';
 import { NAME_SIGN_TEXT } from '../sprites/furniture/nameSign';
 import { STATUE_PLAQUE } from '../sprites/structures/mayorStatue';
+import { OWNER_PLATE } from '../sprites/structures/shop';
 
 /** Un rectángulo vertical en el plano x del modelo (dieciseisavos de baldosa; z en px). */
 interface Plane {
@@ -60,6 +62,10 @@ export class FurniLabels {
 /** Qué texto lleva un mueble (o null si ninguno). */
 function labelFor(state: GameState, item: FurniItem): { text: string; plane: Plane; style: string } | null {
   if (item.defId === 'name_sign' && item.variant) return { text: item.variant, plane: NAME_SIGN_TEXT, style: 'neon' };
+  if (item.defId === 'shop') {
+    const lot = state.lots[item.id.replace(/-building$/, '')];
+    if (lot?.business && lot.ownerName) return { text: lot.ownerName, plane: OWNER_PLATE, style: 'plaque' };
+  }
   if (item.defId === 'mayor_statue' && state.mayors.length > 0) {
     const text = state.mayors.length === 1 ? `Alcalde ${state.mayors[0]}` : `Alcaldes: ${state.mayors.join(', ')}`;
     return { text, plane: STATUE_PLAQUE, style: 'plaque' };

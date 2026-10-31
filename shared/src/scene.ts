@@ -58,8 +58,9 @@ export interface Door {
 /**
  * Tipos de suelo de una escena exterior, uno por carácter del mapa `ground`:
  *   '.' arena   's' acera   'r' asfalto   '-' asfalto con línea central
+ *   'p' losas de la plaza   'c' barro cocido (alrededor de la fuente)
  */
-export type GroundChar = '.' | 's' | 'r' | '-';
+export type GroundChar = '.' | 's' | 'r' | '-' | 'p' | 'c';
 
 export type InteriorTheme = 'adobe' | 'trailer' | 'minimart';
 

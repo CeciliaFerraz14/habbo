@@ -54,7 +54,10 @@ export type StructureId =
   | 'car'
   | 'bus'
   // Estatua del alcalde (aparece en la calle con el primer jugador de nivel 10)
-  | 'mayor_statue';
+  | 'mayor_statue'
+  // Plazas
+  | 'fountain'
+  | 'park_bench';
 
 /**
  * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango. Se colocan
@@ -156,6 +159,9 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   name_sign: { id: 'name_sign', name: 'Cartel de neón con tu nombre', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
   golden_jukebox: { id: 'golden_jukebox', name: 'Jukebox dorada', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
   mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
+  fountain: structure('fountain', 'Fuente', 2, 2),
+  // Banco de la plaza: fijo, pero se puede uno sentar.
+  park_bench: { id: 'park_bench', name: 'Banco', width: 1, depth: 2, sittable: true, walkable: false, fixed: true },
   car: structure('car', 'Coche', 2, 1),
   bus: structure('bus', 'Autobús', 3, 1),
 };

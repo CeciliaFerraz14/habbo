@@ -29,8 +29,10 @@ Abre http://localhost:5173
 ## Cómo se juega
 
 1. Empiezas en **tu caravana** con 500 $ y unos muebles. Sal por la puerta a la **Calle Mayor**.
-   Cada jugador nuevo hace crecer la calle: recibe su parcela con **su caravana**
-   (con su nombre encima; cualquiera puede entrar de visita) y un **local nuevo**.
+   Cada jugador nuevo hace crecer el pueblo: recibe su parcela con **su caravana**
+   (con su nombre encima; cualquiera puede entrar de visita) y un **local nuevo**,
+   en las **plazas** que hay al final de la Calle Mayor (con fuente y bancos para
+   sentarse). Caben 4 parcelas por plaza; cuando se llena, se abre la siguiente.
 2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio (uno a la
    vez; dos desde el rango Comerciante). Si dejas de entrar 7 días, el local se libera:
    - **Chatarrería**: produce chapa, madera vieja y neumáticos cada pocos segundos.

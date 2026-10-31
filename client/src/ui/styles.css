@@ -344,11 +344,6 @@ body {
   white-space: nowrap;
 }
 
-/* En la fachada: solo el texto, sobre la placa crema del propio sprite. */
-.lot-sign.plate {
-  color: var(--outline);
-}
-
 /* Dentro del local: cartel de madera colgado en la pared del fondo. */
 .lot-sign.wall {
   background: var(--terracotta-dark);

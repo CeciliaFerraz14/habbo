@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Plazas
+
+**Qué se hizo**
+- Las parcelas nuevas ya no alargan la calle: van a **plazas** (`ensurePlaza` y `PLAZA_HOMES` en `shared/src/world.ts`). Cada plaza es una escena exterior de 27x27 con losas, barro cocido alrededor de una **fuente** central, 4 **bancos** (se puede sentar), farolas y cactus. Tiene 4 parcelas (caravana y local): dos arriba (rotación 1) y dos a la izquierda (rotación 0), los lados que la cámara ve de frente.
+- La Calle Mayor vuelve a medir 44 y, al final (43, 5), tiene el paso a la Plaza del Pueblo, con una señal. Cada plaza tiene su entrada a la derecha y, cuando se abre la siguiente, una salida al sur. Nombres: Plaza del Pueblo, del Cactus, del Pozo...
+- La parcela 0 sigue siendo la caravana del principio de la calle. Los números de local no cambian (el 7 es el de la parcela 1, etc.), así que los locales guardados se mudan solos a su plaza. Puertas renombradas a `door-lotN` y `door-trailer:<id>`.
+- Viajeros: van a las tiendas de las plazas (`nextDoorToward` en `movement.ts` busca la siguiente puerta del camino entre escenas): aparcan en la calle (x = 34), cruzan a la plaza y vuelven igual. Paciencia de 20 a 30 decisiones.
+- Los coches solo se dibujan en la Calle Mayor. La placa con el nombre del dueño en la fachada pasa a `furniLabels.ts` (funciona en cualquier rotación) y los carteles de las caravanas se ven en cualquier exterior.
+- Al volver a entrar, si la posición guardada queda fuera de la escena (el pueblo ha cambiado), entra por la normal.
+- Comprobado: script (plazas que se abren con el 2.º y el 6.º jugador, caravanas y locales en su sitio, puertas de vuelta, rutas, un viajero que compra en un diner de la plaza) y en Chrome (plaza con fuente, bancos, cuatro caravanas, locales con su nombre; sentarse en un banco; un viajero cruzando a la plaza).
+
+**Decisiones**
+- Plazas en vez de una calle infinita: con la cámara isométrica solo se ven bien dos lados, y una plaza da un punto de encuentro.
+- Las plazas, su decoración y las parcelas se generan a partir de `homes`: no hace falta migración.
+
 ## 2026-10-31 · La calle crece con el pueblo
 
 **Qué se hizo**

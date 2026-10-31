@@ -39,7 +39,8 @@ import { ECONOMY, type BusinessType } from './economy.config';
 import { tipWorkers } from './gasStation';
 import { addSaleXp } from './levels';
 import { randomLook } from './looks';
-import { isDoorLocked } from './movement';
+import { isDoorLocked, nextDoorToward } from './movement';
+import type { Door } from './scene';
 import { move, say, updateBrain, wander } from './npcs';
 import { createRandom } from './random';
 import type { Avatar, FurniItem, GameState } from './types';
@@ -96,6 +97,11 @@ const PASSING_LANE_Y = 9;
 const CURB_Y = 6;
 /** Los coches aparecen y desaparecen fuera de la calle. */
 const SPAWN_X = -3;
+/**
+ * Donde aparcan los que van a una tienda de las plazas: en la calle, antes de
+ * la gasolinera (luego siguen a pie por el paso del final de la calle).
+ */
+const PLAZA_PARK_X = 34;
 /** Donde paran a repostar: delante de los surtidores de la gasolinera. */
 const PUMP_X = 41;
 /** Color del autobús de turistas. */
@@ -129,12 +135,38 @@ export function travelerTick(state: GameState): GameState {
 
 // --- Coches -------------------------------------------------------------------
 
-/** Puertas de la calle que dan a negocios abiertos al público (tiendas y servicios). */
-function openStoreDoors(state: GameState) {
-  return state.scenes[SCENES.street].doors.filter((d) => {
-    const lot = d.lotId ? state.lots[d.lotId] : undefined;
-    return servesCustomers(lot) && !isDoorLocked(state, d);
-  });
+/** Una puerta y la escena (calle o plaza) en la que está. */
+interface StoreDoor {
+  sceneId: string;
+  door: Door;
+}
+
+/** Puertas de negocios abiertos al público (tiendas y servicios), en la calle y en las plazas. */
+function openStoreDoors(state: GameState): StoreDoor[] {
+  const found: StoreDoor[] = [];
+  for (const scene of Object.values(state.scenes)) {
+    if (scene.kind !== 'street') continue;
+    for (const door of scene.doors) {
+      const lot = door.lotId ? state.lots[door.lotId] : undefined;
+      if (servesCustomers(lot) && !isDoorLocked(state, door)) found.push({ sceneId: scene.id, door });
+    }
+  }
+  return found;
+}
+
+/** Puerta de fuera del local (y su escena), o null si no hay. */
+function storeDoorOf(state: GameState, lotId: string): StoreDoor | null {
+  for (const scene of Object.values(state.scenes)) {
+    if (scene.kind !== 'street') continue;
+    const door = scene.doors.find((d) => d.lotId === lotId);
+    if (door) return { sceneId: scene.id, door };
+  }
+  return null;
+}
+
+/** Dónde aparca quien va a esa puerta: delante si está en la calle; si no, antes de la gasolinera. */
+function parkXFor(store: StoreDoor, length: number): number {
+  return store.sceneId === SCENES.street ? store.door.x - length / 2 : PLAZA_PARK_X;
 }
 
 /** Probabilidad de que un coche pare, según los negocios abiertos. */
@@ -154,7 +186,8 @@ function maybeSpawnCar(state: GameState): GameState {
   const doors = openStoreDoors(state);
   // ¿Para? Solo si hay alguna tienda abierta y no hay demasiados viajeros.
   const stops = doors.length > 0 && travelers < t.maxActive && rng.random() < stopChance(state);
-  const door = stops ? doors[Math.floor(rng.random() * doors.length)] : null;
+  const store = stops ? doors[Math.floor(rng.random() * doors.length)] : null;
+  const door = store?.door ?? null;
 
   // Si no para en el pueblo, quizá pare a repostar (si el surtidor está libre).
   const pumpFree = !Object.values(state.vehicles).some((v) => v.mode === 'toPump' || v.mode === 'fueling');
@@ -167,7 +200,7 @@ function maybeSpawnCar(state: GameState): GameState {
     color: CAR_COLORS[Math.floor(rng.random() * CAR_COLORS.length)],
     mode: door ? 'arriving' : refuels ? 'toPump' : 'passing',
     // Aparca con la parte delantera justo frente a la puerta (o al surtidor).
-    parkX: door ? door.x - 1 : refuels ? PUMP_X : 0,
+    parkX: store ? parkXFor(store, 2) : refuels ? PUMP_X : 0,
   };
   // El siguiente coche llega dentro de carIntervalSeconds ± 30 %.
   const interval = t.carIntervalSeconds * (0.7 + rng.random() * 0.6);
@@ -198,7 +231,8 @@ function withPendingLot(state: GameState, vehicleId: string, lotId: string): Gam
     nextThinkAt: Number.MAX_SAFE_INTEGER, // no piensa hasta que se baje del coche
     budget: Math.round(min + rng.random() * (max - min)),
     looked: 0,
-    patience: 20,
+    // Ir a una tienda de una plaza lleva más decisiones (cruzar escenas).
+    patience: 30,
   };
   return {
     ...state,
@@ -274,8 +308,10 @@ function dropOffOne(state: GameState, brain: TravelerBrain): GameState {
     sitting: false,
   };
   let next: GameState = { ...state, avatars: { ...state.avatars, [avatar.id]: avatar }, seed: rng.seed() };
-  const door = next.scenes[SCENES.street].doors.find((d) => d.lotId === brain.lotId);
-  if (door) next = move(next, avatar.id, door);
+  // Si la tienda está en la calle, va derecho; si está en una plaza, ya
+  // buscará el camino al pensar (thinkTraveler).
+  const store = storeDoorOf(next, brain.lotId);
+  if (store?.sceneId === SCENES.street) next = move(next, avatar.id, store.door);
   return updateBrain<TravelerBrain>(next, brain.id, { nextThinkAt: next.tick + 1 });
 }
 
@@ -294,16 +330,22 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
   const changes: Partial<TravelerBrain> = { patience: brain.patience - 1 };
 
   if (brain.phase === 'toStore') {
-    const door = next.scenes[SCENES.street].doors.find((d) => d.lotId === brain.lotId);
+    const store = storeDoorOf(next, brain.lotId);
+    // Siguiente puerta del camino: la de la tienda si ya está en su escena; si
+    // no, la que lleva hacia ella (de la calle a la plaza, por ejemplo).
+    const goal =
+      store && avatar.sceneId !== store.sceneId ? nextDoorToward(next, avatar.sceneId, store.sceneId) : store?.door;
     if (avatar.sceneId === brain.lotId) {
       changes.phase = 'shopping';
       next = wander(next, avatar, rng.random);
-    } else if (door && avatar.sceneId === SCENES.street && avatar.x === door.x && avatar.y === door.y) {
+    } else if (!store || !goal || isDoorLocked(next, store.door)) {
+      // La tienda ha cerrado (o no hay camino): vuelve al coche.
+      changes.phase = 'toCar';
+    } else if (avatar.x === goal.x && avatar.y === goal.y) {
       // Está en el umbral: la puerta se cruza en el tick siguiente (ver
       // updateDoors). Esperamos en vez de creer que la tienda ha cerrado.
     } else {
-      // No ha llegado (¿la tienda ha cerrado?): vuelve al coche.
-      changes.phase = 'toCar';
+      next = move(next, avatar.id, goal);
     }
   } else if (brain.phase === 'shopping') {
     if (brain.looked < 2) {
@@ -316,10 +358,12 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
       changes.phase = 'toCar';
     }
   } else {
-    // Volviendo al coche: primero sale de la tienda, luego va al bordillo.
+    // Volviendo al coche: primero vuelve a la calle (saliendo de la tienda y,
+    // si hace falta, de la plaza) y luego va al bordillo.
     const car = next.vehicles[brain.vehicleId];
     if (avatar.sceneId !== SCENES.street) {
-      next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
+      const exit = nextDoorToward(next, avatar.sceneId, SCENES.street);
+      if (exit && (avatar.x !== exit.x || avatar.y !== exit.y)) next = move(next, avatar.id, exit);
     } else if (!car || (avatar.x === car.parkX + 1 && avatar.y === CURB_Y)) {
       return leaveTown({ ...next, seed: rng.seed() }, brain);
     } else {
@@ -458,7 +502,7 @@ function maybeSpawnBus(state: GameState): GameState {
     mode: 'arriving',
     kind: 'bus',
     // Aparca con la puerta (en medio del autobús) frente a la tienda.
-    parkX: stop.x - 1,
+    parkX: parkXFor(stop, 2),
   };
   const count = passengers.min + Math.floor(rng.random() * (passengers.max - passengers.min + 1));
   let next: GameState = {
@@ -471,7 +515,7 @@ function maybeSpawnBus(state: GameState): GameState {
   for (let i = 0; i < count; i++) {
     const pick = createRandom(next.seed);
     const door = doors[Math.floor(pick.random() * doors.length)];
-    next = withPendingLot({ ...next, seed: pick.seed() }, bus.id, door.lotId!);
+    next = withPendingLot({ ...next, seed: pick.seed() }, bus.id, door.door.lotId!);
   }
   for (const avatar of Object.values(next.avatars)) {
     if (!avatar.isBot) next = addNotice(next, avatar.id, '¡Ha llegado un autobús de turistas!');

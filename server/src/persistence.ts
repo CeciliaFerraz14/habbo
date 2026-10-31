@@ -20,6 +20,7 @@ import {
   createInitialState,
   createTrailer,
   addHome,
+  homeSceneId,
   lotSceneName,
   nextHomeSlot,
   withStatue,
@@ -204,7 +205,7 @@ export class Persistence {
       // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
       if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
-      const trailer = createTrailer(p.id, p.name).scene;
+      const trailer = createTrailer(p.id, p.name, homeSceneId(state.homes[p.id] ?? 0)).scene;
       scenes[trailer.id] = trailer;
     }
     for (const row of itemRows) {

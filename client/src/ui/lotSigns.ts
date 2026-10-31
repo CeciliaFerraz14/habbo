@@ -1,15 +1,14 @@
 // Nombre del dueño en los locales y las caravanas:
-// - En la calle, escrito sobre la placa crema de la fachada de cada local abierto.
 // - Dentro del local, en un cartel colgado en la pared del fondo.
-// - Encima de cada caravana de la calle, en un cartelito de madera.
+// - Encima de cada caravana (en la calle o en una plaza), en un cartelito de madera.
+// (El nombre sobre la placa de la fachada lo escribe furniLabels.ts.)
 //
 // Igual que los bocadillos y los precios: elementos HTML (texto nítido)
 // recolocados en cada fotograma. Como las paredes son isométricas, cada cartel
 // se inclina con skewY para que siga el plano de su pared.
-import { SCENES, trailerBuildingId, type GameState } from '@juego/shared';
+import { trailerBuildingId, type GameState } from '@juego/shared';
 import type { Camera } from '../engine/camera';
 import { tileToScreen, type Point } from '../engine/iso';
-import { OWNER_PLATE } from '../sprites/structures/shop';
 
 /**
  * Inclinación de una pared que va a lo largo del eje x: cada baldosa en +x
@@ -62,7 +61,7 @@ export class LotSigns {
       placeOnWall(el, rect, lines, camera, toScreen);
     };
 
-    if (sceneId === SCENES.street) {
+    if (state.scenes[sceneId]?.kind === 'street') {
       // De quién es cada caravana: cartelito encima, sin inclinar (como un buzón).
       for (const playerId of Object.keys(state.homes)) {
         const name = state.avatars[playerId]?.name ?? state.progress[playerId]?.name;
@@ -81,19 +80,6 @@ export class LotSigns {
         if (el.textContent !== name) el.textContent = name;
         const p = toScreen(top);
         el.style.transform = `translate(${Math.round(p.x - el.offsetWidth / 2)}px, ${Math.round(p.y - el.offsetHeight - 2)}px)`;
-      }
-      for (const lot of Object.values(state.lots)) {
-        const building = state.furniture[`${lot.id}-building`];
-        // Los locales de la calle miran a la carretera (rotación 1): la placa,
-        // en x = OWNER_PLATE.x con rotación 0, queda en y = OWNER_PLATE.x al girar.
-        if (!lot.business || !lot.ownerName || !building || building.rotation !== 1) continue;
-        show(`street:${lot.id}`, 'lot-sign plate', [lot.ownerName], {
-          x0: building.x + 4 - OWNER_PLATE.y1 / 16,
-          x1: building.x + 4 - OWNER_PLATE.y0 / 16,
-          y: building.y + OWNER_PLATE.x / 16,
-          z0: OWNER_PLATE.z0,
-          z1: OWNER_PLATE.z1,
-        });
       }
     } else {
       const lot = state.lots[sceneId];

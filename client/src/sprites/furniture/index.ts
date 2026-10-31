@@ -10,7 +10,9 @@ import { fruitPlanter } from '../structures/fruitPlanter';
 import { fruitStand } from '../structures/fruitStand';
 import { gasCounter } from '../structures/gasCounter';
 import { gasStation } from '../structures/gasStation';
+import { fountain } from '../structures/fountain';
 import { mayorStatue } from '../structures/mayorStatue';
+import { parkBench } from '../structures/parkBench';
 import { minimartShelf } from '../structures/minimartShelf';
 import { noticeBoard } from '../structures/noticeBoard';
 import { saguaro } from '../structures/saguaro';
@@ -87,6 +89,9 @@ export const MODELS: Record<FurniId, ModelSource> = {
   name_sign: nameSign,
   golden_jukebox: goldenJukebox,
   mayor_statue: mayorStatue,
+  // Plazas
+  fountain,
+  park_bench: parkBench,
   // Vehículos
   car,
   bus,
