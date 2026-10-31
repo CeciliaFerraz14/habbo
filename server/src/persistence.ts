@@ -19,7 +19,9 @@ import {
   buildingVariant,
   createInitialState,
   createTrailer,
+  addHome,
   lotSceneName,
+  nextHomeSlot,
   withStatue,
   type AvatarLook,
   type FurniItem,
@@ -150,6 +152,17 @@ export class Persistence {
       };
     }
 
+    // 2a. Parcelas: cada jugador tiene la suya en la calle (y, desde el segundo,
+    //     un local nuevo). Se ponen ANTES de cargar los locales, porque crean los
+    //     locales 7, 8... A quien aún no tenga (perfiles de antes de esto), se le
+    //     da la siguiente, por orden de antigüedad.
+    const bySlot = [...profileRows].sort(
+      (a, b) => (a.home_slot ?? Infinity) - (b.home_slot ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)),
+    );
+    for (const p of bySlot) {
+      state = addHome(state, p.id, p.home_slot ?? nextHomeSlot(state));
+    }
+
     // 2. Locales. Si hay locales guardados, los muebles de los locales del
     //    mundo inicial (género generado de las tiendas NPC) se sustituyen por
     //    los guardados.
@@ -186,7 +199,8 @@ export class Persistence {
       materials[p.id] = p.materials ?? {};
       subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
       if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
-      if (p.progress?.xp !== undefined) progress[p.id] = { ...p.progress, name: p.name };
+      // Sin "visto por última vez" (perfiles de antes de esto): cuenta desde ahora.
+      if (p.progress?.xp !== undefined) progress[p.id] = { lastSeen: state.tick, ...p.progress, name: p.name };
       // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
       if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
@@ -257,6 +271,7 @@ export class Persistence {
         'gasPlayers',
         'lastPositions',
         'progress',
+        'homes',
         'inventories',
       ] as const) {
         for (const id in state[key]) {
@@ -278,6 +293,7 @@ export class Persistence {
           next_subsidy_at: state.subsidies[id] ?? 0,
           gas_station: state.gasPlayers[id] ?? {},
           progress: state.progress[id] ?? {},
+          home_slot: state.homes[id] ?? null,
           // Dónde está (si está conectado) o dónde se desconectó.
           last_position: avatar
             ? { sceneId: avatar.sceneId, x: avatar.x, y: avatar.y, direction: avatar.direction }

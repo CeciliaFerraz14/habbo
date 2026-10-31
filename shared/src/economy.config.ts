@@ -222,6 +222,8 @@ export interface RankReward {
   subsidy?: number;
   /** Descuento al comprar en el mostrador de Hank (0,1 = 10 %). */
   hankDiscount?: number;
+  /** Locales extra que puede alquilar a la vez. */
+  extraLots?: number;
   /** Aún no existe en el juego: se enseña como "próximamente". */
   soon?: boolean;
 }
@@ -256,6 +258,13 @@ export const ECONOMY = {
    */
   rent: {
     periodSeconds: 24 * 60 * 60, // una vez al día
+    /** Locales que puede tener a la vez un jugador (más con el rango de Comerciante). */
+    maxLotsPerPlayer: 1,
+    /**
+     * Si el dueño no entra a jugar en este tiempo (de pueblo en marcha), pierde
+     * el local, aunque pueda pagarlo: así no se quedan locales cogidos para siempre.
+     */
+    abandonSeconds: 7 * 24 * 60 * 60,
   },
 
   /**
@@ -310,7 +319,11 @@ export const ECONOMY = {
         xp: 350,
         reward: { text: 'Cartel de neón con tu nombre', items: ['name_sign'] as FurniId[] },
       },
-      { name: 'Comerciante', xp: 700, reward: { text: 'Subvención diaria de $45', subsidy: 45 } },
+      {
+        name: 'Comerciante',
+        xp: 700,
+        reward: { text: 'Subvención diaria de $45 y un segundo local', subsidy: 45, extraLots: 1 },
+      },
       { name: 'Empresario', xp: 1200, reward: { text: '+2 huecos de venta en tu tienda', storeListings: 2 } },
       {
         name: 'Cowboy del asfalto',

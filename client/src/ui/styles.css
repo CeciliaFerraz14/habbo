@@ -328,6 +328,22 @@ body {
   overflow: hidden;
 }
 
+/* Encima de cada caravana: tablilla de madera con el nombre de su dueño. */
+.home-sign {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 6px;
+  background: #8a5a34;
+  color: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: inset 0 1px 0 #a8754a;
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* En la fachada: solo el texto, sobre la placa crema del propio sprite. */
 .lot-sign.plate {
   color: var(--outline);

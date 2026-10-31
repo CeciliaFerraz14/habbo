@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · La calle crece con el pueblo
+
+**Qué se hizo**
+- Cada jugador tiene una **parcela** (`GameState.homes`, `addHome` en `shared/src/world.ts`): su caravana en la calle, con su propia puerta a su caravana por dentro. El primero ocupa la caravana del principio (x = 1); los siguientes, bloques de 11 baldosas pasada la gasolinera, con un **local nuevo** cada uno (7, 8...), una farola y un cactus. La calle se alarga.
+- Las caravanas ya no comparten puerta (antes el alias 'trailer' llevaba a cada uno a la suya): ahora **se puede visitar la caravana de otro** (solo su dueño decora).
+- Cartelito de madera con el nombre del dueño encima de cada caravana (`ui/lotSigns.ts`).
+- **Máximo de locales**: 1 por jugador, 2 desde Comerciante (`ECONOMY.rent.maxLotsPerPlayer` + `extraLots`). La ventana de alquiler explica por qué no deja.
+- **Locales abandonados**: si el dueño no entra en 7 días de pueblo en marcha (`abandonSeconds`), el local se libera como al no pagar (`releaseAbandonedLots`). Se usa `progress.lastSeen`, que se apunta al entrar y al salir.
+- Guardado: `profiles.home_slot` (migración `007_home_slot.sql`, aplicada en Supabase y comprobada). Al cargar, las parcelas se ponen antes que los locales; quien no tiene parcela recibe la siguiente por antigüedad.
+- Comprobado: script (3 jugadores: parcelas 0/1/2, calle de 44 a 66, locales 7 y 8, visitar la caravana de otro, máximo 1 local y 2 con Comerciante, liberación tras 7 días) y en Chrome (calle alargada con las caravanas de Bea y Cris y sus carteles).
+
+**Decisiones**
+- Rosa y Elmer no ceden su local: cada jugador nuevo ya trae uno, así que no hacía falta.
+- La parcela es de por vida aunque el jugador deje de entrar (solo se libera su local).
+
 ## 2026-10-31 · Niveles y rangos (parte 2): recompensas exclusivas
 
 **Qué se hizo**

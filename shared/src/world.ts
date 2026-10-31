@@ -5,12 +5,17 @@
 // Plano de la calle (x hacia la derecha, y hacia abajo; en pantalla la
 // carretera queda en diagonal):
 //
-//   y 0-3   [caravana]  [local1] [local2] ... [local6]  [gasolinera]
+//   y 0-3   [caravana 1]  [local1] ... [local6]  [gasolinera]  [caravana 2][local7]  [caravana 3][local8] ...
 //   y 4     acera con las puertas (D) de los edificios (la de la gasolinera, en x = 39)
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
-//   y 10-13 desierto con cactus y el cartel de bienvenida
+//   y 10-13 desierto con cactus, el cartel de bienvenida y la estatua del alcalde
+//
+// La calle CRECE con el pueblo: cada jugador nuevo recibe una parcela al final
+// (su caravana y, desde el segundo, un local nuevo) y la calle se alarga. El
+// primero ocupa la caravana del principio. Ver addHome.
 import { createLot, setupNpcStores } from './economy';
+import type { Lot } from './economy';
 import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
@@ -27,17 +32,24 @@ export const START_SCENE = SCENES.trailer;
 export const START_TILE = { x: 6, y: 3 };
 
 
-const STREET_WIDTH = 44;
+/** Ancho de la calle del pueblo original (hasta la gasolinera). */
+const STREET_BASE_WIDTH = 44;
 const STREET_DEPTH = 14;
+/** Ancho de la parcela de cada jugador nuevo: su caravana (5) y su local (4), con huecos. */
+const HOME_WIDTH = 11;
 
-/** Coordenada x de cada uno de los 6 locales (todos en y = 0, de 4x4 baldosas). */
-const LOT_XS = [8, 13, 18, 23, 28, 33];
+/** Coordenada x de los 6 locales del pueblo original (todos en y = 0, de 4x4 baldosas). */
+const BASE_LOT_XS = [8, 13, 18, 23, 28, 33];
 /** Id del local número i (empezando en 1), que también es el id de su escena interior. */
 export const lotId = (i: number) => `lot${i}`;
-export const LOT_IDS = LOT_XS.map((_, i) => lotId(i + 1));
+export const LOT_IDS = BASE_LOT_XS.map((_, i) => lotId(i + 1));
+
+/** Ids del edificio y de la puerta de la caravana de un jugador en la calle. */
+export const trailerBuildingId = (ownerId: string) => `trailer-building:${ownerId}`;
+const trailerDoorId = (ownerId: string) => `street-trailer:${ownerId}`;
 
 /** Genera el mapa de suelo de la calle, fila a fila. */
-function streetGround(): string[] {
+function streetGround(width: number): string[] {
   const rows: string[] = [];
   for (let y = 0; y < STREET_DEPTH; y++) {
     let tile: string;
@@ -46,7 +58,7 @@ function streetGround(): string[] {
     else if (y === 8) tile = '-'; // línea central (con raya cada dos baldosas)
     else tile = '.'; // arena
     let row = '';
-    for (let x = 0; x < STREET_WIDTH; x++) {
+    for (let x = 0; x < width; x++) {
       row += tile === '-' && x % 2 === 1 ? 'r' : tile;
     }
     rows.push(row);
@@ -54,20 +66,53 @@ function streetGround(): string[] {
   return rows;
 }
 
+/** Puerta de la calle del local número n, en la fachada frente a su tercera baldosa. */
+function lotDoor(n: number, x: number): Door {
+  const id = lotId(n);
+  return {
+    id: `street-${id}`,
+    x: x + 2,
+    y: 4,
+    spawn: { x: x + 2, y: 5 },
+    to: { sceneId: id, doorId: `${id}-exit` },
+    buildingId: `${id}-building`,
+    lotId: id,
+  };
+}
+
+/** Interior del local número n: una sala vacía de 8x8 con la puerta en la pared izquierda. */
+function lotInterior(n: number): Scene {
+  const id = lotId(n);
+  return {
+    id,
+    name: `Local ${n}`,
+    kind: 'interior',
+    theme: 'adobe',
+    width: 8,
+    depth: 8,
+    doors: [
+      {
+        id: `${id}-exit`,
+        x: 0,
+        y: 5,
+        spawn: { x: 1, y: 5 },
+        to: { sceneId: SCENES.street, doorId: `street-${id}` },
+      },
+    ],
+  };
+}
+
+/** Edificio del local número n en la calle (con tablones mientras está en alquiler). */
+function lotBuilding(n: number, x: number): FurniItem {
+  return { id: `${lotId(n)}-building`, sceneId: SCENES.street, defId: 'shop', x, y: 0, rotation: 1, variant: 'closed' };
+}
+
 function createScenes(): Scene[] {
   const s = SCENES.street;
 
-  // Puertas de la calle: la de la caravana y una por local.
+  // Puertas de la calle: la gasolinera y una por local. Las de las caravanas
+  // se añaden con cada jugador (addHome).
   const streetDoors: Door[] = [
-    {
-      id: 'street-trailer',
-      x: 3,
-      y: 4,
-      spawn: { x: 3, y: 5 },
-      // 'trailer' es un alias: cada uno entra en SU caravana (ver updateDoors).
-      to: { sceneId: SCENES.trailer, doorId: 'trailer-exit' },
-      buildingId: 'trailer-building',
-    },
     {
       id: 'street-gas',
       x: 39,
@@ -76,52 +121,19 @@ function createScenes(): Scene[] {
       to: { sceneId: SCENES.gas, doorId: 'gas-exit' },
       buildingId: 'gas-station',
     },
-    ...LOT_XS.map((x, i): Door => {
-      const id = lotId(i + 1);
-      return {
-        id: `street-${id}`,
-        // La puerta está en la fachada, frente a la tercera baldosa del local.
-        x: x + 2,
-        y: 4,
-        spawn: { x: x + 2, y: 5 },
-        to: { sceneId: id, doorId: `${id}-exit` },
-        buildingId: `${id}-building`,
-        lotId: id,
-      };
-    }),
+    ...BASE_LOT_XS.map((x, i) => lotDoor(i + 1, x)),
   ];
-
-  // Interior de cada local: una sala vacía de 8x8 con la puerta en la pared izquierda.
-  const lotInteriors = LOT_XS.map((_, i): Scene => {
-    const id = lotId(i + 1);
-    return {
-      id,
-      name: `Local ${i + 1}`,
-      kind: 'interior',
-      theme: 'adobe',
-      width: 8,
-      depth: 8,
-      doors: [
-        {
-          id: `${id}-exit`,
-          x: 0,
-          y: 5,
-          spawn: { x: 1, y: 5 },
-          to: { sceneId: s, doorId: `street-${id}` },
-        },
-      ],
-    };
-  });
+  const lotInteriors = BASE_LOT_XS.map((_, i) => lotInterior(i + 1));
 
   return [
     {
       id: s,
       name: 'Calle Mayor',
       kind: 'street',
-      width: STREET_WIDTH,
+      width: STREET_BASE_WIDTH,
       depth: STREET_DEPTH,
       doors: streetDoors,
-      ground: streetGround(),
+      ground: streetGround(STREET_BASE_WIDTH),
     },
     ...lotInteriors,
     // El minimarket de la gasolinera: Hank, el mostrador y las máquinas.
@@ -167,20 +179,9 @@ function createStreetStructures(): FurniItem[] {
   const s = SCENES.street;
   const items: FurniItem[] = [
     // Con rotación 1 la fachada mira a la carretera (+y).
-    { id: 'trailer-building', sceneId: s, defId: 'trailer', x: 1, y: 1, rotation: 1 },
     { id: 'gas-station', sceneId: s, defId: 'gas_station', x: 38, y: 0, rotation: 1 },
     { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 1, y: 11, rotation: 1 },
-    ...LOT_XS.map(
-      (x, i): FurniItem => ({
-        id: `${lotId(i + 1)}-building`,
-        sceneId: s,
-        defId: 'shop',
-        x,
-        y: 0,
-        rotation: 1,
-        variant: 'closed',
-      }),
-    ),
+    ...BASE_LOT_XS.map((x, i) => lotBuilding(i + 1, x)),
   ];
 
   // Farolas a lo largo de la acera, junto al bordillo.
@@ -225,7 +226,7 @@ export function createTrailer(ownerId: string, ownerName: string) {
         x: 6,
         y: 0,
         spawn: { x: 6, y: 1 },
-        to: { sceneId: SCENES.street, doorId: 'street-trailer' },
+        to: { sceneId: SCENES.street, doorId: trailerDoorId(ownerId) },
       },
     ],
   };
@@ -247,6 +248,69 @@ export function createTrailer(ownerId: string, ownerName: string) {
   return { scene, furniture };
 }
 
+/** Dónde va la parcela número `slot` (0 = la caravana del principio de la calle). */
+function homeLayout(slot: number) {
+  if (slot === 0) return { trailerX: 1, lotX: null, end: STREET_BASE_WIDTH };
+  const start = STREET_BASE_WIDTH + (slot - 1) * HOME_WIDTH;
+  return { trailerX: start + 1, lotX: start + 7, end: start + HOME_WIDTH };
+}
+
+/**
+ * Da a un jugador su parcela en la calle: su caravana (con su puerta, que
+ * lleva a su caravana por dentro; cualquiera puede entrar de visita) y, desde
+ * la segunda parcela, un local nuevo. La calle se alarga para que quepa, con
+ * una farola y un cactus más. Se llama al entrar un jugador por primera vez
+ * (JOIN) y al cargar el mundo guardado.
+ */
+export function addHome(state: GameState, playerId: string, slot: number): GameState {
+  if (state.homes[playerId] !== undefined) return state;
+  const street = state.scenes[SCENES.street];
+  const { trailerX, lotX, end } = homeLayout(slot);
+  const furniture = { ...state.furniture };
+  const scenes = { ...state.scenes };
+  const doors: Door[] = [
+    ...street.doors,
+    {
+      id: trailerDoorId(playerId),
+      x: trailerX + 2,
+      y: 4,
+      spawn: { x: trailerX + 2, y: 5 },
+      to: { sceneId: trailerSceneId(playerId), doorId: 'trailer-exit' },
+      buildingId: trailerBuildingId(playerId),
+    },
+  ];
+  furniture[trailerBuildingId(playerId)] = {
+    id: trailerBuildingId(playerId),
+    sceneId: SCENES.street,
+    defId: 'trailer',
+    x: trailerX,
+    y: 1,
+    rotation: 1,
+  };
+  let lots: Record<string, Lot> = state.lots;
+  if (lotX !== null) {
+    const n = BASE_LOT_XS.length + slot;
+    const building = lotBuilding(n, lotX);
+    furniture[building.id] = building;
+    doors.push(lotDoor(n, lotX));
+    scenes[lotId(n)] = lotInterior(n);
+    lots = { ...lots, [lotId(n)]: createLot(lotId(n), `Local ${n}`) };
+    // Farola delante de la parcela y un cactus enfrente, en el desierto.
+    const s = SCENES.street;
+    furniture[`lamp-home-${slot}`] = { id: `lamp-home-${slot}`, sceneId: s, defId: 'street_lamp', x: end - HOME_WIDTH + 5, y: 6, rotation: 0 };
+    furniture[`cactus-home-${slot}`] = { id: `cactus-home-${slot}`, sceneId: s, defId: 'saguaro', x: end - 3, y: 12, rotation: 0 };
+  }
+  const width = Math.max(street.width, end);
+  scenes[SCENES.street] = { ...street, width, doors, ground: streetGround(width) };
+  return { ...state, scenes, furniture, lots, homes: { ...state.homes, [playerId]: slot } };
+}
+
+/** Primera parcela libre (la siguiente a la última dada). */
+export function nextHomeSlot(state: GameState): number {
+  const slots = Object.values(state.homes);
+  return slots.length === 0 ? 0 : Math.max(...slots) + 1;
+}
+
 export function createInitialState(): GameState {
   // Las caravanas de los jugadores se crean al entrar cada uno (JOIN).
   const furniture = [...createStreetStructures(), ...createGasInterior()];
@@ -261,6 +325,7 @@ export function createInitialState(): GameState {
     materials: {},
     subsidies: {},
     lastPositions: {},
+    homes: {},
     progress: {},
     mayors: [],
     orders: [],

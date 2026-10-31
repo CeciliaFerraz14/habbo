@@ -34,9 +34,9 @@ import {
   startShift,
 } from './gasStation';
 import { canPlaceFurni } from './furniture';
-import { addDailyXp, perksOf } from './levels';
+import { addDailyXp, markSeen, perksOf } from './levels';
 import { isValidLook, sanitizeLook } from './looks';
-import { createTrailer } from './world';
+import { addHome, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
@@ -46,6 +46,9 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'JOIN': {
       let next = state;
       let avatar = action.avatar;
+      // La primera vez que entra un jugador, recibe su parcela en la calle (su
+      // caravana y, si no es el primero, un local nuevo).
+      if (!avatar.isBot) next = addHome(next, avatar.id, nextHomeSlot(next));
       // Cada jugador tiene su caravana: se crea la primera vez que entra.
       const trailerId = trailerSceneId(avatar.id);
       if (!avatar.isBot && !next.scenes[trailerId]) {
@@ -88,7 +91,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       // XP por entrar a jugar (una vez al día). Y fuera del aspecto lo que su
       // rango aún no permite (colores especiales y sombrero).
       if (!avatar.isBot) {
-        next = addDailyXp(next, avatar.id);
+        next = markSeen(addDailyXp(next, avatar.id), avatar.id);
         const look = sanitizeLook(avatar.look, perksOf(next, avatar.id).premiumLook);
         next = withAvatar(next, { ...next.avatars[avatar.id], look });
       }
@@ -100,13 +103,16 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (!leaving) return state;
       const { [action.avatarId]: _gone, ...avatars } = state.avatars;
       if (leaving.isBot) return { ...state, avatars };
-      // Recordamos dónde estaba, para devolverlo ahí cuando vuelva.
+      // Recordamos dónde estaba, para devolverlo ahí cuando vuelva, y cuándo se fue.
       const { sceneId, x, y, direction } = leaving;
-      return {
-        ...state,
-        avatars,
-        lastPositions: { ...state.lastPositions, [leaving.id]: { sceneId, x, y, direction } },
-      };
+      return markSeen(
+        {
+          ...state,
+          avatars,
+          lastPositions: { ...state.lastPositions, [leaving.id]: { sceneId, x, y, direction } },
+        },
+        leaving.id,
+      );
     }
 
     case 'MOVE': {

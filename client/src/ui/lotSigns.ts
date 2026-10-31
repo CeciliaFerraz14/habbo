@@ -1,11 +1,12 @@
-// Nombre del dueño en los locales:
+// Nombre del dueño en los locales y las caravanas:
 // - En la calle, escrito sobre la placa crema de la fachada de cada local abierto.
 // - Dentro del local, en un cartel colgado en la pared del fondo.
+// - Encima de cada caravana de la calle, en un cartelito de madera.
 //
 // Igual que los bocadillos y los precios: elementos HTML (texto nítido)
 // recolocados en cada fotograma. Como las paredes son isométricas, cada cartel
 // se inclina con skewY para que siga el plano de su pared.
-import { SCENES, type GameState } from '@juego/shared';
+import { SCENES, trailerBuildingId, type GameState } from '@juego/shared';
 import type { Camera } from '../engine/camera';
 import { tileToScreen, type Point } from '../engine/iso';
 import { OWNER_PLATE } from '../sprites/structures/shop';
@@ -38,7 +39,13 @@ export class LotSigns {
     document.querySelector('#ui')!.prepend(this.layer);
   }
 
-  update(state: GameState, sceneId: string, camera: Camera, toScreen: (p: Point) => Point): void {
+  update(
+    state: GameState,
+    sceneId: string,
+    camera: Camera,
+    toScreen: (p: Point) => Point,
+    furniTop: (itemId: string) => Point | null,
+  ): void {
     const seen = new Set<string>();
     const show = (key: string, className: string, lines: string[], rect: WallRect) => {
       seen.add(key);
@@ -56,6 +63,25 @@ export class LotSigns {
     };
 
     if (sceneId === SCENES.street) {
+      // De quién es cada caravana: cartelito encima, sin inclinar (como un buzón).
+      for (const playerId of Object.keys(state.homes)) {
+        const name = state.avatars[playerId]?.name ?? state.progress[playerId]?.name;
+        const top = furniTop(trailerBuildingId(playerId));
+        if (!name || !top) continue;
+        const key = `home:${playerId}`;
+        seen.add(key);
+        let el = this.signs.get(key);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'home-sign';
+          this.layer.append(el);
+          this.signs.set(key, el);
+        }
+        // textContent: el nombre lo elige el jugador, nunca se interpreta como HTML.
+        if (el.textContent !== name) el.textContent = name;
+        const p = toScreen(top);
+        el.style.transform = `translate(${Math.round(p.x - el.offsetWidth / 2)}px, ${Math.round(p.y - el.offsetHeight - 2)}px)`;
+      }
       for (const lot of Object.values(state.lots)) {
         const building = state.furniture[`${lot.id}-building`];
         // Los locales de la calle miran a la carretera (rotación 1): la placa,

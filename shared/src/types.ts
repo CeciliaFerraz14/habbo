@@ -127,6 +127,8 @@ export interface GameState {
    * pueblo. Si no aparece, puede recogerla ya.
    */
   subsidies: Record<string, number>;
+  /** Parcela de cada jugador en la calle (0 = la primera caravana; ver addHome). */
+  homes: Record<string, number>;
   /** Nombres de los alcaldes (jugadores que han llegado a nivel 10), en orden. */
   mayors: string[];
   /** Experiencia y rango de cada jugador (ver levels.ts). */

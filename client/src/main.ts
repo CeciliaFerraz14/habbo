@@ -524,7 +524,7 @@ function frame(now: number): void {
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   priceTags.update(state, sceneId, renderer, canvasToScreen);
-  lotSigns.update(state, sceneId, camera, canvasToScreen);
+  lotSigns.update(state, sceneId, camera, canvasToScreen, (id) => renderer.furniTop(id));
   furniLabels.update(state, sceneId, camera, canvasToScreen);
   nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
   workTags.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
