@@ -11,7 +11,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - Comprobado: build (manifiesto válido e iconos copiados a `dist`) y los iconos vistos uno a uno.
 
 **Decisiones**
-- Iconos generados a partir del logo con sharp desde un script fuera del repo (fondo: cielo `--sky`, arena `--sand` y línea `--outline`, como la pantalla de carga). Para regenerarlos: componer el logo sobre ese fondo a 86 % del ancho (68 % y centrado en el maskable).
+- Iconos generados a partir del logo con sharp desde un script fuera del repo (fondo: cielo `--sky`, arena `--sand` y línea `--outline`, como la pantalla de carga). Para regenerarlos: quitar al logo su margen transparente (`trim`) y componerlo sobre ese fondo al 96 % del ancho, con su base en el horizonte (80 % y centrado en el maskable).
 - Sin service worker: el juego necesita conexión al servidor, y Chrome ya permite instalar sin él.
 
 **Pendiente**
