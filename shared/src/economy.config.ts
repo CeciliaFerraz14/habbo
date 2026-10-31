@@ -280,11 +280,12 @@ export const ECONOMY = {
     /** Turnos en la caja: quedarse dentro de la gasolinera hasta que acaba. */
     shift: {
       seconds: 2 * 60,
-      wage: 15,
+      /** Sueldo por turno completo (unos $40 cada 12 minutos como mucho, con el descanso). */
+      wage: 40,
       /** Descanso obligatorio entre un turno y el siguiente. */
       cooldownSeconds: 10 * 60,
       /** Propina por cada coche que reposta mientras trabajas. */
-      tipPerCar: 3,
+      tipPerCar: 5,
     },
     /** Rasca y gana: casi siempre pierdes (es una salida de dinero), a veces no. */
     scratch: {

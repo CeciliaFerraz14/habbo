@@ -1,6 +1,6 @@
 // Turnos en la gasolinera, vistos encima del avatar de quien trabaja:
 // - Una barra con lo que le queda de turno.
-// - "+$3" (propina) o "+$15" (sueldo) que sube flotando y se desvanece cada
+// - "+$5" (propina) o "+$40" (sueldo) que sube flotando y se desvanece cada
 //   vez que cobra.
 // Lo ve todo el que esté en la gasolinera, no solo quien trabaja.
 //
@@ -12,7 +12,7 @@ import type { Renderer } from '../engine/renderer';
 import type { AvatarViews } from '../game/avatarViews';
 import { NAME_TAG_SPACE } from './nameTags';
 
-/** Cuánto dura el "+$3" flotando, en ms, y cuántos píxeles sube. */
+/** Cuánto dura el "+$5" flotando, en ms, y cuántos píxeles sube. */
 const FLOAT_MS = 1400;
 const FLOAT_RISE = 24;
 /** La barra va justo encima del nombre. */

@@ -2,6 +2,14 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-10-31 · Más sueldo en la gasolinera
+
+**Qué se hizo**
+- `ECONOMY.gasStation.shift`: sueldo de $15 a $40 por turno y propina de $3 a $5 por coche.
+
+**Decisiones**
+- Con el descanso de 10 min, como mucho unos $200 por hora de turnos: compensa trabajar sin hacer innecesarios los negocios (el alquiler va de $20 a $45 al día).
+
 ## 2026-10-31 · Volver a donde estabas
 
 **Qué se hizo**
