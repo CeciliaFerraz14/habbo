@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Logos de neón y fachadas más altas
+
+**Qué se hizo**
+- Cada negocio tiene su logo de neón en píxeles (`client/src/sprites/structures/shopLogos.ts`): chatarrería (neumático y llave), pozo (pozo y gota), invernadero (brote y sol), taller (martillo y serrucho), tienda (bolsa con $), diner (hamburguesa y café), peluquería (tijeras y poste) y frutería (manzana y zanahoria). Sustituyen a los iconos pequeños de antes.
+- El cartel abierto es oscuro (`SIGN_DARK`), así el neón resalta.
+- La fachada falsa sube de 66 a 82 px y el cartel ocupa casi todo su ancho. Los logos se dibujan al doble (`LOGO.scale = 2`) para que se lean desde la calle. La placa del dueño, la puerta y los escaparates no cambian.
+- Comprobado en Chrome con los modelos reales de los 8 negocios.
+
+**Decisiones**
+- La primera versión del taller parecía "Th" y el $ parecía una S; se redibujaron. Con el cartel pequeño se veía todo diminuto, y a propuesta suya se hizo el edificio más alto (además es muy del Oeste).
+
 ## 2026-11-01 · Mensajes más tiempo en pantalla
 
 **Qué se hizo**
