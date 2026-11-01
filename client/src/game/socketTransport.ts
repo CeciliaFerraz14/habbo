@@ -9,6 +9,13 @@ import { applyPatch, type Action, type GameState, type StatePatch } from '@juego
 import { io, type Socket } from 'socket.io-client';
 import type { StateListener, Transport } from './transport';
 
+/** Cuánto espera cada intento de conexión antes de reintentar (ms). */
+const CONNECT_ATTEMPT_MS = 30_000;
+/** Cuánto esperamos en total a que el servidor despierte antes de rendirnos (ms). */
+const CONNECT_GIVE_UP_MS = 3 * 60_000;
+/** Mensaje del servidor cuando la sesión no vale (ver server/src/index.ts). */
+const SESSION_REJECTED = 'Sesión no válida';
+
 /** Lo que manda el servidor al conectarse: quiénes somos y el estado completo. */
 interface Welcome {
   playerId: string;
@@ -31,14 +38,24 @@ export class SocketTransport implements Transport {
   /**
    * Se conecta al servidor y espera a su bienvenida. `auth` son los datos que
    * mandamos al conectar (por ejemplo, nuestro aspecto guardado).
+   *
+   * El servidor gratuito se duerme cuando no hay nadie y tarda en despertar
+   * (a veces más de un minuto). Por eso, si no contesta, NO nos rendimos al
+   * primer intento: Socket.IO reintenta solo y esperamos hasta
+   * CONNECT_GIVE_UP_MS. Solo se abandona enseguida si la sesión no vale.
    */
   static connect(url: string, auth: Record<string, unknown>): Promise<{
     transport: SocketTransport;
     playerId: string;
   }> {
     return new Promise((resolve, reject) => {
-      const socket = io(url, { auth });
+      const socket = io(url, { auth, timeout: CONNECT_ATTEMPT_MS, reconnectionDelayMax: 5000 });
       let welcomed = false;
+      const giveUp = setTimeout(() => {
+        if (welcomed) return;
+        socket.disconnect();
+        reject(new Error('el servidor no responde. Prueba otra vez en un rato.'));
+      }, CONNECT_GIVE_UP_MS);
       socket.on('welcome', ({ playerId, state }: Welcome) => {
         if (welcomed) {
           // Si se cortó la conexión y el servidor nos da la bienvenida otra
@@ -47,10 +64,18 @@ export class SocketTransport implements Transport {
           return;
         }
         welcomed = true;
+        clearTimeout(giveUp);
         resolve({ transport: new SocketTransport(socket, state), playerId });
       });
       socket.on('connect_error', (error) => {
-        if (!welcomed) reject(error);
+        if (welcomed) return;
+        // Sesión rechazada por el servidor: no tiene sentido reintentar.
+        // Cualquier otro error (servidor dormido, timeout...): seguimos esperando.
+        if (error.message === SESSION_REJECTED) {
+          clearTimeout(giveUp);
+          socket.disconnect();
+          reject(error);
+        }
       });
       // El servidor nos echa si entramos con la misma cuenta desde otro sitio.
       socket.on('kicked', (reason: string) => {

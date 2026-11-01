@@ -27,6 +27,9 @@ export async function connect(look: AvatarLook, loginParent: HTMLElement): Promi
   const serverUrl = import.meta.env.VITE_SERVER_URL as string | undefined;
 
   if (serverUrl) {
+    // Despertamos al servidor ya (si estaba dormido tarda en arrancar): así va
+    // arrancando mientras se inicia sesión. No nos importa la respuesta.
+    fetch(serverUrl, { mode: 'no-cors' }).catch(() => {});
     // Con Supabase configurado hace falta sesión: la guardada o la del login.
     const token = supabase
       ? ((await currentToken()) ?? (await showLoginScreen(loginParent)))

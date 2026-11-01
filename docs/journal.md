@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Esperar a que despierte el servidor
+
+**Qué se hizo**
+- `SocketTransport.connect` (`client/src/game/socketTransport.ts`) ya no se rinde al primer error: cada intento espera hasta 30 s, Socket.IO reintenta solo y solo se abandona a los 3 minutos (`CONNECT_GIVE_UP_MS`). Si el servidor rechaza la sesión ("Sesión no válida"), se abandona enseguida como antes.
+- `connection.ts`: nada más arrancar se hace un `fetch` al servidor para despertarlo mientras se inicia sesión.
+- Comprobado en Chrome: apuntando a un puerto sin servidor, a los 40 s seguía esperando (antes, "timeout" a los 20 s); al arrancar un servidor local ahí, se conectó solo.
+- Borradas en Supabase las cuentas de prueba (246810, Prueba1 y una de hoy), con sus perfiles, inventarios y muebles; el Local 3 de Prueba1 vuelve a estar en alquiler. Solo queda JukeBoxCeci.
+
+**Decisiones**
+- 3 minutos de margen: el plan gratuito de Render a veces tarda más de un minuto en despertar.
+
 ## 2026-10-31 · Todo el pueblo en un mapa
 
 **Qué se hizo**
