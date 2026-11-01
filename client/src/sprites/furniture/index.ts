@@ -26,6 +26,32 @@ import { trailer } from '../structures/trailer';
 import { waterWell } from '../structures/waterWell';
 import { welcomeSign } from '../structures/welcomeSign';
 import { workbench } from '../structures/workbench';
+import {
+  barberPole,
+  cashRegister,
+  engineBlock,
+  flowerBox,
+  giftBoxes,
+  hairDryer,
+  handPump,
+  mannequin,
+  menuBoard,
+  neonBurger,
+  oilDrum,
+  oldScale,
+  orangeCrate,
+  pieStand,
+  sawhorse,
+  scarecrow,
+  scrapRobot,
+  seedSacks,
+  standingMirror,
+  toolRack,
+  toolbox,
+  waterBucket,
+  watermelons,
+  windmill,
+} from './businessDecor';
 import { barStool } from './barStool';
 import { bed } from './bed';
 import { cowSkull } from './cowSkull';
@@ -91,6 +117,31 @@ export const MODELS: Record<FurniId, ModelSource> = {
   // Exclusivos (recompensas de rango) y la estatua del alcalde
   name_sign: nameSign,
   golden_jukebox: goldenJukebox,
+  // Decoración de cada negocio
+  oil_drum: oilDrum,
+  engine_block: engineBlock,
+  scrap_robot: scrapRobot,
+  water_bucket: waterBucket,
+  hand_pump: handPump,
+  windmill,
+  seed_sacks: seedSacks,
+  flower_box: flowerBox,
+  scarecrow,
+  toolbox,
+  sawhorse,
+  tool_rack: toolRack,
+  cash_register: cashRegister,
+  gift_boxes: giftBoxes,
+  mannequin,
+  menu_board: menuBoard,
+  pie_stand: pieStand,
+  neon_burger: neonBurger,
+  barber_pole: barberPole,
+  standing_mirror: standingMirror,
+  hair_dryer: hairDryer,
+  orange_crate: orangeCrate,
+  watermelons,
+  old_scale: oldScale,
   // Exclusivos que venden los vecinos
   pink_flamingo: pinkFlamingo,
   lava_lamp: lavaLamp,

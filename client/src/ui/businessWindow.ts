@@ -26,6 +26,7 @@ import {
   upgradeCost,
   workshopFee,
   workshopQueueSize,
+  type BusinessDecorId,
   type DecorId,
   type FacadeId,
   type GameState,
@@ -54,6 +55,8 @@ export interface BusinessActions {
   closeBusiness: (lotId: string) => void;
   /** Mejorar el local al nivel siguiente. */
   upgradeLot: (lotId: string) => void;
+  /** Comprar decoración propia del negocio. */
+  buyDecor: (lotId: string, defId: BusinessDecorId) => void;
 }
 
 export interface BusinessWindow {
@@ -263,6 +266,38 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       button(`Mejorar · ${formatMoney(cost.price)}`, inside && affordable, () => actions.upgradeLot(lot.id)),
     );
     if (!affordable) win.body.append(text('Te falta dinero o materiales para mejorarlo.'));
+  };
+
+  // --- Decoración del negocio ---------------------------------------------------
+  /**
+   * Muebles propios de este tipo de negocio, para decorar el local. Los de más
+   * nivel salen bloqueados (con el nivel que piden) hasta mejorar el local.
+   */
+  const buildDecor = (lot: Lot, state: GameState, playerId: string) => {
+    const level = lotLevel(lot);
+    const money = state.money[playerId] ?? 0;
+    const owned = (state.inventories[playerId] ?? []).map((i) => i.defId);
+    const list = document.createElement('div');
+    list.className = 'recipes';
+    for (const offer of ECONOMY.businessDecor[lot.business!]) {
+      const row = document.createElement('div');
+      row.className = 'recipe';
+      const name = document.createElement('div');
+      const have = owned.filter((d) => d === offer.defId).length;
+      name.textContent = `${CATALOG[offer.defId].name} · ${formatMoney(offer.price)}${have ? ` (tienes ${have})` : ''}`;
+      const locked = level < offer.minLevel;
+      const buy = button(locked ? `Nivel ${offer.minLevel}` : 'Comprar', !locked && money >= offer.price, () =>
+        actions.buyDecor(lot.id, offer.defId),
+      );
+      if (locked) buy.title = `Mejora el local al nivel ${offer.minLevel} para comprarlo`;
+      row.append(furniIcon(offer.defId), name, buy);
+      list.append(row);
+    }
+    win.body.append(
+      text('Decoración del negocio:', 'section-title'),
+      list,
+      text('Va a tu inventario: colócalo en tu local (o en tu caravana) como cualquier mueble.'),
+    );
   };
 
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------
@@ -567,6 +602,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
       buildLevel(lot, inside, state, playerId);
+      buildDecor(lot, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
       buildClose(lot);
     }

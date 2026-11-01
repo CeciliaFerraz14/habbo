@@ -8,7 +8,7 @@
 // Los tiempos se escriben en SEGUNDOS para que sean fáciles de leer. La
 // simulación los convierte a ticks (ver secondsToTicks en economy.ts).
 // =============================================================================
-import type { DecorId, FurniId, VendorItemId } from './catalog';
+import type { BusinessDecorId, DecorId, FurniId, VendorItemId } from './catalog';
 
 export type BusinessType =
   | 'scrapyard'
@@ -231,6 +231,13 @@ export interface RankConfig {
   /** XP total necesaria para llegar a este rango. */
   xp: number;
   reward: RankReward | null;
+}
+
+/** Decoración que puede comprar el dueño de un negocio, y desde qué nivel del local. */
+export interface BusinessDecorOffer {
+  defId: BusinessDecorId;
+  price: number;
+  minLevel: number;
 }
 
 /** Un vecino que vende exclusivos: su frase al abrir la ventana y lo que vende. */
@@ -578,6 +585,55 @@ export const ECONOMY = {
       ],
     },
   } as Record<string, Vendor>,
+
+  /**
+   * Decoración propia de cada negocio: solo la compra el dueño de ese tipo de
+   * negocio, desde su ventana, y la de más nivel pide el local mejorado. Va
+   * al inventario y se coloca como cualquier mueble (exclusiva: no se fabrica
+   * ni se vende en las tiendas). Es una salida de dinero.
+   */
+  businessDecor: {
+    scrapyard: [
+      { defId: 'oil_drum', price: 40, minLevel: 1 },
+      { defId: 'engine_block', price: 90, minLevel: 2 },
+      { defId: 'scrap_robot', price: 160, minLevel: 3 },
+    ],
+    well: [
+      { defId: 'water_bucket', price: 40, minLevel: 1 },
+      { defId: 'hand_pump', price: 90, minLevel: 2 },
+      { defId: 'windmill', price: 160, minLevel: 3 },
+    ],
+    greenhouse: [
+      { defId: 'seed_sacks', price: 40, minLevel: 1 },
+      { defId: 'flower_box', price: 90, minLevel: 2 },
+      { defId: 'scarecrow', price: 160, minLevel: 3 },
+    ],
+    workshop: [
+      { defId: 'toolbox', price: 40, minLevel: 1 },
+      { defId: 'sawhorse', price: 90, minLevel: 2 },
+      { defId: 'tool_rack', price: 160, minLevel: 3 },
+    ],
+    store: [
+      { defId: 'cash_register', price: 40, minLevel: 1 },
+      { defId: 'gift_boxes', price: 90, minLevel: 2 },
+      { defId: 'mannequin', price: 160, minLevel: 3 },
+    ],
+    diner: [
+      { defId: 'menu_board', price: 40, minLevel: 1 },
+      { defId: 'pie_stand', price: 90, minLevel: 2 },
+      { defId: 'neon_burger', price: 160, minLevel: 3 },
+    ],
+    barber: [
+      { defId: 'barber_pole', price: 40, minLevel: 1 },
+      { defId: 'standing_mirror', price: 90, minLevel: 2 },
+      { defId: 'hair_dryer', price: 160, minLevel: 3 },
+    ],
+    greengrocer: [
+      { defId: 'orange_crate', price: 40, minLevel: 1 },
+      { defId: 'watermelons', price: 90, minLevel: 2 },
+      { defId: 'old_scale', price: 160, minLevel: 3 },
+    ],
+  } as Record<BusinessType, BusinessDecorOffer[]>,
 
   /** Recetas del taller: qué cuesta fabricar cada mueble. */
   recipes: {

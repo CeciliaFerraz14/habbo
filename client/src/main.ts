@@ -317,6 +317,7 @@ const businessWindow = createBusinessWindow({
     reopenRentFor = lotId;
   },
   upgradeLot: (lotId) => transport.dispatch({ type: 'UPGRADE_LOT', avatarId: PLAYER_ID, lotId }),
+  buyDecor: (lotId, defId) => transport.dispatch({ type: 'BUY_DECOR', avatarId: PLAYER_ID, lotId, defId }),
 });
 /** Local recién cerrado por el jugador: al quedar libre, abrimos su ventana de alquiler. */
 let reopenRentFor: string | null = null;

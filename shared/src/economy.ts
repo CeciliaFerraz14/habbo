@@ -15,7 +15,7 @@
 // estado si la acción no es válida (no eres el dueño, no tienes dinero...).
 // =============================================================================
 
-import { CATALOG, DECOR_IDS, type DecorId, type FurniId, type Rotation } from './catalog';
+import { CATALOG, DECOR_IDS, type BusinessDecorId, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
   FACADES,
@@ -1007,6 +1007,28 @@ function finishUpgrades(state: GameState): GameState {
     }
   }
   return next;
+}
+
+// --- Decoración de los negocios ------------------------------------------------
+
+/**
+ * El dueño compra decoración propia de su negocio (ECONOMY.businessDecor): va
+ * a su inventario. La de más nivel solo se puede comprar con el local mejorado.
+ */
+export function buyBusinessDecor(state: GameState, avatarId: string, lotId: string, defId: BusinessDecorId): GameState {
+  const lot = state.lots[lotId];
+  if (!lot?.business || lot.ownerId !== avatarId) return state;
+  const offer = ECONOMY.businessDecor[lot.business].find((o) => o.defId === defId);
+  const money = state.money[avatarId] ?? 0;
+  if (!offer || lotLevel(lot) < offer.minLevel || money < offer.price) return state;
+  const item = { id: `i${state.nextId}`, defId };
+  const next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: money - offer.price },
+    inventories: { ...state.inventories, [avatarId]: [...(state.inventories[avatarId] ?? []), item] },
+    nextId: state.nextId + 1,
+  };
+  return addNotice(next, avatarId, `Has comprado ${CATALOG[defId].name}. Colócalo desde el inventario.`);
 }
 
 // --- Subvención del pueblo ----------------------------------------------------

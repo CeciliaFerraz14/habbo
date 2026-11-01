@@ -6,7 +6,7 @@
 //
 // Sobre `avatarId`: en la fase 2 el servidor lo IGNORARÁ y usará el del
 // usuario conectado a ese socket, para que nadie pueda actuar en nombre de otro.
-import type { DecorId, Rotation, VendorItemId } from './catalog';
+import type { BusinessDecorId, DecorId, Rotation, VendorItemId } from './catalog';
 import type { BusinessType, FacadeId, MaterialId } from './economy.config';
 import type { Avatar, AvatarLook } from './types';
 
@@ -58,6 +58,8 @@ export type Action =
   | { type: 'BUY_FROM_VENDOR'; avatarId: string; npcId: string; defId: VendorItemId }
   /** Cerrar tu negocio: el local vuelve a estar en alquiler (ver closeBusiness). */
   | { type: 'CLOSE_BUSINESS'; avatarId: string; lotId: string }
+  /** Comprar decoración propia de tu negocio (ver buyBusinessDecor). */
+  | { type: 'BUY_DECOR'; avatarId: string; lotId: string; defId: BusinessDecorId }
   /** Mejorar tu local al nivel siguiente (ver upgradeLot). */
   | { type: 'UPGRADE_LOT'; avatarId: string; lotId: string }
   /** Cambiar la plantilla de fachada de un local propio. */

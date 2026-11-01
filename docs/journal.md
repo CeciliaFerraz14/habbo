@@ -2,6 +2,28 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Decoración propia de cada negocio
+
+**Qué se hizo**
+- Cada tipo de negocio tiene 3 muebles propios (`ECONOMY.businessDecor`): uno de $40 desde el nivel 1, uno de $90 desde el nivel 2 y uno de $160 desde el nivel 3 del local.
+  - Chatarrería: bidón de aceite, motor viejo, robot de chatarra.
+  - Pozo: cubo de agua, bomba de mano, molino de viento.
+  - Invernadero: sacos de semillas, jardinera de flores, espantapájaros.
+  - Taller: caja de herramientas, caballete (sentable), panel de herramientas.
+  - Tienda: caja registradora, pila de regalos, maniquí.
+  - Diner: pizarra del menú, vitrina de tartas, hamburguesa de neón.
+  - Peluquería: poste de barbero, espejo de pie, secador de casco (sentable).
+  - Frutería: caja de naranjas, montón de sandías, báscula antigua.
+- **Cómo se compran:** solo el dueño de ese tipo de negocio, desde la sección "Decoración del negocio" de su ventana (acción `BUY_DECOR`, `buyBusinessDecor` en `economy.ts`). Los de más nivel salen bloqueados con el nivel que piden.
+- **Después de comprar:** van al inventario y se colocan como cualquier mueble, en el local o en la caravana.
+- Son exclusivos: no se fabrican, no se venden en las tiendas y Hank no los pide.
+- Modelos en `client/src/sprites/furniture/businessDecor.ts`.
+- Comprobado con un script (compra, bloqueo por nivel, por negocio y por no ser el dueño) y en Chrome (los 24 dibujos, y comprar y colocar el poste de barbero).
+
+**Decisiones**
+- Son solo decoración, sin efecto en las ventas. El dinero que se paga sale de la economía.
+- No hace falta migración.
+
 ## 2026-11-01 · Niveles de los locales
 
 **Qué se hizo**

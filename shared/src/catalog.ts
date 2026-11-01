@@ -61,12 +61,48 @@ export type StructureId =
   | 'park_bench';
 
 /**
- * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango o
- * comprándoselos a los vecinos del pueblo (ver vendors.ts). Se colocan como
- * cualquier mueble, pero no se fabrican, no se venden en tiendas y Hank no
- * los pide.
+ * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango,
+ * comprándoselos a los vecinos del pueblo (ver vendors.ts) o, la decoración
+ * de cada negocio, desde la ventana de tu negocio (ECONOMY.businessDecor). Se
+ * colocan como cualquier mueble, pero no se fabrican, no se venden en tiendas
+ * y Hank no los pide.
  */
-export type ExclusiveId = 'name_sign' | 'golden_jukebox' | VendorItemId;
+export type ExclusiveId = 'name_sign' | 'golden_jukebox' | VendorItemId | BusinessDecorId;
+
+/** Decoración propia de cada negocio (ver ECONOMY.businessDecor). */
+export type BusinessDecorId =
+  // Chatarrería
+  | 'oil_drum'
+  | 'engine_block'
+  | 'scrap_robot'
+  // Pozo
+  | 'water_bucket'
+  | 'hand_pump'
+  | 'windmill'
+  // Invernadero
+  | 'seed_sacks'
+  | 'flower_box'
+  | 'scarecrow'
+  // Taller
+  | 'toolbox'
+  | 'sawhorse'
+  | 'tool_rack'
+  // Tienda
+  | 'cash_register'
+  | 'gift_boxes'
+  | 'mannequin'
+  // Diner
+  | 'menu_board'
+  | 'pie_stand'
+  | 'neon_burger'
+  // Peluquería
+  | 'barber_pole'
+  | 'standing_mirror'
+  | 'hair_dryer'
+  // Frutería
+  | 'orange_crate'
+  | 'watermelons'
+  | 'old_scale';
 
 /** Exclusivos que venden los vecinos (ver ECONOMY.vendors). */
 export type VendorItemId =
@@ -127,6 +163,11 @@ function vendorItem(id: VendorItemId, name: string): FurniDef {
   return { id, name, width: 1, depth: 1, sittable: false, walkable: false, exclusive: true };
 }
 
+/** Atajo para definir la decoración de los negocios (sentable o no). */
+function businessDecor(id: BusinessDecorId, name: string, sittable = false): FurniDef {
+  return { id, name, width: 1, depth: 1, sittable, walkable: false, exclusive: true };
+}
+
 /** Atajo para definir estructuras fijas (no sentables ni pisables). */
 function structure(id: StructureId, name: string, width: number, depth: number): FurniDef {
   return { id, name, width, depth, sittable: false, walkable: false, fixed: true };
@@ -182,6 +223,31 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   gas_pump: vendorItem('gas_pump', 'Surtidor antiguo'),
   neon_cactus: vendorItem('neon_cactus', 'Cactus de neón'),
   retro_tv: vendorItem('retro_tv', 'Televisor retro'),
+  // Decoración de cada negocio
+  oil_drum: businessDecor('oil_drum', 'Bidón de aceite'),
+  engine_block: businessDecor('engine_block', 'Motor viejo'),
+  scrap_robot: businessDecor('scrap_robot', 'Robot de chatarra'),
+  water_bucket: businessDecor('water_bucket', 'Cubo de agua'),
+  hand_pump: businessDecor('hand_pump', 'Bomba de mano'),
+  windmill: businessDecor('windmill', 'Molino de viento'),
+  seed_sacks: businessDecor('seed_sacks', 'Sacos de semillas'),
+  flower_box: businessDecor('flower_box', 'Jardinera de flores'),
+  scarecrow: businessDecor('scarecrow', 'Espantapájaros'),
+  toolbox: businessDecor('toolbox', 'Caja de herramientas'),
+  sawhorse: businessDecor('sawhorse', 'Caballete', true),
+  tool_rack: businessDecor('tool_rack', 'Panel de herramientas'),
+  cash_register: businessDecor('cash_register', 'Caja registradora'),
+  gift_boxes: businessDecor('gift_boxes', 'Pila de regalos'),
+  mannequin: businessDecor('mannequin', 'Maniquí'),
+  menu_board: businessDecor('menu_board', 'Pizarra del menú'),
+  pie_stand: businessDecor('pie_stand', 'Vitrina de tartas'),
+  neon_burger: businessDecor('neon_burger', 'Hamburguesa de neón'),
+  barber_pole: businessDecor('barber_pole', 'Poste de barbero'),
+  standing_mirror: businessDecor('standing_mirror', 'Espejo de pie'),
+  hair_dryer: businessDecor('hair_dryer', 'Secador de casco', true),
+  orange_crate: businessDecor('orange_crate', 'Caja de naranjas'),
+  watermelons: businessDecor('watermelons', 'Montón de sandías'),
+  old_scale: businessDecor('old_scale', 'Báscula antigua'),
   mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
   fountain: structure('fountain', 'Fuente', 2, 2),
   // Banco de la plaza: fijo, pero se puede uno sentar.

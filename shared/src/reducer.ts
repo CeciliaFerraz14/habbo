@@ -10,6 +10,7 @@ import type { Action } from './actions';
 import { CATALOG } from './catalog';
 import { withChatMessage } from './chat';
 import {
+  buyBusinessDecor,
   buyItem,
   canEditScene,
   claimSubsidy,
@@ -217,6 +218,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return stockLot(state, action.avatarId, action.lotId);
     case 'SET_SERVICE_PRICE':
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
+    case 'BUY_DECOR':
+      return buyBusinessDecor(state, action.avatarId, action.lotId, action.defId);
     case 'UPGRADE_LOT':
       return upgradeLot(state, action.avatarId, action.lotId);
     case 'SET_FACADE':
