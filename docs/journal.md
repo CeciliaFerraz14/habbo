@@ -2,6 +2,15 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Sin límite de locales
+
+**Qué se hizo**
+- Fuera el máximo de locales por jugador (`maxLotsPerPlayer`, `extraLots`, `maxLotsOf`, `lotsOwnedBy`) y el aviso de la ventana de alquiler. El rango Comerciante vuelve a dar solo la subvención de $45.
+- Comprobado con un script: con $500 se alquilan 3 pozos y luego una tienda.
+
+**Decisiones**
+- El límite lo pone el dinero: cada local cuesta su fianza y un alquiler diario, y si no se gana lo bastante se pierde. Además, cada jugador nuevo trae su propio local. Se mantiene la liberación de locales abandonados (7 días).
+
 ## 2026-11-01 · Cerrar un negocio y abrir otro
 
 **Qué se hizo**

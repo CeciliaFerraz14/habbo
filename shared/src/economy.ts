@@ -29,7 +29,7 @@ import {
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
-import { addOpenBusinessXp, addXpFor, maxLotsOf, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
+import { addOpenBusinessXp, addXpFor, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
 import { createRandom } from './random';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
@@ -216,8 +216,6 @@ export function rentLot(
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
   if (!lot || !avatar || lot.ownerId !== null || !config || money < config.deposit) return state;
-  // Cada jugador puede tener un número limitado de locales (más con el rango).
-  if (lotsOwnedBy(state, avatarId) >= maxLotsOf(state, avatarId)) return state;
 
   const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
   return addOpenBusinessXp(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, business);
@@ -635,11 +633,6 @@ export function addNotice(state: GameState, avatarId: string, text: string): Gam
  * no tiene dinero suficiente, pierde el local.
  * (Los NPC no pagan alquiler: son parte del "decorado" del pueblo.)
  */
-/** Cuántos locales tiene ahora un jugador. */
-export function lotsOwnedBy(state: GameState, playerId: string): number {
-  return Object.values(state.lots).filter((l) => l.ownerId === playerId).length;
-}
-
 /**
  * Locales abandonados: si el dueño (un jugador) no está conectado y no ha
  * entrado en ECONOMY.rent.abandonSeconds, el local vuelve a estar en alquiler y

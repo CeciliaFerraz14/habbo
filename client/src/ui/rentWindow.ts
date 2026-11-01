@@ -2,8 +2,6 @@
 import {
   BUSINESS_TYPES,
   ECONOMY,
-  lotsOwnedBy,
-  maxLotsOf,
   type BusinessType,
   type GameState,
 } from '@juego/shared';
@@ -32,16 +30,10 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
     currentLot = lotId;
     win.setTitle(`En alquiler: ${lot.label}`);
     const money = state.money[playerId] ?? 0;
-    // ¿Ya tiene todos los locales que le permite su rango?
-    const max = maxLotsOf(state, playerId);
-    const full = lotsOwnedBy(state, playerId) >= max;
 
     const intro = document.createElement('p');
     intro.className = 'hint';
-    intro.textContent = full
-      ? `Ya tienes ${max === 1 ? 'un local' : `${max} locales`}, el máximo de tu rango.` +
-        (max === 1 ? ' Con el rango de Comerciante (nivel 5) podrás tener dos.' : '')
-      : 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+    intro.textContent = 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
 
     const list = document.createElement('div');
     list.className = 'option-list';
@@ -65,8 +57,8 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
       const button = document.createElement('button');
       button.className = 'btn btn-small';
       button.textContent = `Alquilar · ${formatMoney(config.deposit)}`;
-      button.disabled = full || money < config.deposit;
-      if (button.disabled) button.title = full ? 'Ya tienes el máximo de locales' : 'No tienes dinero suficiente';
+      button.disabled = money < config.deposit;
+      if (button.disabled) button.title = 'No tienes dinero suficiente';
       button.addEventListener('click', () => onRent(lotId, type));
 
       card.append(title, desc, button);

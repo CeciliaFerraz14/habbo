@@ -64,7 +64,7 @@ export function rankOf(level: number): RankConfig {
  */
 export function perksOf(state: GameState, playerId: string) {
   const level = isNpcId(playerId) ? 1 : levelOf(state, playerId);
-  const perks = { workshopQueue: 0, storeListings: 0, subsidy: 0, hankDiscount: 0, premiumLook: false, extraLots: 0 };
+  const perks = { workshopQueue: 0, storeListings: 0, subsidy: 0, hankDiscount: 0, premiumLook: false };
   for (const rank of RANKS.slice(0, level)) {
     const r = rank.reward;
     if (!r) continue;
@@ -73,7 +73,6 @@ export function perksOf(state: GameState, playerId: string) {
     perks.subsidy = Math.max(perks.subsidy, r.subsidy ?? 0);
     perks.hankDiscount = Math.max(perks.hankDiscount, r.hankDiscount ?? 0);
     perks.premiumLook ||= r.premiumLook ?? false;
-    perks.extraLots += r.extraLots ?? 0;
   }
   return perks;
 }
@@ -86,11 +85,6 @@ export function workshopQueueSize(state: GameState, playerId: string): number {
 /** Productos que caben a la venta en la tienda de un jugador (o de un NPC). */
 export function storeListingsMax(state: GameState, ownerId: string): number {
   return ECONOMY.store.maxListings + perksOf(state, ownerId).storeListings;
-}
-
-/** Locales que puede tener a la vez un jugador. */
-export function maxLotsOf(state: GameState, playerId: string): number {
-  return ECONOMY.rent.maxLotsPerPlayer + perksOf(state, playerId).extraLots;
 }
 
 /** Apunta que el jugador está (o estaba) en el pueblo ahora mismo. */

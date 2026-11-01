@@ -34,8 +34,8 @@ Abre http://localhost:5173
    en las **plazas** que hay al otro lado de la carretera, en el mismo mapa (con
    fuente y bancos para sentarse). Caben 4 parcelas por plaza; cuando se llena,
    se abre la siguiente a su derecha.
-2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio (uno a la
-   vez; dos desde el rango Comerciante). Si dejas de entrar 7 días, el local se libera:
+2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio (puedes
+   tener los que puedas pagar). Si dejas de entrar 7 días, el local se libera:
    - **Chatarrería**: produce chapa, madera vieja y neumáticos cada pocos segundos.
    - **Pozo**: produce agua.
    - **Invernadero**: produce fruta.
