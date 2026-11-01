@@ -11,6 +11,7 @@ import {
   CATALOG,
   ECONOMY,
   footprintContains,
+  furnitureInScene,
   getDoorAt,
   getFootprint,
   isDoorLocked,
@@ -313,6 +314,25 @@ export class GameController {
       return;
     }
     this.moveTo(door);
+  }
+
+  /**
+   * Ir andando a una baldosa de la escena en la que está el jugador (desde el
+   * mapa del pueblo): si es un edificio con puerta, hasta la puerta (y se
+   * entra); si es una puerta, igual; si no, hasta la baldosa.
+   */
+  walkTo(x: number, y: number): void {
+    const scene = this.scene;
+    if (!scene || !isInsideScene(scene, x, y)) return;
+    this.select(null);
+    const building = furnitureInScene(this.getState(), scene.id).find((f) =>
+      footprintContains(getFootprint(f), x, y),
+    );
+    const door = building
+      ? scene.doors.find((d) => d.buildingId === building.id)
+      : getDoorAt(scene, x, y);
+    if (door) this.goToDoor(door);
+    else this.moveTo({ x, y });
   }
 
   /** ¿Puede el jugador decorar la escena en la que está? */

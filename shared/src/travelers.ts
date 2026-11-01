@@ -15,6 +15,9 @@
 //      referencia.
 //   5. Vuelve al coche, desaparece y el coche se va.
 //
+// Los coches que paran lo hacen en la carretera de la tienda: la Calle Mayor o
+// la Avenida de las Plazas.
+//
 // Además, algunos coches que no paran en el pueblo se detienen un momento a
 // repostar en la gasolinera, y de vez en cuando llega un AUTOBÚS de turistas
 // que deja a varios viajeros a la vez.
@@ -89,12 +92,10 @@ export interface TravelerBrain {
   patience: number;
 }
 
-/** Carril de los coches que van a aparcar (el más cercano a la acera). */
+/** Carril de la Calle Mayor de los coches que van a aparcar (el más cercano a la acera). */
 const LANE_Y = 7;
 /** Carril de los que siguen de largo, para que no atraviesen a los aparcados. */
 const PASSING_LANE_Y = 9;
-/** Fila de la acera donde se baja el viajero (junto al bordillo). */
-const CURB_Y = 6;
 /** Los coches aparecen y desaparecen fuera de la calle. */
 const SPAWN_X = -3;
 /** Donde paran a repostar: delante de los surtidores de la gasolinera. */
@@ -161,11 +162,22 @@ function storeDoorOf(state: GameState, lotId: string): StoreDoor | null {
 
 /**
  * Dónde aparca quien va a esa puerta: con la puerta del coche a su altura en
- * la carretera (las tiendas de las plazas quedan al otro lado: cruza a pie).
+ * la carretera.
  */
 function parkXFor(store: StoreDoor, length: number): number {
   return store.door.x - length / 2;
 }
+
+/**
+ * Carril donde aparca quien va a esa puerta: el de su calle (Calle Mayor o
+ * Avenida de las Plazas), tres filas por debajo de las puertas.
+ */
+function laneFor(store: StoreDoor): number {
+  return store.door.y + 3;
+}
+
+/** Fila de la acera donde se baja (y vuelve) el viajero: junto al bordillo, encima de su carril. */
+const curbOf = (car: Vehicle) => car.y - 1;
 
 /** Probabilidad de que un coche pare, según los negocios abiertos. */
 export function stopChance(state: GameState): number {
@@ -194,7 +206,7 @@ function maybeSpawnCar(state: GameState): GameState {
   const vehicle: Vehicle = {
     id: `car${state.nextId}`,
     x: SPAWN_X,
-    y: door || refuels ? LANE_Y : PASSING_LANE_Y,
+    y: store ? laneFor(store) : refuels ? LANE_Y : PASSING_LANE_Y,
     color: CAR_COLORS[Math.floor(rng.random() * CAR_COLORS.length)],
     mode: door ? 'arriving' : refuels ? 'toPump' : 'passing',
     // Aparca con la parte delantera justo frente a la puerta (o al surtidor).
@@ -298,7 +310,7 @@ function dropOffOne(state: GameState, brain: TravelerBrain): GameState {
     name: TRAVELER_NAMES[Math.floor(rng.random() * TRAVELER_NAMES.length)],
     sceneId: SCENES.street,
     x: car.parkX + 1,
-    y: CURB_Y,
+    y: curbOf(car),
     direction: 'NE',
     path: [],
     look: randomLook(rng.random),
@@ -362,10 +374,10 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
     if (avatar.sceneId !== SCENES.street) {
       const exit = nextDoorToward(next, avatar.sceneId, SCENES.street);
       if (exit && (avatar.x !== exit.x || avatar.y !== exit.y)) next = move(next, avatar.id, exit);
-    } else if (!car || (avatar.x === car.parkX + 1 && avatar.y === CURB_Y)) {
+    } else if (!car || (avatar.x === car.parkX + 1 && avatar.y === curbOf(car))) {
       return leaveTown({ ...next, seed: rng.seed() }, brain);
     } else {
-      next = move(next, avatar.id, { x: car.parkX + 1, y: CURB_Y });
+      next = move(next, avatar.id, { x: car.parkX + 1, y: curbOf(car) });
     }
   }
 
@@ -495,7 +507,7 @@ function maybeSpawnBus(state: GameState): GameState {
   const bus: Vehicle = {
     id: `bus${state.nextId}`,
     x: SPAWN_X - 1,
-    y: LANE_Y,
+    y: laneFor(stop),
     color: BUS_COLOR,
     mode: 'arriving',
     kind: 'bus',

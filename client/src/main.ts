@@ -44,6 +44,7 @@ import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
 import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
+import { createMapWindow } from './ui/mapWindow';
 import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
@@ -366,7 +367,16 @@ const avatarEditor = createAvatarEditor((look) => {
 const chatHistory = createChatHistory();
 let bubbles: ChatBubbles | null = null;
 
+const mapWindow = createMapWindow((x, y) => controller.walkTo(x, y));
 createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
+  {
+    label: 'Mapa',
+    onClick: () => {
+      mapWindow.win.toggle();
+      mapWindow.update(state, PLAYER_ID);
+    },
+    hint: 'Mapa del pueblo',
+  },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
   { label: 'Avatar', onClick: () => avatarEditor.win.toggle(), hint: 'Cambiar tu aspecto' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
@@ -412,6 +422,7 @@ function refreshUi(): void {
   shopWindow.update(state, PLAYER_ID);
   gasWindow.update(state, PLAYER_ID);
   boardWindow.update(state, PLAYER_ID);
+  mapWindow.update(state, PLAYER_ID);
   showNewNotices();
   const me = state.avatars[PLAYER_ID];
   if (me) avatarEditor.update(me.look, perksOf(state, PLAYER_ID).premiumLook);

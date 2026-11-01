@@ -35,7 +35,7 @@ import {
   sellMaterial,
   startShift,
 } from './gasStation';
-import { canPlaceFurni } from './furniture';
+import { canPlaceFurni, getBlockedTiles, tileKey } from './furniture';
 import { isInsideScene } from './scene';
 import { addDailyXp, markSeen, perksOf } from './levels';
 import { isValidLook, sanitizeLook } from './looks';
@@ -75,7 +75,13 @@ export function applyAction(state: GameState, action: Action): GameState {
       // pueblo ha cambiado, también entra por la normal.)
       const back = avatar.isBot ? undefined : (state.avatars[avatar.id] ?? state.lastPositions[avatar.id]);
       const backScene = back && next.scenes[back.sceneId];
-      if (back && backScene && isInsideScene(backScene, back.x, back.y)) {
+      // (Ni si ahora hay un edificio encima, por ejemplo porque se ha movido una parcela.)
+      if (
+        back &&
+        backScene &&
+        isInsideScene(backScene, back.x, back.y) &&
+        !getBlockedTiles(next, back.sceneId).has(tileKey(back.x, back.y))
+      ) {
         const { sceneId, x, y, direction } = back;
         avatar = { ...avatar, sceneId, x, y, direction, path: [] };
       }

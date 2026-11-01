@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Avenida de las Plazas y mapa del pueblo
+
+**Qué se hizo**
+- Las plazas grandes (27x27, con parcelas arriba y a la izquierda) pasan a ser la **Avenida de las Plazas**. Es una copia de la Calle Mayor 14 filas más abajo: edificios en y = 14-17, acera con las puertas en y = 18 y carretera en y = 21-23. Las parcelas van una al lado de otra (`homeLayout`, 11 baldosas cada una).
+- Cada 4 parcelas forman una plaza, con su nombre y una plaza pequeña con fuente, bancos y farolas enfrente, al otro lado de la carretera (y = 24-31). El mapa pasa de 41 a 32 filas de fondo.
+- Por la izquierda (x = 0-2), una carretera baja de la Calle Mayor a la avenida. El cartel de bienvenida y un cactus se apartan para dejarle sitio.
+- Los coches que van a una tienda de la avenida aparcan en su carretera (`laneFor`: tres filas por debajo de la puerta), y el viajero se baja en su bordillo. Antes aparcaban en la Calle Mayor y cruzaban a pie.
+- Al volver a entrar, si en tu última posición ahora hay un edificio (porque las parcelas se han movido), entras por tu caravana.
+- El cartel de dónde estás dice el nombre de la plaza, o "Avenida de las Plazas".
+- **Mapa del pueblo** (botón "Mapa", `ui/mapWindow.ts`): todo el pueblo visto desde arriba. Los locales salen del color de su neón (grises cerrados, amarillos en obras), y tu caravana y tus locales van recuadrados en rosa. Hay un punto por persona (tú en rosa), los coches y los nombres de las zonas. Si tocas un sitio vas andando hasta allí; si tocas un edificio, hasta su puerta y entras (`controller.walkTo`).
+- Comprobado: plano en texto con 6 jugadores; simulación (los coches aparcan en la avenida y el diner de la avenida cobra); en Chrome, la avenida, la plaza y el mapa (tocar el diner en el mapa te lleva dentro).
+
+**Decisiones**
+- Las parcelas existentes se recolocan solas, porque su posición sale de `home_slot`: no hace falta migración.
+
 ## 2026-11-01 · Construir locales: el Ensanche
 
 **Qué se hizo**

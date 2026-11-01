@@ -10,14 +10,17 @@
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus, el cartel de bienvenida y la estatua del alcalde
-//   y 14-40 PLAZAS, una al lado de otra: [Plaza del Pueblo] [Plaza del Cactus] ...
+//           (a la izquierda, x = 0-2, una carretera baja hasta la avenida)
+//   y 14-23 AVENIDA DE LAS PLAZAS: igual que la Calle Mayor, 14 filas más abajo
+//           (edificios, acera con las puertas en y = 18, carretera en y = 21-23)
+//   y 24-31 al otro lado de la avenida, una plaza pequeña con fuente por cada 4 parcelas
 //
 // El pueblo CRECE con los jugadores, todo en el mismo mapa. El primero ocupa la
 // caravana del principio de la calle. Los demás reciben su parcela (su
-// caravana y un local nuevo) en las plazas, al otro lado de la carretera:
-// zonas cuadradas con edificios en los dos lados que se ven de frente (arriba
-// y a la izquierda) y una fuente en medio. Caben 4 parcelas por plaza; cuando
-// se llena, se abre la siguiente a su derecha y el mapa se ensancha. Ver addHome.
+// caravana y un local nuevo) en la Avenida de las Plazas, una al lado de otra.
+// Cada 4 parcelas forman una plaza (con su nombre y su fuente enfrente);
+// cuando se llena, se abre la siguiente a su derecha y el mapa se ensancha.
+// Los coches también pasan por la avenida y paran en sus tiendas. Ver addHome.
 //
 // Además, pasada la gasolinera, la calle sigue por el ENSANCHE: solares en
 // venta donde los jugadores construyen locales propios. Siempre hay alguno
@@ -71,28 +74,37 @@ interface DoorSpot {
   spawn: { x: number; y: number };
 }
 
+/** Suelo de las filas de una calle (Calle Mayor o avenida), contando desde su fila de edificios. */
+function streetRowTile(row: number, x: number): string {
+  if (row >= 4 && row <= 6) return 's'; // acera
+  if (row === 7 || row === 9) return 'r'; // carriles
+  if (row === 8) return x % 2 === 1 ? 'r' : '-'; // línea central, con raya cada dos baldosas
+  return '.'; // arena
+}
+
 /**
- * Genera el mapa de suelo, fila a fila: la calle arriba (con el ancho que
- * tenga el mapa) y, debajo, las `plazas` que haya abiertas (losas y, alrededor
- * de cada fuente, barro cocido) sobre la arena.
+ * Genera el mapa de suelo, fila a fila: la Calle Mayor arriba (con el ancho
+ * que tenga el mapa) y, si hay `plazas` abiertas, la carretera que baja por la
+ * izquierda, la Avenida de las Plazas y, enfrente, las plazas (losas y,
+ * alrededor de cada fuente, barro cocido) sobre la arena.
  */
 function streetGround(width: number, plazas: number): string[] {
   const rows: string[] = [];
-  const depth = plazas > 0 ? PLAZA_TOP + PLAZA_SIZE : STREET_DEPTH;
+  const depth = plazas > 0 ? PLAZA_TOP + PLAZA_DEPTH : STREET_DEPTH;
   for (let y = 0; y < depth; y++) {
-    let tile: string;
-    if (y >= 4 && y <= 6) tile = 's'; // acera
-    else if (y === 7 || y === 9) tile = 'r'; // carriles
-    else if (y === 8) tile = '-'; // línea central (con raya cada dos baldosas)
-    else tile = '.'; // arena
     let row = '';
     for (let x = 0; x < width; x++) {
       const p = plazaAt(x, y);
-      if (p !== null && p <= plazas) {
-        const { x: px, y: py } = plazaOrigin(p);
-        row += Math.hypot(x - px - 13.5, y - py - 13.5) < 5 ? 'c' : 'p';
+      if (y < AVENUE_DY) {
+        // La carretera que baja a la avenida corta el desierto por la izquierda.
+        row += plazas > 0 && y > 9 && x <= 2 ? 'r' : streetRowTile(y, x);
+      } else if (y < PLAZA_TOP) {
+        row += x <= 2 && y < AVENUE_DY + 7 ? 'r' : streetRowTile(y - AVENUE_DY, x);
+      } else if (p !== null && p <= plazas) {
+        const c = fountainSpot(p);
+        row += Math.hypot(x - c.x - 1, y - c.y - 1) < 3.2 ? 'c' : 'p';
       } else {
-        row += tile === '-' && x % 2 === 1 ? 'r' : tile;
+        row += '.';
       }
     }
     rows.push(row);
@@ -213,7 +225,7 @@ function createStreetStructures(): FurniItem[] {
   const items: FurniItem[] = [
     // Con rotación 1 la fachada mira a la carretera (+y).
     { id: 'gas-station', sceneId: s, defId: 'gas_station', x: 38, y: 0, rotation: 1 },
-    { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 1, y: 11, rotation: 1 },
+    { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 4, y: 11, rotation: 1 },
     ...BASE_LOT_XS.map((x, i) => lotBuilding(lotId(i + 1), s, x, 0, 1)),
   ];
 
@@ -224,7 +236,7 @@ function createStreetStructures(): FurniItem[] {
 
   // Cactus en el desierto y en los huecos entre edificios.
   const cacti = [
-    [6, 2], [12, 2], [2, 12], [9, 11], [14, 13], [20, 11],
+    [6, 2], [12, 2], [7, 13], [9, 11], [14, 13], [20, 11],
     [25, 12], [31, 13], [35, 11], [41, 12],
   ];
   cacti.forEach(([x, y], i) => {
@@ -281,25 +293,38 @@ export function createTrailer(ownerId: string, ownerName: string) {
   return { scene, furniture };
 }
 
-// --- Plazas y parcelas --------------------------------------------------------------
+// --- Avenida de las Plazas y parcelas -------------------------------------------------
 
-/** Lado de cada plaza (cuadrada), dónde empiezan y parcelas que caben en cada una. */
-const PLAZA_SIZE = 27;
-/** Fila donde empiezan las plazas (debajo del desierto, al otro lado de la carretera). */
-const PLAZA_TOP = 14;
-/** Columna donde empieza la primera plaza. */
-const PLAZA_LEFT = 2;
+/** Filas que hay entre la Calle Mayor y la avenida (la avenida es una copia suya, más abajo). */
+const AVENUE_DY = 14;
+/** Columna de la primera parcela de la avenida (a la izquierda queda la carretera que baja). */
+const AVENUE_X0 = 4;
+/** Ancho de una parcela: caravana (5), hueco, local (4) y hueco. */
+const HOME_WIDTH = 11;
 const HOMES_PER_PLAZA = 4;
+/** Ancho de lo que ocupa una plaza en la avenida (sus 4 parcelas). */
+const PLAZA_WIDTH = HOMES_PER_PLAZA * HOME_WIDTH;
+/** Fila donde empiezan las plazas (al otro lado de la carretera de la avenida) y su fondo. */
+const PLAZA_TOP = AVENUE_DY + 10;
+const PLAZA_DEPTH = 8;
 
-/** Esquina superior izquierda de la plaza número p (empezando en 1). */
+/** Esquina superior izquierda del tramo de avenida de la plaza número p (empezando en 1). */
 function plazaOrigin(p: number): { x: number; y: number } {
-  return { x: PLAZA_LEFT + (p - 1) * PLAZA_SIZE, y: PLAZA_TOP };
+  return { x: AVENUE_X0 + (p - 1) * PLAZA_WIDTH, y: AVENUE_DY };
 }
 
-/** Número de la plaza en la que cae la baldosa (x, y), o null si no cae en ninguna. */
+/** Baldosa de la fuente (2x2) de la plaza número p: en el centro de su tramo, enfrente de la avenida. */
+function fountainSpot(p: number): { x: number; y: number } {
+  return { x: plazaOrigin(p).x + PLAZA_WIDTH / 2 - 1, y: PLAZA_TOP + PLAZA_DEPTH / 2 - 1 };
+}
+
+/** Número de la plaza en la que cae la baldosa (x, y) de la avenida o de su plaza, o null. */
 function plazaAt(x: number, y: number): number | null {
-  if (y < PLAZA_TOP || y >= PLAZA_TOP + PLAZA_SIZE || x < PLAZA_LEFT) return null;
-  return Math.floor((x - PLAZA_LEFT) / PLAZA_SIZE) + 1;
+  if (y < AVENUE_DY || y >= PLAZA_TOP + PLAZA_DEPTH || x < AVENUE_X0) return null;
+  const p = Math.floor((x - AVENUE_X0) / PLAZA_WIDTH) + 1;
+  // En la fila de las plazas, solo las losas de alrededor de la fuente.
+  if (y >= PLAZA_TOP && Math.abs(x - fountainSpot(p).x) > 7) return null;
+  return p;
 }
 
 /** Nombres de las plazas, en el orden en que se abren (luego, "Plaza 7", "Plaza 8"...). */
@@ -313,13 +338,17 @@ const PLAZA_NAMES = [
 ];
 
 /**
- * Nombre de la zona de la calle en la que está la baldosa (x, y): el de la
- * plaza si cae en una (para el cartel de dónde estás), o null.
+ * Nombre de la zona de la calle en la que está la baldosa (x, y): el Ensanche
+ * o la plaza (su tramo de avenida o la propia plaza), para el cartel de dónde
+ * estás. null en la Calle Mayor.
  */
 export function areaNameAt(state: GameState, x: number, y: number): string | null {
   if (y <= 6 && x >= SOLAR_X0 - 1) return 'El Ensanche';
   const p = plazaAt(x, y);
-  if (p === null || !state.furniture[`plaza-${p}:fountain`]) return null;
+  if (p === null || !state.furniture[`plaza-${p}:fountain`]) {
+    const onAvenue = y >= AVENUE_DY && y < PLAZA_TOP && state.furniture['plaza-1:fountain'];
+    return onAvenue ? 'Avenida de las Plazas' : null;
+  }
   return PLAZA_NAMES[p - 1] ?? `Plaza ${p}`;
 }
 
@@ -327,68 +356,61 @@ export function areaNameAt(state: GameState, x: number, y: number): string | nul
 const plazaOfSlot = (slot: number) => (slot === 0 ? 0 : Math.floor((slot - 1) / HOMES_PER_PLAZA) + 1);
 
 /**
- * Las 4 parcelas de una plaza, en coordenadas de la plaza: dos arriba
- * (fachada hacia +y, rotación 1) y dos a la izquierda (fachada hacia +x,
- * rotación 0), que son los lados que la cámara ve de frente. Cada una:
- * caravana (5x3 o 3x5) y local (4x4), con sus puertas.
+ * Dónde va cada cosa de la parcela `slot`. La 0, al principio de la Calle
+ * Mayor (solo caravana). Las demás, en la avenida, una al lado de otra:
+ * caravana y local con la fachada hacia la carretera (+y), como en la calle.
  */
-const PLAZA_HOMES: {
+function homeLayout(slot: number): {
   trailer: { x: number; y: number; rotation: 0 | 1 };
   trailerDoor: DoorSpot;
-  lot: { x: number; y: number; rotation: 0 | 1 };
-  lotDoor: DoorSpot;
-}[] = [
-  {
-    trailer: { x: 5, y: 1, rotation: 1 },
-    trailerDoor: { x: 7, y: 4, spawn: { x: 7, y: 5 } },
-    lot: { x: 11, y: 0, rotation: 1 },
-    lotDoor: { x: 13, y: 4, spawn: { x: 13, y: 5 } },
-  },
-  {
-    trailer: { x: 16, y: 1, rotation: 1 },
-    trailerDoor: { x: 18, y: 4, spawn: { x: 18, y: 5 } },
-    lot: { x: 22, y: 0, rotation: 1 },
-    lotDoor: { x: 24, y: 4, spawn: { x: 24, y: 5 } },
-  },
-  {
-    trailer: { x: 1, y: 5, rotation: 0 },
-    trailerDoor: { x: 4, y: 7, spawn: { x: 5, y: 7 } },
-    lot: { x: 0, y: 11, rotation: 0 },
-    lotDoor: { x: 4, y: 13, spawn: { x: 5, y: 13 } },
-  },
-  {
-    trailer: { x: 1, y: 16, rotation: 0 },
-    trailerDoor: { x: 4, y: 18, spawn: { x: 5, y: 18 } },
-    lot: { x: 0, y: 22, rotation: 0 },
-    lotDoor: { x: 4, y: 24, spawn: { x: 5, y: 24 } },
-  },
-];
+  lot: { x: number; y: number; rotation: 0 | 1 } | null;
+  lotDoor: DoorSpot | null;
+} {
+  if (slot === 0) {
+    return {
+      trailer: { x: 1, y: 1, rotation: 1 },
+      trailerDoor: { x: 3, y: 4, spawn: { x: 3, y: 5 } },
+      lot: null,
+      lotDoor: null,
+    };
+  }
+  const x = AVENUE_X0 + (slot - 1) * HOME_WIDTH;
+  const door = AVENUE_DY + 4;
+  return {
+    trailer: { x, y: AVENUE_DY + 1, rotation: 1 },
+    trailerDoor: { x: x + 2, y: door, spawn: { x: x + 2, y: door + 1 } },
+    lot: { x: x + 6, y: AVENUE_DY, rotation: 1 },
+    lotDoor: { x: x + 8, y: door, spawn: { x: x + 8, y: door + 1 } },
+  };
+}
 
-/** Fuente, bancos, farolas y cactus de la plaza número p (en coordenadas del mapa). */
+/** Fuente, bancos y farolas de la plaza número p, y las farolas de su tramo de avenida. */
 function plazaDecor(p: number): FurniItem[] {
   const o = plazaOrigin(p);
+  const c = fountainSpot(p);
   const f = (id: string, item: Omit<FurniItem, 'id' | 'sceneId'>): FurniItem => ({
     ...item,
     id: `plaza-${p}:${id}`,
     sceneId: SCENES.street,
-    x: o.x + item.x,
-    y: o.y + item.y,
   });
   return [
-    f('fountain', { defId: 'fountain', x: 13, y: 13, rotation: 0 }),
+    f('fountain', { defId: 'fountain', x: c.x, y: c.y, rotation: 0 }),
     // Bancos mirando a la fuente
-    f('bench-w', { defId: 'park_bench', x: 10, y: 13, rotation: 0 }),
-    f('bench-n', { defId: 'park_bench', x: 13, y: 10, rotation: 1 }),
-    f('bench-e', { defId: 'park_bench', x: 17, y: 13, rotation: 2 }),
-    f('bench-s', { defId: 'park_bench', x: 13, y: 17, rotation: 3 }),
-    // Farolas en las cuatro esquinas del centro
-    f('lamp-1', { defId: 'street_lamp', x: 9, y: 9, rotation: 0 }),
-    f('lamp-2', { defId: 'street_lamp', x: 18, y: 9, rotation: 0 }),
-    f('lamp-3', { defId: 'street_lamp', x: 9, y: 18, rotation: 0 }),
-    f('lamp-4', { defId: 'street_lamp', x: 18, y: 18, rotation: 0 }),
-    // Cactus en la esquina del fondo y junto a los bordes abiertos
-    f('cactus-1', { defId: 'saguaro', x: 1, y: 1, rotation: 0 }),
-    f('cactus-2', { defId: 'saguaro', x: 22, y: 25, rotation: 0 }),
+    f('bench-w', { defId: 'park_bench', x: c.x - 3, y: c.y, rotation: 0 }),
+    f('bench-e', { defId: 'park_bench', x: c.x + 4, y: c.y, rotation: 2 }),
+    f('bench-s', { defId: 'park_bench', x: c.x, y: c.y + 3, rotation: 3 }),
+    // Farolas en las esquinas de la plaza
+    f('lamp-1', { defId: 'street_lamp', x: c.x - 5, y: c.y - 2, rotation: 0 }),
+    f('lamp-2', { defId: 'street_lamp', x: c.x + 6, y: c.y - 2, rotation: 0 }),
+    f('lamp-3', { defId: 'street_lamp', x: c.x - 5, y: c.y + 3, rotation: 0 }),
+    f('lamp-4', { defId: 'street_lamp', x: c.x + 6, y: c.y + 3, rotation: 0 }),
+    // Farolas de la avenida, en el bordillo entre parcela y parcela
+    ...[0, 1, 2, 3].map((k) =>
+      f(`street-lamp-${k}`, { defId: 'street_lamp', x: o.x + k * HOME_WIDTH + 5, y: AVENUE_DY + 6, rotation: 0 }),
+    ),
+    // Cactus a los lados de la plaza
+    f('cactus-1', { defId: 'saguaro', x: c.x - 11, y: c.y + 1, rotation: 0 }),
+    f('cactus-2', { defId: 'saguaro', x: c.x + 12, y: c.y + 2, rotation: 0 }),
   ];
 }
 
@@ -401,7 +423,7 @@ function ensurePlaza(state: GameState, p: number): GameState {
   if (state.furniture[`plaza-${p}:fountain`]) return state;
   const next = p > 1 ? ensurePlaza(state, p - 1) : state;
   const street = next.scenes[SCENES.street];
-  const width = Math.max(street.width, plazaOrigin(p).x + PLAZA_SIZE);
+  const width = Math.max(street.width, plazaOrigin(p).x + PLAZA_WIDTH);
   const ground = streetGround(width, p);
   const furniture = { ...next.furniture };
   for (const item of plazaDecor(p)) furniture[item.id] = item;
@@ -423,20 +445,8 @@ function ensurePlaza(state: GameState, p: number): GameState {
 export function addHome(state: GameState, playerId: string, slot: number): GameState {
   if (state.homes[playerId] !== undefined) return state;
   const p = plazaOfSlot(slot);
-  let next = p > 0 ? ensurePlaza(state, p) : state;
-  // Coordenadas: en la plaza se suma su esquina; la parcela 0 va en la calle.
-  const o = p > 0 ? plazaOrigin(p) : { x: 0, y: 0 };
-  const at = <T extends { x: number; y: number }>(v: T): T => ({ ...v, x: v.x + o.x, y: v.y + o.y });
-  const spot = (d: DoorSpot): DoorSpot => ({ ...at(d), spawn: at(d.spawn) });
-  const layout =
-    p === 0
-      ? {
-          trailer: { x: 1, y: 1, rotation: 1 as const },
-          trailerDoor: { x: 3, y: 4, spawn: { x: 3, y: 5 } },
-          lot: null,
-          lotDoor: null,
-        }
-      : PLAZA_HOMES[(slot - 1) % HOMES_PER_PLAZA];
+  const next = p > 0 ? ensurePlaza(state, p) : state;
+  const layout = homeLayout(slot);
 
   const s = SCENES.street;
   const scene = next.scenes[s];
@@ -446,19 +456,19 @@ export function addHome(state: GameState, playerId: string, slot: number): GameS
     ...scene.doors,
     {
       id: trailerDoorId(playerId),
-      ...spot(layout.trailerDoor),
+      ...layout.trailerDoor,
       to: { sceneId: trailerSceneId(playerId), doorId: 'trailer-exit' },
       buildingId: trailerBuildingId(playerId),
     },
   ];
-  furniture[trailerBuildingId(playerId)] = { id: trailerBuildingId(playerId), sceneId: s, defId: 'trailer', ...at(layout.trailer) };
+  furniture[trailerBuildingId(playerId)] = { id: trailerBuildingId(playerId), sceneId: s, defId: 'trailer', ...layout.trailer };
   let lots: Record<string, Lot> = next.lots;
   if (layout.lot && layout.lotDoor) {
     const n = BASE_LOT_XS.length + slot;
-    const { x, y, rotation } = at(layout.lot);
+    const { x, y, rotation } = layout.lot;
     const building = lotBuilding(lotId(n), s, x, y, rotation);
     furniture[building.id] = building;
-    doors.push(lotDoor(lotId(n), spot(layout.lotDoor)));
+    doors.push(lotDoor(lotId(n), layout.lotDoor));
     scenes[lotId(n)] = lotInterior(lotId(n), `Local ${n}`, s);
     // Si el local ya existía (mundo guardado), se conserva tal cual.
     if (!lots[lotId(n)]) lots = { ...lots, [lotId(n)]: createLot(lotId(n), `Local ${n}`) };
