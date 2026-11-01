@@ -271,6 +271,8 @@ const businessWindow = createBusinessWindow({
   craft: (lotId, defId) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, defId }),
   collectCrafted: (lotId) =>
     transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
+  setWorkshopPublic: (lotId, open) =>
+    transport.dispatch({ type: 'SET_WORKSHOP_PUBLIC', avatarId: PLAYER_ID, lotId, open }),
   listItem: (lotId, itemId, price) =>
     transport.dispatch({ type: 'LIST_ITEM', avatarId: PLAYER_ID, lotId, itemId, price }),
   setPrice: (itemId, price) =>

@@ -16,10 +16,12 @@ import {
   FACADES,
   getListings,
   hasMaterials,
+  jobOwner,
   MOVE_TICK_MS,
   secondsToTicks,
   storeListingsMax,
   totalMaterials,
+  workshopFee,
   workshopQueueSize,
   type DecorId,
   type FacadeId,
@@ -37,6 +39,8 @@ export interface BusinessActions {
   collectMaterials: (lotId: string) => void;
   craft: (lotId: string, defId: DecorId) => void;
   collectCrafted: (lotId: string) => void;
+  /** Taller: abrirlo a todos (pagando) o hacerlo privado. */
+  setWorkshopPublic: (lotId: string, open: boolean) => void;
   listItem: (lotId: string, itemId: string, price: number) => void;
   setPrice: (itemId: string, price: number) => void;
   unlist: (itemId: string) => void;
@@ -364,22 +368,30 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   // --- Taller ----------------------------------------------------------------
+  /**
+   * El taller. Su dueño ve toda la cola (los muebles de otros, con su nombre)
+   * y el precio para los demás. Quien usa un taller público ajeno ve solo lo
+   * suyo y paga por mueble.
+   */
   const buildWorkshop = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const mine = state.materials[playerId] ?? {};
-    // Con el rango de Vecino, la cola tiene un hueco más.
-    const queueSize = workshopQueueSize(state, playerId);
+    const isOwner = lot.ownerId === playerId;
+    const money = state.money[playerId] ?? 0;
+    // La cola es la del taller (con el rango de Vecino de su dueño, un hueco más).
+    const queueSize = workshopQueueSize(state, lot.ownerId!);
     const queueFull = lot.jobs.length >= queueSize;
+    const shown = isOwner ? lot.jobs : lot.jobs.filter((j) => j.by === playerId);
 
     // Cola de fabricación con barras de progreso.
     const queue = document.createElement('div');
     queue.className = 'queue';
-    if (lot.jobs.length === 0) queue.append(text('Nada en fabricación.'));
-    for (const job of lot.jobs) {
+    if (shown.length === 0) queue.append(text(isOwner ? 'Nada en fabricación.' : 'No tienes nada en fabricación aquí.'));
+    for (const job of shown) {
       const total = secondsToTicks(ECONOMY.recipes[job.defId].seconds);
       const row = document.createElement('div');
       row.className = 'queue-row';
       const name = document.createElement('span');
-      name.textContent = CATALOG[job.defId].name;
+      name.textContent = CATALOG[job.defId].name + (isOwner && job.byName ? ` · de ${job.byName}` : '');
       const bar = document.createElement('div');
       bar.className = 'progress';
       const fill = document.createElement('i');
@@ -397,7 +409,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         status.textContent = remaining <= 0 ? '¡Listo!' : remaining > total ? 'En cola' : formatTicks(remaining);
       });
     }
-    const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
+    // Cada uno recoge lo suyo.
+    const done = lot.jobs.filter((j) => j.readyAt <= state.tick && jobOwner(j, lot) === playerId).length;
 
     // Recetas.
     const recipes = document.createElement('div');
@@ -411,17 +424,44 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       const name = document.createElement('div');
       name.textContent = `${CATALOG[defId].name} · ${recipe.seconds} s`;
       info.append(name, materialChips(recipe.materials, { have: mine }));
-      const canCraft = inside && !queueFull && hasMaterials(mine, recipe.materials);
-      row.append(furniIcon(defId), info, button('Fabricar', canCraft, () => actions.craft(lot.id, defId)));
+      // En un taller ajeno, cada mueble cuesta una parte de su valor.
+      const fee = isOwner ? 0 : workshopFee(defId);
+      const canCraft = inside && !queueFull && money >= fee && hasMaterials(mine, recipe.materials);
+      const label = fee > 0 ? `Fabricar · ${formatMoney(fee)}` : 'Fabricar';
+      row.append(furniIcon(defId), info, button(label, canCraft, () => actions.craft(lot.id, defId)));
       recipes.append(row);
     }
 
+    if (!isOwner) {
+      win.body.append(
+        text(
+          `Taller de ${lot.ownerName}: fabricas con tus materiales y le pagas un ` +
+            `${Math.round(ECONOMY.workshop.feeRate * 100)} % del valor de cada mueble.`,
+        ),
+      );
+    }
     win.body.append(
       text(`En fabricación (${lot.jobs.length}/${queueSize}):`, 'section-title'),
       queue,
       button(`Recoger muebles (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
       text('Recetas:', 'section-title'),
       recipes,
+    );
+    if (isOwner) buildWorkshopFee(lot, inside);
+  };
+
+  /** Dueño: abrir el taller a todos (te pagan por mueble) o hacerlo privado. */
+  const buildWorkshopFee = (lot: Lot, inside: boolean) => {
+    const open = lot.price > 0;
+    const rate = Math.round(ECONOMY.workshop.feeRate * 100);
+    win.body.append(
+      text(`Taller ${open ? 'público' : 'privado'}:`, 'section-title'),
+      text(
+        open
+          ? `Otros jugadores pueden fabricar aquí con sus materiales y te pagan un ${rate} % del valor de cada mueble.`
+          : 'Ahora solo lo usas tú. Ábrelo para que otros puedan fabricar aquí pagándote.',
+      ),
+      button(open ? 'Hacerlo privado' : 'Abrir a todos', inside, () => actions.setWorkshopPublic(lot.id, !open)),
     );
   };
 
@@ -433,8 +473,10 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       return;
     }
     const inside = state.avatars[playerId]?.sceneId === lot.id;
-    // Al salir del local, la ventana del negocio se cierra sola.
-    if (!inside) {
+    // Al salir del local, la ventana del negocio se cierra sola. Y quien no es
+    // el dueño solo puede verla en un taller público (para usarlo).
+    const isOwner = lot.ownerId === playerId;
+    if (!inside || (!isOwner && !(lot.business === 'workshop' && lot.price > 0))) {
       win.close();
       return;
     }
@@ -444,13 +486,19 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
     const listings = getListings(state, lot.id);
     const inventory = state.inventories[playerId] ?? [];
-    const next = JSON.stringify([lot, mine, inside, done, listings, inventory]);
+    const next = JSON.stringify([lot, mine, inside, done, listings, inventory, state.money[playerId]]);
     if (next !== signature) {
       signature = next;
       timers = [];
       const config = ECONOMY.businesses[lot.business];
-      win.setTitle(`${config.name} · ${lot.label}`);
+      win.setTitle(isOwner ? `${config.name} · ${lot.label}` : `Taller de ${lot.ownerName} · ${lot.label}`);
       win.body.replaceChildren();
+      // Quien usa un taller ajeno solo ve el taller (ni fachada ni cerrar).
+      if (!isOwner) {
+        buildWorkshop(lot, inside, state, playerId);
+        for (const timer of timers) timer(state.tick);
+        return;
+      }
       buildFacadePicker(lot);
       if (config.production) buildProducer(lot, inside, config.production);
       else if (config.service) buildService(lot, inside, state, playerId, config.service);

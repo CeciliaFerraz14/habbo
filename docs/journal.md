@@ -2,6 +2,25 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Mensajes más tiempo en pantalla
+
+**Qué se hizo**
+- Bocadillos del chat: de 7 a 12 s (`LIFETIME_MS` en `client/src/ui/chatBubbles.ts`).
+- Avisos (`client/src/ui/toast.ts`): de 2,5 s fijos a 60 ms por letra, entre 4 y 9 s, para que dé tiempo a leer los largos (subidas de nivel, encargos...).
+
+## 2026-11-01 · Talleres públicos
+
+**Qué se hizo**
+- Cualquiera puede fabricar en el taller de otro jugador si este es **público**: usa sus propios materiales y paga al dueño un 7 % del valor de referencia de cada mueble (`workshopFee`, `ECONOMY.workshop.feeRate`; como poco $1, unos $5 de media: neumático $1, jukebox $11). El dueño recibe un aviso.
+- El dueño decide si su taller es público o privado (`SET_WORKSHOP_PUBLIC`; `lot.price` = 1 público, 0 privado). Los talleres nuevos empiezan públicos.
+- La cola es compartida, pero cada mueble recuerda quién lo encargó (`CraftJob.by` / `byName`): cada uno recoge los suyos (`collectCrafted`), el dueño ve "· de Bea" en su cola, y si el taller cierra (`closeLot`: lo cierra el dueño, no paga o lo abandona), cada mueble vuelve a quien lo encargó (hecho, al inventario; a medias, sus materiales).
+- Ventana del negocio en "modo cliente" para un taller ajeno público (solo tus encargos y "Fabricar · $X"); privado: aviso al tocar el banco. El tablón dice qué talleres están abiertos.
+- Comprobado: script (precios, cola compartida, cobro y aviso, cada uno recoge lo suyo, privado no deja, al cerrar Bea recupera sus materiales y Ana su neumático) y en Chrome (ventana de cliente en el taller de Bea).
+
+**Decisiones**
+- Precio proporcional al valor del mueble (lo pidió así): fabricar algo caro cuesta más. Primera versión con precio fijo puesto por el dueño, descartada.
+- Lo que se paga entre jugadores no da XP (como siempre); quien fabrica sí gana la XP de fabricar al recoger.
+
 ## 2026-11-01 · Sin límite de locales
 
 **Qué se hizo**

@@ -16,7 +16,7 @@ import type { AvatarViews } from '../game/avatarViews';
 import { NAME_TAG_SPACE } from './nameTags';
 
 /** Cuánto vive un bocadillo, en ms. */
-const LIFETIME_MS = 7000;
+const LIFETIME_MS = 12000;
 /** Durante cuánto tiempo (al final de su vida) se desvanece. */
 const FADE_MS = 1200;
 /** Velocidad de subida continua, en píxeles de pantalla por segundo. */

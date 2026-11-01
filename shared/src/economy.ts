@@ -39,6 +39,14 @@ export interface CraftJob {
   defId: DecorId;
   /** Tick en el que estará terminado. */
   readyAt: number;
+  /** Quién lo encargó, si no es el dueño del taller (taller público), y su nombre. */
+  by?: string;
+  byName?: string;
+}
+
+/** De quién es un mueble de la cola: de quien lo encargó o, si no, del dueño del taller. */
+export function jobOwner(job: CraftJob, lot: Lot): string | null {
+  return job.by ?? lot.ownerId;
 }
 
 /** Un local de la calle. */
@@ -59,7 +67,11 @@ export interface Lot {
    * Servicios: materiales que el dueño ha dejado para servir a los clientes.
    */
   storage: Materials;
-  /** Servicios: precio que cobra el local por servir (0 en los demás). */
+  /**
+   * Servicios: precio que cobra el local por servir. Taller: 1 si es público
+   * (otros pueden usarlo pagando, ver workshopFee) y 0 si es privado. En los
+   * demás, 0.
+   */
   price: number;
   /** Productores: tick de la próxima producción. */
   nextProductionAt: number;
@@ -242,7 +254,8 @@ function openBusiness(
     business,
     facade: config.defaultFacade,
     storage: {},
-    price: config.service?.baseValue ?? 0,
+    // Los talleres empiezan públicos (1); ver workshopFee.
+    price: config.service?.baseValue ?? (config.kind === 'workshop' ? 1 : 0),
     nextProductionAt: state.tick + secondsToTicks(config.production?.seconds ?? 0),
     jobs: [],
     nextRentAt: state.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
@@ -299,37 +312,62 @@ export function startCraft(
 ): GameState {
   const lot = state.lots[lotId];
   const recipe = ECONOMY.recipes[defId];
-  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
-  if (lot.jobs.length >= workshopQueueSize(state, avatarId)) return state;
+  const avatar = state.avatars[avatarId];
+  const owner = lot?.ownerId;
+  if (!avatar || avatar.sceneId !== lotId || !owner || !isKind(lot, 'workshop') || !recipe) return state;
+  // El dueño fabrica gratis; los demás, solo si el taller es público, y pagan
+  // una parte del valor del mueble.
+  const isOwner = owner === avatarId;
+  if (!isOwner && lot.price <= 0) return state;
+  const fee = isOwner ? 0 : workshopFee(defId);
+  if (lot.jobs.length >= workshopQueueSize(state, owner)) return state;
 
   const mine = state.materials[avatarId] ?? {};
-  if (!hasMaterials(mine, recipe.materials)) return state;
+  const money = state.money[avatarId] ?? 0;
+  if (!hasMaterials(mine, recipe.materials) || money < fee) return state;
 
   // Los trabajos se hacen uno detrás de otro: el nuevo empieza cuando acabe el
   // último de la cola (o ahora, si la cola está vacía o ya terminó).
   const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
   const start = Math.max(state.tick, lastReady);
-  const job: CraftJob = { defId, readyAt: start + secondsToTicks(recipe.seconds) };
+  const job: CraftJob = {
+    defId,
+    readyAt: start + secondsToTicks(recipe.seconds),
+    ...(isOwner ? {} : { by: avatarId, byName: avatar.name }),
+  };
 
-  return {
+  let next: GameState = {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, jobs: [...lot.jobs, job] } },
     materials: { ...state.materials, [avatarId]: addMaterials(mine, recipe.materials, -1) },
   };
+  if (fee > 0) {
+    // Lo que paga va al dueño (es dinero entre jugadores: no da XP).
+    next = {
+      ...next,
+      money: { ...next.money, [avatarId]: money - fee, [owner]: (next.money[owner] ?? 0) + fee },
+    };
+    next = addNotice(next, owner, `${avatar.name} ha usado tu taller (${CATALOG[defId].name}): +${ECONOMY.currency}${fee}`);
+  }
+  return next;
 }
 
-/** Taller: el dueño recoge los muebles terminados; van a su inventario. */
+/**
+ * Recoger los muebles terminados del taller: cada uno recoge los SUYOS (el
+ * dueño, los que encargó él; quien usa un taller público, los que pagó).
+ */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
+  if (state.avatars[avatarId]?.sceneId !== lotId || !lot?.ownerId || !isKind(lot, 'workshop')) return state;
 
-  const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
+  const mine = (job: CraftJob) => jobOwner(job, lot) === avatarId && job.readyAt <= state.tick;
+  const done = lot.jobs.filter(mine);
   if (done.length === 0) return state;
 
   const items: InventoryItem[] = done.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
   const collected = {
     ...state,
-    lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => j.readyAt > state.tick) } },
+    lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => !mine(j)) } },
     inventories: {
       ...state.inventories,
       [avatarId]: [...(state.inventories[avatarId] ?? []), ...items],
@@ -337,6 +375,21 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
     nextId: state.nextId + items.length,
   };
   return addXpFor(collected, avatarId, 'craft', items.length);
+}
+
+/**
+ * Lo que paga quien fabrica un mueble en un taller público ajeno: una parte de
+ * su valor de referencia (ECONOMY.workshop.feeRate), como poco $1.
+ */
+export function workshopFee(defId: DecorId): number {
+  return Math.max(1, Math.round(ECONOMY.baseValue[defId] * ECONOMY.workshop.feeRate));
+}
+
+/** Taller: el dueño lo abre a todos o lo hace privado. */
+export function setWorkshopPublic(state: GameState, avatarId: string, lotId: string, open: boolean): GameState {
+  const lot = state.lots[lotId];
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
+  return { ...state, lots: { ...state.lots, [lotId]: { ...lot, price: open ? 1 : 0 } } };
 }
 
 // --- Simulación ---------------------------------------------------------------
@@ -680,29 +733,22 @@ function chargeRent(state: GameState): GameState {
 /**
  * El dueño cierra su negocio por su cuenta (para dejar el local o abrir otro
  * negocio en él). Recupera todo lo de dentro: los muebles (también los que
- * tenía a la venta), los materiales del almacén, los muebles ya fabricados y
- * los materiales de los que estaban a medias. Y se le devuelve parte de la
- * fianza (ECONOMY.rent.closeRefund).
+ * tenía a la venta) y los materiales del almacén; los muebles de la cola del
+ * taller vuelven a quien los encargó (ver closeLot). Y se le devuelve parte de
+ * la fianza (ECONOMY.rent.closeRefund).
  */
 export function closeBusiness(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
   if (!lot?.business || lot.ownerId !== avatarId) return state;
   const config = ECONOMY.businesses[lot.business];
 
-  // Materiales: lo que hubiera en el almacén y lo de los muebles a medio hacer.
-  let mine = addMaterials(state.materials[avatarId] ?? {}, lot.storage);
-  const done: InventoryItem[] = [];
-  for (const job of lot.jobs) {
-    if (job.readyAt <= state.tick) done.push({ id: `i${state.nextId + done.length}`, defId: job.defId });
-    else mine = addMaterials(mine, ECONOMY.recipes[job.defId].materials);
-  }
+  // Los materiales del almacén vuelven al dueño (los muebles de la cola los
+  // reparte closeLot entre quienes los encargaron).
   const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
   let next: GameState = {
     ...state,
     money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + refund },
-    materials: { ...state.materials, [avatarId]: mine },
-    inventories: { ...state.inventories, [avatarId]: [...(state.inventories[avatarId] ?? []), ...done] },
-    nextId: state.nextId + done.length,
+    materials: { ...state.materials, [avatarId]: addMaterials(state.materials[avatarId] ?? {}, lot.storage) },
   };
   next = closeLot(next, lotId);
   return addNotice(
@@ -733,7 +779,7 @@ function closeLot(state: GameState, lotId: string): GameState {
   if (building) furniture[building.id] = { ...building, variant: 'closed' };
 
   const scene = state.scenes[lotId];
-  return {
+  let next: GameState = {
     ...state,
     furniture,
     lots: { ...state.lots, [lotId]: createLot(lot.id, lot.label) },
@@ -743,6 +789,26 @@ function closeLot(state: GameState, lotId: string): GameState {
     },
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lot.label } } : state.scenes,
   };
+  // La cola del taller: cada mueble vuelve a quien lo encargó (el dueño o
+  // quien usaba el taller público): hecho, al inventario; a medias, sus materiales.
+  for (const job of lot.jobs) {
+    const who = jobOwner(job, lot)!;
+    if (job.readyAt <= state.tick) {
+      const item = { id: `i${next.nextId}`, defId: job.defId };
+      next = {
+        ...next,
+        inventories: { ...next.inventories, [who]: [...(next.inventories[who] ?? []), item] },
+        nextId: next.nextId + 1,
+      };
+    } else {
+      const theirs = addMaterials(next.materials[who] ?? {}, ECONOMY.recipes[job.defId].materials);
+      next = { ...next, materials: { ...next.materials, [who]: theirs } };
+    }
+    if (who !== ownerId) {
+      next = addNotice(next, who, `El taller del ${lot.label} ha cerrado: recuperas tu ${CATALOG[job.defId].name} o sus materiales.`);
+    }
+  }
+  return next;
 }
 
 // --- Subvención del pueblo ----------------------------------------------------

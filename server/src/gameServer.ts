@@ -42,6 +42,7 @@ const CLIENT_ACTIONS = new Set<Action['type']>([
   'COLLECT_MATERIALS',
   'CRAFT',
   'COLLECT_CRAFTED',
+  'SET_WORKSHOP_PUBLIC',
   'LIST_ITEM',
   'SET_PRICE',
   'BUY_ITEM',

@@ -20,6 +20,7 @@ import {
   rentLot,
   setFacade,
   setServicePrice,
+  setWorkshopPublic,
   stockLot,
   setPrice,
   startCraft,
@@ -194,6 +195,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return startCraft(state, action.avatarId, action.lotId, action.defId);
     case 'COLLECT_CRAFTED':
       return collectCrafted(state, action.avatarId, action.lotId);
+    case 'SET_WORKSHOP_PUBLIC':
+      return setWorkshopPublic(state, action.avatarId, action.lotId, action.open === true);
     case 'LIST_ITEM':
       return listItem(state, action.avatarId, action.lotId, action.itemId, action.price);
     case 'SET_PRICE':

@@ -242,6 +242,9 @@ export class GameController {
           const service = lot?.business ? ECONOMY.businesses[lot.business].service : undefined;
           if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
           else if (lot?.business === 'store') this.events.openShop(lotId);
+          // Taller ajeno: si es público, se puede usar pagando (la misma ventana, en modo cliente).
+          else if (lot?.business === 'workshop' && lot.price > 0) this.events.openBusiness(lotId);
+          else if (lot?.business === 'workshop') this.events.notify('Este taller es privado: solo lo usa su dueño.');
           else if (service) this.events.notify(`${service.name}: ${ECONOMY.currency}${lot!.price}. Solo para viajeros.`);
           else this.events.notify('Este negocio no es tuyo.');
           return;

@@ -454,6 +454,14 @@ export const ECONOMY = {
   workshop: {
     /** Cuántos muebles puede tener en cola a la vez. */
     queueSize: 3,
+    /**
+     * Talleres públicos: otros jugadores pueden fabricar en tu taller (con sus
+     * materiales) y te pagan, por cada mueble, esta parte de su valor de
+     * referencia (como poco, $1). Con 0,07, unos $5 de media: un neumático
+     * $1, una jukebox $11. El dueño decide si su taller es público o privado
+     * (los nuevos empiezan públicos).
+     */
+    feeRate: 0.07,
   },
 
   services: {

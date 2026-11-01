@@ -29,6 +29,10 @@ function lotLine(state: GameState, lot: Lot): string {
   const config = ECONOMY.businesses[lot.business];
   const head = `${lot.label} · ${config.name} de ${lot.ownerName}`;
   if (config.service) return `${head} · ${config.service.name} ${formatMoney(lot.price)}`;
+  if (config.kind === 'workshop') {
+    const rate = Math.round(ECONOMY.workshop.feeRate * 100);
+    return lot.price > 0 ? `${head} · abierto a todos (un ${rate} % del valor de cada mueble)` : `${head} · privado`;
+  }
   if (config.kind === 'store') {
     const listings = getListings(state, lot.id);
     if (listings.length === 0) return `${head} · sin género`;
