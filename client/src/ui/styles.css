@@ -199,6 +199,19 @@ body {
   box-shadow: inset 2px 2px 0 var(--mustard-dark);
 }
 
+/* Botón para algo que no se puede deshacer (cerrar un negocio): rojo. */
+.btn.btn-danger {
+  color: var(--cream);
+  background: #c83c3c;
+  box-shadow:
+    inset -2px -2px 0 #8f2b2b,
+    inset 2px 2px 0 #e06060;
+}
+
+.btn.btn-danger:hover:not(:disabled) {
+  background: #e05050;
+}
+
 .btn:disabled {
   background: #9fb8b0;
   box-shadow: none;

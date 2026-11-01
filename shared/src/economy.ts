@@ -29,7 +29,7 @@ import {
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
-import { addXpFor, maxLotsOf, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
+import { addOpenBusinessXp, addXpFor, maxLotsOf, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
 import { createRandom } from './random';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
@@ -220,7 +220,7 @@ export function rentLot(
   if (lotsOwnedBy(state, avatarId) >= maxLotsOf(state, avatarId)) return state;
 
   const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
-  return addXpFor(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, 'openBusiness');
+  return addOpenBusinessXp(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, business);
 }
 
 /**
@@ -682,6 +682,41 @@ function chargeRent(state: GameState): GameState {
     next = addNotice(next, lot.ownerId, `Alquiler del ${lot.label}: -${ECONOMY.currency}${rent}`);
   }
   return next;
+}
+
+/**
+ * El dueño cierra su negocio por su cuenta (para dejar el local o abrir otro
+ * negocio en él). Recupera todo lo de dentro: los muebles (también los que
+ * tenía a la venta), los materiales del almacén, los muebles ya fabricados y
+ * los materiales de los que estaban a medias. Y se le devuelve parte de la
+ * fianza (ECONOMY.rent.closeRefund).
+ */
+export function closeBusiness(state: GameState, avatarId: string, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  if (!lot?.business || lot.ownerId !== avatarId) return state;
+  const config = ECONOMY.businesses[lot.business];
+
+  // Materiales: lo que hubiera en el almacén y lo de los muebles a medio hacer.
+  let mine = addMaterials(state.materials[avatarId] ?? {}, lot.storage);
+  const done: InventoryItem[] = [];
+  for (const job of lot.jobs) {
+    if (job.readyAt <= state.tick) done.push({ id: `i${state.nextId + done.length}`, defId: job.defId });
+    else mine = addMaterials(mine, ECONOMY.recipes[job.defId].materials);
+  }
+  const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
+  let next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + refund },
+    materials: { ...state.materials, [avatarId]: mine },
+    inventories: { ...state.inventories, [avatarId]: [...(state.inventories[avatarId] ?? []), ...done] },
+    nextId: state.nextId + done.length,
+  };
+  next = closeLot(next, lotId);
+  return addNotice(
+    next,
+    avatarId,
+    `Has cerrado ${config.name} (${lot.label}). Te devuelven ${ECONOMY.currency}${refund} de la fianza.`,
+  );
 }
 
 /**

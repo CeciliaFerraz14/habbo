@@ -13,6 +13,7 @@ import {
   buyItem,
   canEditScene,
   claimSubsidy,
+  closeBusiness,
   collectCrafted,
   collectMaterials,
   listItem,
@@ -205,6 +206,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
     case 'SET_FACADE':
       return setFacade(state, action.avatarId, action.lotId, action.facade);
+    case 'CLOSE_BUSINESS':
+      return closeBusiness(state, action.avatarId, action.lotId);
 
     // --- Gasolinera: la lógica está en gasStation.ts ---
     case 'BUY_MATERIAL':

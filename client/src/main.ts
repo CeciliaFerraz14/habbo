@@ -282,7 +282,15 @@ const businessWindow = createBusinessWindow({
     transport.dispatch({ type: 'SET_SERVICE_PRICE', avatarId: PLAYER_ID, lotId, price }),
   // Retirar un producto es recogerlo: vuelve al inventario.
   unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
+  // Al cerrar, en cuanto el local quede libre se abre la ventana para alquilar
+  // otro negocio en él (ver refreshUi).
+  closeBusiness: (lotId) => {
+    transport.dispatch({ type: 'CLOSE_BUSINESS', avatarId: PLAYER_ID, lotId });
+    reopenRentFor = lotId;
+  },
 });
+/** Local recién cerrado por el jugador: al quedar libre, abrimos su ventana de alquiler. */
+let reopenRentFor: string | null = null;
 const shopWindow = createShopWindow((itemId) => {
   const before = state.money[PLAYER_ID];
   transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
@@ -373,6 +381,10 @@ function refreshUi(): void {
     xp: progressOf(state, PLAYER_ID).xp,
   });
   rankWindow.update(state, PLAYER_ID);
+  if (reopenRentFor && state.lots[reopenRentFor]?.ownerId === null) {
+    rentWindow.open(reopenRentFor, state, PLAYER_ID);
+    reopenRentFor = null;
+  }
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);

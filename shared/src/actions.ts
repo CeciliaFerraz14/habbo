@@ -50,6 +50,8 @@ export type Action =
   | { type: 'STOCK_LOT'; avatarId: string; lotId: string }
   /** Servicios: cambiar el precio del servicio. */
   | { type: 'SET_SERVICE_PRICE'; avatarId: string; lotId: string; price: number }
+  /** Cerrar tu negocio: el local vuelve a estar en alquiler (ver closeBusiness). */
+  | { type: 'CLOSE_BUSINESS'; avatarId: string; lotId: string }
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   // --- Gasolinera (hay que estar dentro) ---

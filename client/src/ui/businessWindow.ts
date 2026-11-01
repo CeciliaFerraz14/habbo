@@ -43,12 +43,17 @@ export interface BusinessActions {
   setFacade: (lotId: string, facade: FacadeId) => void;
   stockLot: (lotId: string) => void;
   setServicePrice: (lotId: string, price: number) => void;
+  /** Cerrar el negocio (el local vuelve a estar en alquiler). */
+  closeBusiness: (lotId: string) => void;
 }
 
 export interface BusinessWindow {
   open: (lotId: string) => void;
   update: (state: GameState, playerId: string) => void;
 }
+
+/** Tiempo para confirmar "Cerrar el negocio" con un segundo toque (ms). */
+const CLOSE_CONFIRM_MS = 4000;
 
 /** Aumento de la vista previa de la fachada (entero, para que los píxeles no se deformen). */
 const PREVIEW_SCALE = 2;
@@ -161,6 +166,43 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     panel.append(preview, row);
     showOpen();
     win.body.append(header, panel);
+  };
+
+  // --- Cerrar el negocio ------------------------------------------------------
+  /**
+   * Hasta cuándo vale el primer toque de "Cerrar el negocio". Vive fuera del
+   * botón: la ventana se reconstruye a menudo (por ejemplo, al producir) y el
+   * segundo toque tiene que seguir contando como confirmación.
+   */
+  let closeArmedUntil = 0;
+
+  /**
+   * Botón para cerrar el negocio, al final. Pide confirmación (un segundo
+   * toque en unos segundos) para no cerrarlo sin querer.
+   */
+  const buildClose = (lot: Lot) => {
+    const config = ECONOMY.businesses[lot.business!];
+    const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
+    const label = () => (Date.now() < closeArmedUntil ? '¿Seguro? Toca otra vez para cerrar' : 'Cerrar el negocio');
+    const close = button(label(), true, () => {
+      if (Date.now() < closeArmedUntil) {
+        closeArmedUntil = 0;
+        actions.closeBusiness(lot.id);
+        return;
+      }
+      closeArmedUntil = Date.now() + CLOSE_CONFIRM_MS;
+      close.textContent = label();
+      setTimeout(() => (close.textContent = label()), CLOSE_CONFIRM_MS);
+    });
+    close.classList.add('btn-danger');
+    win.body.append(
+      text('Cerrar el negocio', 'section-title'),
+      text(
+        `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
+          'Luego puedes abrir otro negocio en el mismo local.',
+      ),
+      close,
+    );
   };
 
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------
@@ -415,6 +457,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
+      buildClose(lot);
     }
     for (const timer of timers) timer(state.tick);
   };

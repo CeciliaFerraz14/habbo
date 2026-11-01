@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Cerrar un negocio y abrir otro
+
+**Qué se hizo**
+- Acción `CLOSE_BUSINESS` y `closeBusiness` (`shared/src/economy.ts`): el dueño cierra su negocio y el local vuelve a estar en alquiler. Recupera los muebles de dentro (también los que tenía a la venta), los materiales del almacén, los muebles ya fabricados y los materiales de los que estaban a medias, y la mitad de la fianza (`ECONOMY.rent.closeRefund`).
+- Botón rojo "Cerrar el negocio" al final de la ventana del negocio, con confirmación de un segundo toque en 4 s. La confirmación vive fuera del botón: la ventana se reconstruye a menudo (al producir, al cambiar la fachada...).
+- Al quedar libre el local, se abre sola su ventana de alquiler para elegir otro negocio.
+- La XP de abrir un negocio (+30) solo cuenta la primera vez de cada tipo (`progress.opened`, `addOpenBusinessXp`): así cerrar y abrir no da experiencia gratis.
+- Comprobado: script (taller con un mueble hecho y otro a medias; reembolso de $60; tienda con un producto a la venta; XP solo la primera vez; no se puede cerrar un local ajeno) y en Chrome (botón, confirmación que aguanta una reconstrucción de la ventana, cierre y ventana de alquiler abierta sola).
+
+**Decisiones**
+- Media fianza y no entera: abrir y cerrar a menudo tiene un coste.
+- Primera versión con la confirmación guardada en el propio botón: si la ventana se reconstruía entre los dos toques, el segundo volvía a pedir confirmación.
+
 ## 2026-11-01 · Esperar a que despierte el servidor
 
 **Qué se hizo**

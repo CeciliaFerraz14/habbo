@@ -46,6 +46,7 @@ const CLIENT_ACTIONS = new Set<Action['type']>([
   'SET_PRICE',
   'BUY_ITEM',
   'SET_FACADE',
+  'CLOSE_BUSINESS',
   'STOCK_LOT',
   'SET_SERVICE_PRICE',
   'BUY_MATERIAL',

@@ -265,6 +265,8 @@ export const ECONOMY = {
      * el local, aunque pueda pagarlo: así no se quedan locales cogidos para siempre.
      */
     abandonSeconds: 7 * 24 * 60 * 60,
+    /** Parte de la fianza que se devuelve al cerrar tú mismo el negocio. */
+    closeRefund: 0.5,
   },
 
   /**

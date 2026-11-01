@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { addNotice, dayIndex, isNpcId } from './economy';
-import { ECONOMY, type RankConfig } from './economy.config';
+import { ECONOMY, type BusinessType, type RankConfig } from './economy.config';
 import type { GameState } from './types';
 import { SCENES } from './world.ids';
 
@@ -26,6 +26,8 @@ export interface PlayerProgress {
   name: string;
   /** Tick en que entró o salió por última vez (para liberar locales abandonados). */
   lastSeen?: number;
+  /** Tipos de negocio que ya ha abierto alguna vez (la XP de abrir, solo la primera). */
+  opened?: BusinessType[];
 }
 
 const LEVELS = ECONOMY.levels;
@@ -175,6 +177,21 @@ export function withStatue(state: GameState): GameState {
 /** XP de una acción (ver ECONOMY.levels.xp). */
 export function addXpFor(state: GameState, playerId: string | null, reason: XpReason, times = 1): GameState {
   return addXp(state, playerId, LEVELS.xp[reason] * times);
+}
+
+/**
+ * XP por abrir un negocio, solo la primera vez de cada tipo: así no se gana
+ * experiencia cerrando y abriendo el mismo negocio una y otra vez.
+ */
+export function addOpenBusinessXp(state: GameState, playerId: string, business: BusinessType): GameState {
+  const progress = progressOf(state, playerId);
+  const opened = progress.opened ?? [];
+  if (isNpcId(playerId) || opened.includes(business)) return state;
+  const marked = {
+    ...state,
+    progress: { ...state.progress, [playerId]: { ...progress, opened: [...opened, business] } },
+  };
+  return addXpFor(marked, playerId, 'openBusiness');
 }
 
 /** XP por lo que un viajero ha pagado a un jugador (1 por cada saleDollarsPerXp). */
