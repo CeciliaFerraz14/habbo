@@ -2,6 +2,30 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Niveles de los locales
+
+**Qué se hizo**
+- Los locales tienen nivel 1, 2 o 3 (`ECONOMY.lotLevels`, `upgradeLot` en `shared/src/economy.ts`, acción `UPGRADE_LOT`).
+- **Cuánto cuesta mejorar:** nivel 2 por $250 + 10 chapa + 10 madera (2 min de obras). Nivel 3 por $600 + 25 chapa + 25 madera + 10 neumáticos (5 min).
+- **Obras:** el negocio sigue abierto mientras duran. Al acabar (`finishUpgrades`) aparece el puesto nuevo, el dueño recibe 40 XP y un aviso.
+- **Qué da cada nivel:**
+  - Servicios: un puesto más (otro sillón, plancha o puesto de fruta). Cada puesto atiende a un viajero durante 12 s; si están todos ocupados, el viajero espera turno (`serviceTurn`, `freeStation` en `travelers.ts`) y, si tarda mucho, se va sin pagar.
+  - Productores: otro montón, pozo o bancal; producen y almacenan el doble o el triple.
+  - Taller: otro banco. Fabrica varios muebles a la vez y cabe uno más en la cola.
+  - Tienda: 2 huecos de venta más por nivel (hay 4 huecos de exposición nuevos).
+- **Más viajeros:** cada negocio cuenta tanto como su nivel en la probabilidad de que pare un coche, los coches y el autobús eligen antes los locales de más nivel (`pickStoreDoor`) y caben más viajeros a la vez.
+- **Puestos:** van en `station:<local>:<n>`; si un mueble tapa el sitio, se usa el siguiente libre.
+- **Cómo se ve:** el cartel de la fachada lleva una estrella dorada por nivel. La ventana del negocio tiene una sección "Nivel del local" con lo que da el siguiente nivel, lo que cuesta y la cuenta atrás de las obras.
+- **Al cerrar:** un local alquilado vuelve al nivel 1. Uno construido en un solar conserva su nivel.
+- Migración `009_lot_levels.sql`: columnas `level` y `upgrade_ready_at` en `lots`.
+- **Comprobado:**
+  - Con una simulación: subir a 2 y a 3, puestos nuevos, no pasa de 3, taller con dos bancos a la vez, producción triple, vuelta a nivel 1 al cerrar y cola con un autobús.
+  - En 2 h de simulación, la peluquería gana unos $1.270 a nivel 1, $2.600 a nivel 2 y $4.100 a nivel 3. En esa prueba es el único negocio de jugador abierto: en un pueblo con más negocios la ganancia de cada nivel será menor.
+  - En Chrome: peluquería con tres sillones, estrellas en la fachada y la sección de nivel en un diner nuevo.
+
+**Decisiones**
+- Se gana más sobre todo porque atrae a más gente. La cola solo se nota cuando llegan varios viajeros a la vez (el autobús), porque normalmente no coinciden.
+
 ## 2026-11-01 · Exclusivos que venden los vecinos
 
 **Qué se hizo**

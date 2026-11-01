@@ -24,6 +24,7 @@ import {
   stockLot,
   setPrice,
   startCraft,
+  upgradeLot,
 } from './economy';
 import { ECONOMY } from './economy.config';
 import {
@@ -216,6 +217,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return stockLot(state, action.avatarId, action.lotId);
     case 'SET_SERVICE_PRICE':
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
+    case 'UPGRADE_LOT':
+      return upgradeLot(state, action.avatarId, action.lotId);
     case 'SET_FACADE':
       return setFacade(state, action.avatarId, action.lotId, action.facade);
     case 'CLOSE_BUSINESS':

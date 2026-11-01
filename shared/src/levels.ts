@@ -12,7 +12,7 @@
 // Los números están en ECONOMY.levels (economy.config.ts).
 // =============================================================================
 
-import { addNotice, dayIndex, isNpcId } from './economy';
+import { addNotice, dayIndex, isNpcId, lotLevel, type Lot } from './economy';
 import { ECONOMY, type BusinessType, type RankConfig } from './economy.config';
 import type { GameState } from './types';
 import { SCENES } from './world.ids';
@@ -77,14 +77,16 @@ export function perksOf(state: GameState, playerId: string) {
   return perks;
 }
 
-/** Huecos de la cola del taller de un jugador. */
-export function workshopQueueSize(state: GameState, playerId: string): number {
-  return ECONOMY.workshop.queueSize + perksOf(state, playerId).workshopQueue;
+/** Huecos de la cola del taller de un jugador (más con el nivel del taller). */
+export function workshopQueueSize(state: GameState, playerId: string, lot?: Lot): number {
+  const fromLevel = (lotLevel(lot) - 1) * ECONOMY.lotLevels.workshopQueuePerLevel;
+  return ECONOMY.workshop.queueSize + perksOf(state, playerId).workshopQueue + fromLevel;
 }
 
-/** Productos que caben a la venta en la tienda de un jugador (o de un NPC). */
-export function storeListingsMax(state: GameState, ownerId: string): number {
-  return ECONOMY.store.maxListings + perksOf(state, ownerId).storeListings;
+/** Productos que caben a la venta en la tienda de un jugador (o de un NPC), según su rango y el nivel del local. */
+export function storeListingsMax(state: GameState, ownerId: string, lot?: Lot): number {
+  const fromLevel = (lotLevel(lot) - 1) * ECONOMY.lotLevels.storeListingsPerLevel;
+  return ECONOMY.store.maxListings + perksOf(state, ownerId).storeListings + fromLevel;
 }
 
 /** Apunta que el jugador está (o estaba) en el pueblo ahora mismo. */

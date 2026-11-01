@@ -58,6 +58,8 @@ export type Action =
   | { type: 'BUY_FROM_VENDOR'; avatarId: string; npcId: string; defId: VendorItemId }
   /** Cerrar tu negocio: el local vuelve a estar en alquiler (ver closeBusiness). */
   | { type: 'CLOSE_BUSINESS'; avatarId: string; lotId: string }
+  /** Mejorar tu local al nivel siguiente (ver upgradeLot). */
+  | { type: 'UPGRADE_LOT'; avatarId: string; lotId: string }
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   // --- Gasolinera (hay que estar dentro) ---

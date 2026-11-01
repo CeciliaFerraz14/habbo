@@ -16,11 +16,14 @@ import {
   FACADES,
   getListings,
   hasMaterials,
+  isUpgrading,
   jobOwner,
+  lotLevel,
   MOVE_TICK_MS,
   secondsToTicks,
   storeListingsMax,
   totalMaterials,
+  upgradeCost,
   workshopFee,
   workshopQueueSize,
   type DecorId,
@@ -49,6 +52,8 @@ export interface BusinessActions {
   setServicePrice: (lotId: string, price: number) => void;
   /** Cerrar el negocio (el local vuelve a estar en alquiler). */
   closeBusiness: (lotId: string) => void;
+  /** Mejorar el local al nivel siguiente. */
+  upgradeLot: (lotId: string) => void;
 }
 
 export interface BusinessWindow {
@@ -187,6 +192,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   const buildClose = (lot: Lot) => {
     const config = ECONOMY.businesses[lot.business!];
     const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
+    // Un local alquilado pierde su nivel al cerrar; uno construido lo conserva.
+    const losesLevel = !lot.builtBy && (lotLevel(lot) > 1 || isUpgrading(lot));
     const label = () => (Date.now() < closeArmedUntil ? '¿Seguro? Toca otra vez para cerrar' : 'Cerrar el negocio');
     const close = button(label(), true, () => {
       if (Date.now() < closeArmedUntil) {
@@ -202,16 +209,70 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     win.body.append(
       text('Cerrar el negocio', 'section-title'),
       text(
-        `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
-          'Luego puedes abrir otro negocio en el mismo local.',
+        (lot.builtBy
+          ? 'Recuperas los muebles y materiales de dentro. El local (y su nivel) sigue siendo tuyo.'
+          : `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
+            'Luego puedes abrir otro negocio en el mismo local.') +
+          (losesLevel ? ' Ojo: el local vuelve al nivel 1.' : ''),
       ),
       close,
     );
   };
 
+  // --- Nivel del local ----------------------------------------------------------
+  /** Qué gana cada tipo de negocio con un nivel más. */
+  const levelBenefit = (lot: Lot): string => {
+    const config = ECONOMY.businesses[lot.business!];
+    const { storeListingsPerLevel, workshopQueuePerLevel } = ECONOMY.lotLevels;
+    if (config.service) return 'Un puesto más: atiendes a un cliente más a la vez y paran más viajeros.';
+    if (config.production) return 'Otro puesto de producción: produce y almacena más.';
+    if (config.kind === 'workshop') {
+      return `Otro banco: fabricas un mueble más a la vez y caben ${workshopQueuePerLevel} más en la cola.`;
+    }
+    return `${storeListingsPerLevel} huecos de venta más, y paran más viajeros.`;
+  };
+
+  /**
+   * Nivel del local: estrellas, lo que da el siguiente y el botón de mejorar
+   * (con lo que cuesta), o la cuenta atrás si ya está en obras.
+   */
+  const buildLevel = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
+    const level = lotLevel(lot);
+    const { max } = ECONOMY.lotLevels;
+    const stars = '★'.repeat(level) + '☆'.repeat(max - level);
+    win.body.append(text(`Nivel del local: ${stars} (${level}/${max})`, 'section-title'));
+    if (isUpgrading(lot)) {
+      const countdown = text('');
+      timers.push((tick) => {
+        countdown.textContent = `En obras: sube al nivel ${level + 1} en ${formatTicks(lot.upgradeReadyAt! - tick)}. El negocio sigue abierto.`;
+      });
+      win.body.append(countdown);
+      return;
+    }
+    const cost = upgradeCost(lot);
+    if (!cost) {
+      win.body.append(text('Tu local está al máximo nivel.'));
+      return;
+    }
+    const mine = state.materials[playerId] ?? {};
+    const money = state.money[playerId] ?? 0;
+    const affordable = money >= cost.price && hasMaterials(mine, cost.materials);
+    win.body.append(
+      text(`Nivel ${level + 1}: ${levelBenefit(lot)} Obras: ${Math.round(cost.seconds / 60)} min.`),
+      materialChips(cost.materials, { have: mine }),
+      button(`Mejorar · ${formatMoney(cost.price)}`, inside && affordable, () => actions.upgradeLot(lot.id)),
+    );
+    if (!affordable) win.body.append(text('Te falta dinero o materiales para mejorarlo.'));
+  };
+
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------
   const buildProducer = (lot: Lot, inside: boolean, production: ProductionConfig) => {
-    const { output, seconds, storageCap } = production;
+    const level = lotLevel(lot);
+    const { seconds } = production;
+    const storageCap = production.storageCap * level;
+    const output = Object.fromEntries(
+      Object.entries(production.output).map(([m, qty]) => [m, qty * level]),
+    ) as typeof production.output;
     const produced = Object.keys(output) as MaterialId[];
     const countdown = text('');
     timers.push((tick) => {
@@ -251,7 +312,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   const buildStore = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const products = getListings(state, lot.id);
     // Con el rango de Empresario caben más productos.
-    const maxListings = storeListingsMax(state, playerId);
+    const maxListings = storeListingsMax(state, playerId, lot);
     const full = products.length >= maxListings;
 
     // Productos a la venta, con su precio editable.
@@ -378,7 +439,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const isOwner = lot.ownerId === playerId;
     const money = state.money[playerId] ?? 0;
     // La cola es la del taller (con el rango de Vecino de su dueño, un hueco más).
-    const queueSize = workshopQueueSize(state, lot.ownerId!);
+    const queueSize = workshopQueueSize(state, lot.ownerId!, lot);
     const queueFull = lot.jobs.length >= queueSize;
     const shown = isOwner ? lot.jobs : lot.jobs.filter((j) => j.by === playerId);
 
@@ -486,6 +547,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
     const listings = getListings(state, lot.id);
     const inventory = state.inventories[playerId] ?? [];
+    // (El dinero y los materiales cuentan también para el botón de mejorar.)
     const next = JSON.stringify([lot, mine, inside, done, listings, inventory, state.money[playerId]]);
     if (next !== signature) {
       signature = next;
@@ -504,6 +566,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       else if (config.service) buildService(lot, inside, state, playerId, config.service);
       else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
+      buildLevel(lot, inside, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
       buildClose(lot);
     }

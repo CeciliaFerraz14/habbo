@@ -66,6 +66,8 @@ function rowToLot(row: Record<string, any>): Lot {
     nextRestockAt: Number(row.next_restock_at),
     nextRentAt: Number(row.next_rent_at),
     ...(row.built_by ? { builtBy: row.built_by, readyAt: Number(row.ready_at ?? 0) } : {}),
+    ...(row.level > 1 ? { level: Number(row.level) } : {}),
+    ...(Number(row.upgrade_ready_at ?? 0) > 0 ? { upgradeReadyAt: Number(row.upgrade_ready_at) } : {}),
   };
 }
 
@@ -85,6 +87,8 @@ function lotToRow(lot: Lot) {
     next_rent_at: lot.nextRentAt,
     built_by: lot.builtBy ?? null,
     ready_at: lot.readyAt ?? 0,
+    level: lot.level ?? 1,
+    upgrade_ready_at: lot.upgradeReadyAt ?? 0,
   };
 }
 

@@ -9,10 +9,11 @@
 //   2. Puede PARAR o seguir de largo. La probabilidad de parar crece con los
 //      negocios abiertos: cuanto más vivo está el pueblo, más gente para.
 //   3. Si para, aparca frente a un negocio abierto (tienda o servicio) y se
-//      baja el viajero.
+//      baja el viajero. Los locales de más nivel atraen a más gente.
 //   4. El viajero entra, mira y decide si compra algo (o paga el servicio:
 //      comer, cortarse el pelo...) según el precio comparado con el valor de
-//      referencia.
+//      referencia. En un servicio, cada puesto atiende a uno a la vez: si
+//      están todos ocupados, espera su turno (y si tarda mucho, se va).
 //   5. Vuelve al coche, desaparece y el coche se va.
 //
 // Los coches que paran lo hacen en la carretera de la tienda: la Calle Mayor o
@@ -31,7 +32,9 @@ import {
   canServe,
   getListings,
   isKind,
+  lotLevel,
   secondsToTicks,
+  stationFront,
   sellProduct,
   serveCustomer,
   servesCustomers,
@@ -90,6 +93,11 @@ export interface TravelerBrain {
   looked: number;
   /** Decisiones que le quedan antes de rendirse (por si se queda atascado). */
   patience: number;
+  /** Servicios: puesto que le atiende y tick en que acaba (mientras, lo ocupa). */
+  station?: number;
+  servingUntil?: number;
+  /** Servicios: veces que ha esperado turno porque los puestos estaban ocupados. */
+  waited?: number;
 }
 
 /** Carril de la Calle Mayor de los coches que van a aparcar (el más cercano a la acera). */
@@ -116,6 +124,8 @@ const PHRASES = {
     greengrocer: ['¡Qué fruta más fresca!', 'Para el camino.', 'Esto sí que es fruta.'],
   } as Partial<Record<BusinessType, string[]>>,
   closed: ['¿Cerrado? Si no hay nada...', 'Vaya, se les ha acabado todo.'],
+  queue: ['Vaya, hay cola...', 'Esperaré un poco.', 'Está todo ocupado.'],
+  gaveUp: ['Demasiada cola. Otro día.', 'No puedo esperar más.', 'Me voy, que llego tarde.'],
 };
 
 /** Un paso de la simulación de coches y viajeros. Se llama en cada tick. */
@@ -182,8 +192,33 @@ const curbOf = (car: Vehicle) => car.y - 1;
 /** Probabilidad de que un coche pare, según los negocios abiertos. */
 export function stopChance(state: GameState): number {
   const t = ECONOMY.travelers;
-  const open = Object.values(state.lots).filter((l) => l.ownerId !== null).length;
+  // Cada negocio cuenta tanto como su nivel: uno de nivel 3 atrae como tres.
+  const open = Object.values(state.lots)
+    .filter((l) => l.ownerId !== null)
+    .reduce((sum, l) => sum + lotLevel(l), 0);
   return Math.min(t.maxStopChance, t.baseStopChance + t.stopChancePerBusiness * open);
+}
+
+/** Puerta de un negocio al azar, con más probabilidad cuanto más nivel tenga el local. */
+function pickStoreDoor(state: GameState, doors: StoreDoor[], random: () => number): StoreDoor {
+  const weight = (d: StoreDoor) => lotLevel(state.lots[d.door.lotId!]);
+  let roll = random() * doors.reduce((sum, d) => sum + weight(d), 0);
+  for (const d of doors) {
+    roll -= weight(d);
+    if (roll < 0) return d;
+  }
+  return doors[doors.length - 1];
+}
+
+/**
+ * Máximo de viajeros a la vez: el de la configuración más uno por cada nivel
+ * de más de los negocios abiertos al público (más puestos, más clientes).
+ */
+function maxTravelers(state: GameState): number {
+  const extra = Object.values(state.lots)
+    .filter((l) => servesCustomers(l))
+    .reduce((sum, l) => sum + lotLevel(l) - 1, 0);
+  return ECONOMY.travelers.maxActive + extra;
 }
 
 /** Si toca, aparece un coche nuevo por el principio de la carretera. */
@@ -195,8 +230,8 @@ function maybeSpawnCar(state: GameState): GameState {
   const travelers = Object.values(state.npcs).filter((b) => b.role === 'traveler').length;
   const doors = openStoreDoors(state);
   // ¿Para? Solo si hay alguna tienda abierta y no hay demasiados viajeros.
-  const stops = doors.length > 0 && travelers < t.maxActive && rng.random() < stopChance(state);
-  const store = stops ? doors[Math.floor(rng.random() * doors.length)] : null;
+  const stops = doors.length > 0 && travelers < maxTravelers(state) && rng.random() < stopChance(state);
+  const store = stops ? pickStoreDoor(state, doors, rng.random) : null;
   const door = store?.door ?? null;
 
   // Si no para en el pueblo, quizá pare a repostar (si el surtidor está libre).
@@ -358,10 +393,24 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
       next = move(next, avatar.id, goal);
     }
   } else if (brain.phase === 'shopping') {
-    if (brain.looked < 2) {
+    const lot = next.lots[brain.lotId];
+    if (brain.servingUntil !== undefined) {
+      // Ya le han atendido: sale contento (y en la peluquería, con otro color de pelo).
+      next = finishService(next, avatar, lot, rng.random);
+      next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
+      changes.phase = 'toCar';
+    } else if (brain.looked < 2) {
       // Da un par de vueltas mirando los productos.
       next = wander(next, avatar, rng.random);
       changes.looked = brain.looked + 1;
+    } else if (lot && isKind(lot, 'service')) {
+      const turn = serviceTurn(next, brain, avatar, lot, rng.random);
+      next = turn.state;
+      Object.assign(changes, turn.changes);
+      if (turn.leaves) {
+        next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
+        changes.phase = 'toCar';
+      }
     } else {
       next = decideAndBuy(next, brain, avatar, rng.random);
       next = move(next, avatar.id, next.scenes[avatar.sceneId].doors[0]);
@@ -382,7 +431,7 @@ function thinkTraveler(state: GameState, brain: TravelerBrain): GameState {
   }
 
   const wait = 1.5 + rng.random() * 2;
-  changes.nextThinkAt = next.tick + secondsToTicks(wait);
+  changes.nextThinkAt ??= next.tick + secondsToTicks(wait);
   return updateBrain<TravelerBrain>({ ...next, seed: rng.seed() }, brain.id, changes);
 }
 
@@ -433,7 +482,6 @@ function decideAndBuy(
   random: () => number,
 ): GameState {
   const lot = state.lots[brain.lotId];
-  if (lot && isKind(lot, 'service')) return decideAndServe(state, brain, avatar, lot, random);
   const product = lot?.ownerId ? chooseProduct(state, brain.lotId, brain.budget, random) : null;
   if (!product || !lot?.ownerId) return say(state, avatar.id, PHRASES.nothing, random);
 
@@ -445,26 +493,71 @@ function decideAndBuy(
   return say(next, avatar.id, PHRASES.bought, random);
 }
 
-function decideAndServe(
+/**
+ * Puesto libre de un local de servicios (1..nivel), o null si todos están
+ * atendiendo a alguien. Solo cuentan los puestos que existen en el local.
+ */
+export function freeStation(state: GameState, lot: Lot): number | null {
+  const busy = new Set<number>();
+  for (const b of Object.values(state.npcs)) {
+    if (b.role === 'traveler' && b.lotId === lot.id && (b.servingUntil ?? 0) > state.tick) busy.add(b.station ?? 0);
+  }
+  for (let n = 1; n <= lotLevel(lot); n++) {
+    if (!busy.has(n) && stationFront(state, lot.id, n)) return n;
+  }
+  return null;
+}
+
+/**
+ * El viajero de un servicio intenta que le atiendan. Si hay un puesto libre
+ * decide si paga; si paga, cobra el dueño y el viajero va al puesto, donde
+ * se queda services.serveSeconds. Si no hay puesto libre, espera su turno
+ * (hasta services.queuePatience veces) y luego se va sin pagar.
+ */
+function serviceTurn(
   state: GameState,
   brain: TravelerBrain,
   avatar: Avatar,
   lot: Lot,
   random: () => number,
-): GameState {
-  if (!canServe(lot)) return say(state, avatar.id, PHRASES.closed, random);
-  if (!decideService(lot, brain.budget, random)) return say(state, avatar.id, PHRASES.nothing, random);
+): { state: GameState; changes: Partial<TravelerBrain>; leaves: boolean } {
+  if (!canServe(lot)) return { state: say(state, avatar.id, PHRASES.closed, random), changes: {}, leaves: true };
 
+  const station = freeStation(state, lot);
+  if (station === null) {
+    const waited = (brain.waited ?? 0) + 1;
+    if (waited > ECONOMY.services.queuePatience) {
+      return { state: say(state, avatar.id, PHRASES.gaveUp, random), changes: {}, leaves: true };
+    }
+    // La primera vez lo dice en voz alta; luego espera callado.
+    const next = waited === 1 ? say(state, avatar.id, PHRASES.queue, random) : state;
+    return { state: next, changes: { waited }, leaves: false };
+  }
+
+  if (!decideService(lot, brain.budget, random)) {
+    return { state: say(state, avatar.id, PHRASES.nothing, random), changes: {}, leaves: true };
+  }
   let next = serveCustomer(state, lot.id);
   next = addSaleXp(next, lot.ownerId, lot.price);
-  next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - lot.price });
-  // En la peluquería el viajero sale con el pelo de otro color.
-  if (lot.business === 'barber') {
+  const front = stationFront(next, lot.id, station);
+  if (front) next = move(next, avatar.id, front);
+  const servingUntil = next.tick + secondsToTicks(ECONOMY.services.serveSeconds);
+  return {
+    state: next,
+    changes: { budget: brain.budget - lot.price, station, servingUntil, nextThinkAt: servingUntil },
+    leaves: false,
+  };
+}
+
+/** Acaba de atenderle: lo dice, y en la peluquería sale con el pelo de otro color. */
+function finishService(state: GameState, avatar: Avatar, lot: Lot | undefined, random: () => number): GameState {
+  let next = state;
+  if (lot?.business === 'barber') {
     const traveler = next.avatars[avatar.id];
     const look = { ...traveler.look, hair: randomLook(random).hair };
     next = { ...next, avatars: { ...next.avatars, [avatar.id]: { ...traveler, look } } };
   }
-  const phrases = (lot.business && PHRASES.served[lot.business]) || PHRASES.bought;
+  const phrases = (lot?.business && PHRASES.served[lot.business]) || PHRASES.bought;
   return say(next, avatar.id, phrases, random);
 }
 
@@ -503,7 +596,7 @@ function maybeSpawnBus(state: GameState): GameState {
     return { ...state, nextBusAt: state.tick + secondsToTicks(60) };
   }
 
-  const stop = doors[Math.floor(rng.random() * doors.length)];
+  const stop = pickStoreDoor(state, doors, rng.random);
   const bus: Vehicle = {
     id: `bus${state.nextId}`,
     x: SPAWN_X - 1,
@@ -524,7 +617,7 @@ function maybeSpawnBus(state: GameState): GameState {
   };
   for (let i = 0; i < count; i++) {
     const pick = createRandom(next.seed);
-    const door = doors[Math.floor(pick.random() * doors.length)];
+    const door = pickStoreDoor(next, doors, pick.random);
     next = withPendingLot({ ...next, seed: pick.seed() }, bus.id, door.door.lotId!);
   }
   for (const avatar of Object.values(next.avatars)) {

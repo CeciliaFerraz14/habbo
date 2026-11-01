@@ -88,6 +88,10 @@ export interface Lot {
    */
   builtBy?: string;
   readyAt?: number;
+  /** Nivel del local (1 si no se indica; ver ECONOMY.lotLevels). */
+  level?: number;
+  /** Mejora en obras: tick en que sube al nivel siguiente (0 o nada = sin obras). */
+  upgradeReadyAt?: number;
 }
 
 /** Convierte segundos de la configuración a ticks de simulación. */
@@ -142,6 +146,21 @@ export function isUnderConstruction(lot: Lot | undefined, tick: number): boolean
   return (lot?.readyAt ?? 0) > tick;
 }
 
+/** Nivel del local (1..ECONOMY.lotLevels.max). */
+export function lotLevel(lot: Lot | undefined): number {
+  return lot?.level ?? 1;
+}
+
+/** ¿Está el local en obras de mejora? */
+export function isUpgrading(lot: Lot | undefined): boolean {
+  return (lot?.upgradeReadyAt ?? 0) > 0;
+}
+
+/** Lo que cuesta subir el local al nivel siguiente (o null si ya está al máximo). */
+export function upgradeCost(lot: Lot | undefined) {
+  return ECONOMY.lotLevels.upgrades[lotLevel(lot) - 1] ?? null;
+}
+
 /** ¿Este dueño es un NPC? Los ids de los NPC empiezan por "npc-". */
 export function isNpcId(id: string | null): boolean {
   return id?.startsWith('npc-') ?? false;
@@ -186,15 +205,33 @@ const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rot
 };
 
 /**
+ * Dónde van los puestos de más al subir de nivel (en orden). Si uno está
+ * tapado por un mueble, se usa el siguiente libre. La tienda no tiene puestos
+ * de más: gana huecos de venta.
+ */
+const EXTRA_STATIONS: Record<BusinessType, { x: number; y: number }[]> = {
+  scrapyard: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  well: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  greenhouse: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  workshop: [{ x: 5, y: 2 }, { x: 3, y: 5 }],
+  barber: [{ x: 5, y: 2 }, { x: 3, y: 5 }],
+  diner: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  greengrocer: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  store: [],
+};
+
+/**
  * Huecos de exposición de una tienda (local de 8x8). Al poner algo a la venta
  * se coloca en el primer hueco donde quepa. Están separados para dejar
- * pasillos entre los productos. Los dos últimos solo se usan con el rango de
- * Empresario (ver storeListingsMax en levels.ts).
+ * pasillos entre los productos. Los últimos solo se usan con el rango de
+ * Empresario o con la tienda mejorada (ver storeListingsMax en levels.ts).
  */
 const DISPLAY_SLOTS = [
   { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 3, y: 3 }, { x: 5, y: 3 },
   { x: 7, y: 1 }, { x: 7, y: 3 }, { x: 5, y: 6 }, { x: 7, y: 6 },
   { x: 3, y: 6 }, { x: 1, y: 7 },
+  // Junto a la pared del fondo y junto al mostrador.
+  { x: 3, y: 0 }, { x: 5, y: 0 }, { x: 1, y: 3 }, { x: 7, y: 5 },
 ];
 /** Los productos se exponen mirando a SW (hacia la cámara). */
 const DISPLAY_ROTATION: Rotation = 1;
@@ -206,11 +243,43 @@ const DISPLAY_ROTATION: Rotation = 1;
  * puesto de trabajo.
  */
 const STATION_PREFIX = 'station:';
-export const stationId = (lotId: string) => `${STATION_PREFIX}${lotId}`;
+/** Id del puesto número `n` de un local ("station:lot1", "station:lot1:2"...). */
+export const stationId = (lotId: string, n = 1) => `${STATION_PREFIX}${lotId}${n > 1 ? `:${n}` : ''}`;
 
-/** Si el mueble es el puesto de trabajo de un local, devuelve el id del local. */
+/** Si el mueble es un puesto de trabajo de un local, devuelve el id del local. */
 export function lotOfStation(itemId: string): string | null {
-  return itemId.startsWith(STATION_PREFIX) ? itemId.slice(STATION_PREFIX.length) : null;
+  return itemId.startsWith(STATION_PREFIX) ? itemId.slice(STATION_PREFIX.length).split(':')[0] : null;
+}
+
+/**
+ * Coloca el puesto número `n` de un negocio en el primer sitio libre (sin
+ * muebles ni avatares encima). Devuelve el estado tal cual si no hay sitio.
+ */
+function withStation(state: GameState, lotId: string, business: BusinessType, n: number): GameState {
+  const { defId, rotation, ...main } = STATIONS[business];
+  const id = stationId(lotId, n);
+  if (state.furniture[id]) return state;
+  const spot = [main, ...EXTRA_STATIONS[business]].find((s) => canPlaceFurni(state, lotId, defId, s.x, s.y, rotation));
+  if (!spot) return state;
+  const station: FurniItem = { id, sceneId: lotId, defId, x: spot.x, y: spot.y, rotation };
+  return { ...state, furniture: { ...state.furniture, [id]: station } };
+}
+
+/** ¿Hay sitio para otro puesto si quitamos de en medio a los avatares? (los muebles sí cuentan) */
+function hasStationRoom(state: GameState, lotId: string, business: BusinessType): boolean {
+  const { defId, rotation, ...main } = STATIONS[business];
+  const empty = { ...state, avatars: {} };
+  return [main, ...EXTRA_STATIONS[business]].some((s) => canPlaceFurni(empty, lotId, defId, s.x, s.y, rotation));
+}
+
+/**
+ * Baldosa delante del puesto `n` de un local, donde se pone el cliente que
+ * atiende (o null si ese puesto no existe). Los puestos miran a +x.
+ */
+export function stationFront(state: GameState, lotId: string, n: number): { x: number; y: number } | null {
+  const station = state.furniture[stationId(lotId, n)];
+  if (!station) return null;
+  return { x: station.x + CATALOG[station.defId].width, y: station.y };
 }
 
 /**
@@ -288,17 +357,18 @@ function openBusiness(
   const building = furniture[buildingId];
   if (building) furniture[buildingId] = { ...building, variant: buildingVariant(rented) };
 
-  // Puesto de trabajo dentro del local.
-  const station: FurniItem = { id: stationId(lotId), sceneId: lotId, ...STATIONS[business] };
-  furniture[station.id] = station;
-
   const scene = state.scenes[lotId];
-  return {
+  let next: GameState = {
     ...state,
     lots: { ...state.lots, [lotId]: rented },
     furniture,
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lotSceneName(rented) } } : state.scenes,
   };
+  // Puestos de trabajo dentro del local: uno por nivel (un local construido
+  // conserva su nivel aunque cambie de negocio). La tienda tiene solo uno.
+  const stations = business === 'store' ? 1 : lotLevel(rented);
+  for (let n = 1; n <= stations; n++) next = withStation(next, lotId, business, n);
+  return next;
 }
 
 /** Nombre de la escena de un local ("Chatarrería · Local 1"; los de NPC llevan su nombre). */
@@ -341,16 +411,18 @@ export function startCraft(
   const isOwner = owner === avatarId;
   if (!isOwner && lot.price <= 0) return state;
   const fee = isOwner ? 0 : workshopFee(defId);
-  if (lot.jobs.length >= workshopQueueSize(state, owner)) return state;
+  if (lot.jobs.length >= workshopQueueSize(state, owner, lot)) return state;
 
   const mine = state.materials[avatarId] ?? {};
   const money = state.money[avatarId] ?? 0;
   if (!hasMaterials(mine, recipe.materials) || money < fee) return state;
 
-  // Los trabajos se hacen uno detrás de otro: el nuevo empieza cuando acabe el
-  // último de la cola (o ahora, si la cola está vacía o ya terminó).
-  const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
-  const start = Math.max(state.tick, lastReady);
+  // Cada banco hace un mueble detrás de otro (hay tantos bancos como nivel).
+  // El nuevo empieza en cuanto quede libre un banco: el que acabe antes de los
+  // que están ocupados, que es el menor de los `benches` finales más tardíos.
+  const benches = lotLevel(lot);
+  const pending = lot.jobs.map((j) => j.readyAt).filter((t) => t > state.tick).sort((a, b) => a - b);
+  const start = pending.length < benches ? state.tick : pending[pending.length - benches];
   const job: CraftJob = {
     defId,
     readyAt: start + secondsToTicks(recipe.seconds),
@@ -426,9 +498,11 @@ export function economyTick(state: GameState): GameState {
     const production = businessOf(lot)?.production;
     if (!production || state.tick < lot.nextProductionAt) continue;
 
+    // Con cada nivel hay otro montón, pozo o bancal: produce y almacena más.
+    const level = lotLevel(lot);
     const storage: Materials = { ...lot.storage };
     for (const [m, qty] of Object.entries(production.output) as [MaterialId, number][]) {
-      storage[m] = Math.min(production.storageCap, (storage[m] ?? 0) + qty);
+      storage[m] = Math.min(production.storageCap * level, (storage[m] ?? 0) + qty * level);
     }
     if (lots === state.lots) lots = { ...lots };
     lots[lot.id] = {
@@ -438,7 +512,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return finishConstructions(releaseAbandonedLots(chargeRent(restockNpcStores(produced))));
+  return finishUpgrades(finishConstructions(releaseAbandonedLots(chargeRent(restockNpcStores(produced)))));
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -467,8 +541,8 @@ function placeOnDisplay(
   defId: DecorId,
   price: number,
 ): FurniItem | null {
-  const owner = state.lots[lotId]?.ownerId ?? '';
-  if (getListings(state, lotId).length >= storeListingsMax(state, owner)) return null;
+  const lot = state.lots[lotId];
+  if (getListings(state, lotId).length >= storeListingsMax(state, lot?.ownerId ?? '', lot)) return null;
   const slot = DISPLAY_SLOTS.find((s) =>
     canPlaceFurni(state, lotId, defId, s.x, s.y, DISPLAY_ROTATION),
   );
@@ -839,9 +913,18 @@ function closeLot(state: GameState, lotId: string): GameState {
   return next;
 }
 
-/** Lo que un local construido conserva al cerrarse: su propietario y su obra. */
+/**
+ * Lo que un local construido conserva al cerrarse: su propietario, su obra y
+ * su nivel (con la mejora en obras, si la hay). Uno alquilado lo pierde todo.
+ */
 function ownership(lot: Lot): Partial<Lot> {
-  return lot.builtBy ? { builtBy: lot.builtBy, readyAt: lot.readyAt } : {};
+  if (!lot.builtBy) return {};
+  return {
+    builtBy: lot.builtBy,
+    readyAt: lot.readyAt,
+    ...(lot.level ? { level: lot.level } : {}),
+    ...(lot.upgradeReadyAt ? { upgradeReadyAt: lot.upgradeReadyAt } : {}),
+  };
 }
 
 /** Acaba las obras que han llegado a su fin: el edificio pasa a local cerrado y su dueño recibe un aviso. */
@@ -856,6 +939,72 @@ function finishConstructions(state: GameState): GameState {
       furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(lot) } },
     };
     next = addNotice(next, lot.builtBy, `¡Se acabó la obra! El ${lot.label} ya es tuyo: entra y abre un negocio.`);
+  }
+  return next;
+}
+
+// --- Niveles de los locales ---------------------------------------------------
+
+/**
+ * El dueño mejora su local al nivel siguiente: paga el dinero y los
+ * materiales y empiezan las obras (ECONOMY.lotLevels). El negocio sigue
+ * abierto; al acabar, sube de nivel y aparece el puesto nuevo (finishUpgrades).
+ */
+export function upgradeLot(state: GameState, avatarId: string, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  const cost = upgradeCost(lot);
+  if (!lot?.business || lot.ownerId !== avatarId || isNpcId(avatarId) || !cost || isUpgrading(lot)) return state;
+  // Tiene que haber sitio para el puesto nuevo (la tienda no lleva puesto).
+  if (lot.business !== 'store' && !hasStationRoom(state, lotId, lot.business)) return state;
+  const money = state.money[avatarId] ?? 0;
+  const mine = state.materials[avatarId] ?? {};
+  if (money < cost.price || !hasMaterials(mine, cost.materials)) return state;
+
+  const next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: money - cost.price },
+    materials: { ...state.materials, [avatarId]: addMaterials(mine, cost.materials, -1) },
+    lots: { ...state.lots, [lotId]: { ...lot, upgradeReadyAt: state.tick + secondsToTicks(cost.seconds) } },
+  };
+  const minutes = Math.round(cost.seconds / 60);
+  return addNotice(next, avatarId, `Empiezan las obras del ${lot.label}: en ${minutes} min sube al nivel ${lotLevel(lot) + 1}.`);
+}
+
+/**
+ * Acaba las mejoras que han llegado a su fin: el local sube de nivel, aparece
+ * el puesto nuevo y su cartel lo muestra. Si hay alguien justo donde va el
+ * puesto, espera al tick siguiente; si lo tapan muebles, sube de nivel igual.
+ */
+function finishUpgrades(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    if (!isUpgrading(lot) || state.tick < lot.upgradeReadyAt!) continue;
+    const level = lotLevel(lot) + 1;
+    const upgraded: Lot = { ...lot, level, upgradeReadyAt: 0 };
+    const owner = lot.builtBy ?? lot.ownerId;
+    let placed = true;
+    if (lot.business && lot.business !== 'store') {
+      const before = next;
+      next = withStation(next, lot.id, lot.business, level);
+      placed = next !== before;
+      // Alguien está en el sitio del puesto nuevo: lo volvemos a intentar.
+      if (!placed && hasStationRoom(next, lot.id, lot.business)) continue;
+    }
+    next = { ...next, lots: { ...next.lots, [lot.id]: upgraded } };
+    const building = next.furniture[`${lot.id}-building`];
+    if (building && lot.business) {
+      next = { ...next, furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(upgraded) } } };
+    }
+    if (owner) {
+      next = addXpFor(next, owner, 'upgrade');
+      next = addNotice(
+        next,
+        owner,
+        placed
+          ? `¡Mejora terminada! El ${lot.label} ya es de nivel ${level}.`
+          : `¡Mejora terminada! El ${lot.label} ya es de nivel ${level} (tus muebles tapaban el sitio del puesto nuevo).`,
+      );
+    }
   }
   return next;
 }
@@ -888,14 +1037,14 @@ export function claimSubsidy(state: GameState, avatarId: string): GameState {
 // --- Fachadas -----------------------------------------------------------------
 
 /**
- * Variante de dibujo del edificio de un local: "open:<neón>:<fachada>:<negocio>",
+ * Variante de dibujo del edificio de un local: "open:<neón>:<fachada>:<negocio>:<nivel>",
  * "closed" o, si se le pasa el tick y está en obras, "construction". El
  * cliente la usa para elegir colores, plantilla e icono del cartel.
  */
 export function buildingVariant(lot: Lot, tick?: number): string {
   if (tick !== undefined && isUnderConstruction(lot, tick)) return 'construction';
   if (!lot.business || !lot.facade) return 'closed';
-  return `open:${ECONOMY.businesses[lot.business].neon}:${lot.facade}:${lot.business}`;
+  return `open:${ECONOMY.businesses[lot.business].neon}:${lot.facade}:${lot.business}:${lotLevel(lot)}`;
 }
 
 /** El dueño cambia la plantilla de fachada de su local (puede hacerlo desde cualquier sitio). */

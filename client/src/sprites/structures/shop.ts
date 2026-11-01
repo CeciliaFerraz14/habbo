@@ -4,7 +4,8 @@
 //
 // La variante (ver buildingVariant() en shared/economy.ts) tiene la forma:
 //   'closed'                                tablones, cartel apagado
-//   'open:<neón>:<fachada>:<negocio>'       abierto, con su plantilla y su icono
+//   'open:<neón>:<fachada>:<negocio>:<nivel>' abierto, con su plantilla, su icono
+//                                           y una estrella por nivel en el remate
 // y el renderer le añade '+door' mientras la puerta está abierta (animación).
 import { FACADES, type BusinessType, type FacadeConfig } from '@juego/shared';
 import { box, glow, type Box, type FurniModel } from '../furniture/model';
@@ -36,11 +37,13 @@ interface ShopLook {
   facade: FacadeConfig;
   facadeId: string;
   business: BusinessType | undefined;
+  /** Nivel del local (1..3): una estrella dorada por nivel encima del remate. */
+  level: number;
 }
 
 function parseVariant(variant: string | undefined): ShopLook {
   const [base, flags = ''] = (variant ?? 'closed').split('+');
-  const [status, neon = PALETTE.neonPink, facadeId = 'classic', business] = base.split(':');
+  const [status, neon = PALETTE.neonPink, facadeId = 'classic', business, level = '1'] = base.split(':');
   return {
     open: status === 'open',
     doorOpen: flags.includes('door'),
@@ -48,6 +51,7 @@ function parseVariant(variant: string | undefined): ShopLook {
     facadeId,
     facade: FACADES[facadeId as keyof typeof FACADES] ?? FACADES.classic,
     business: business as BusinessType | undefined,
+    level: Math.max(1, Number(level) || 1),
   };
 }
 
@@ -86,9 +90,30 @@ export function shop(variant: string | undefined): FurniModel {
     ...templateFront(look),
     box(plate.x - 1, plate.y0, plate.z0, plate.x, plate.y1, plate.z1, CREAM),
     ...logoBoxes(look.business, look.neon),
+    ...levelStars(look.level),
   );
   // Abierto, el neón tiñe la acera delante de la fachada.
   return { boxes, light: { color: look.neon, radius: 36, dx: 2.4 } };
+}
+
+/**
+ * Estrellas del nivel del local, centradas sobre el remate de la fachada: una
+ * por nivel, doradas y con luz (se ven de noche). Cada estrella es una cruz
+ * de cajitas de 5x5 (en y) por 6 px de alto (en z).
+ */
+function levelStars(level: number): Box[] {
+  const GOLD = '#ffd23f';
+  const STEP = 10;
+  const first = 32 - ((level - 1) * STEP) / 2;
+  const boxes: Box[] = [];
+  for (let i = 0; i < level; i++) {
+    const c = first + i * STEP;
+    boxes.push(
+      glow(58, c - 1, 85, 61, c + 1, 92, GOLD), // palo vertical
+      glow(58, c - 3, 87, 61, c + 3, 90, GOLD), // palo horizontal
+    );
+  }
+  return boxes;
 }
 
 /**

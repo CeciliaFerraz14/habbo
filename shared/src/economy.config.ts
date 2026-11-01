@@ -286,6 +286,30 @@ export const ECONOMY = {
   },
 
   /**
+   * Niveles de los locales (1 a 3). Mejorar cuesta dinero y materiales y lleva
+   * unos minutos de obras (el negocio sigue abierto mientras tanto). Cada nivel:
+   * - Servicios (diner, peluquería, frutería): un puesto más, así que se
+   *   atiende a un cliente más a la vez (ver services.serveSeconds).
+   * - Productores: otro montón, pozo o bancal: producen el doble, el triple...
+   * - Taller: otro banco: se fabrican más muebles a la vez, y cabe uno más en la cola.
+   * - Tienda: más huecos de venta.
+   * Además, cuanto más nivel, más coches paran y más viajeros eligen el local.
+   * El nivel se pierde al cerrar el negocio, salvo en los locales construidos.
+   */
+  lotLevels: {
+    max: 3,
+    /** Lo que cuesta subir a cada nivel: [a nivel 2, a nivel 3]. */
+    upgrades: [
+      { price: 250, materials: { sheet_metal: 10, old_wood: 10 } as Materials, seconds: 2 * 60 },
+      { price: 600, materials: { sheet_metal: 25, old_wood: 25, tires: 10 } as Materials, seconds: 5 * 60 },
+    ],
+    /** Tienda: huecos de venta de más por cada nivel por encima del 1. */
+    storeListingsPerLevel: 2,
+    /** Taller: huecos de cola de más por cada nivel por encima del 1. */
+    workshopQueuePerLevel: 1,
+  },
+
+  /**
    * Subvención del pueblo: un ingreso fijo que cada jugador recoge a mano
    * (entrada de dinero). Es una red de seguridad, no un sueldo: conviene que
    * sea parecida al alquiler más barato para no restar interés a los viajeros.
@@ -318,6 +342,8 @@ export const ECONOMY = {
       openBusiness: 30,
       /** Construir un local en un solar. */
       build: 60,
+      /** Subir de nivel un local. */
+      upgrade: 40,
       /** Entrar a jugar (una vez al día). */
       daily: 5,
     },
@@ -491,6 +517,13 @@ export const ECONOMY = {
     stockCap: 20,
     minPrice: 1,
     maxPrice: 999,
+    /**
+     * Segundos que tarda en atenderse a un cliente. Cada puesto atiende a uno a
+     * la vez: si están todos ocupados, el viajero espera su turno.
+     */
+    serveSeconds: 12,
+    /** Veces que un viajero vuelve a mirar si hay un puesto libre antes de irse (unos 2-3 s cada vez). */
+    queuePatience: 8,
   },
 
   store: {
