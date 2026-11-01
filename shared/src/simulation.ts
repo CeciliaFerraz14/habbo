@@ -1,12 +1,13 @@
 // Simulación por turnos ("ticks").
 //
 // Los avatares no se mueven de forma continua en el estado: cada MOVE_TICK_MS
-// milisegundos, quien tenga camino avanza UNA baldosa. El estado solo guarda
-// posiciones enteras y el cliente se encarga de animar el paso suavemente.
+// milisegundos, quien tenga camino avanza WALK_STEPS_PER_TICK baldosas. El
+// estado solo guarda posiciones enteras y el cliente se encarga de animar los
+// pasos suavemente, baldosa a baldosa.
 // En la fase 2 el servidor ejecutará tick() con un setInterval.
 //
 // El tick simula TODAS las escenas a la vez, no solo la que se ve.
-import { MOVE_TICK_MS } from './constants';
+import { MOVE_TICK_MS, WALK_STEPS_PER_TICK } from './constants';
 import { economyTick } from './economy';
 import { gasStationTick } from './gasStation';
 import { createWalkableCheck, getSeatAt } from './furniture';
@@ -49,8 +50,16 @@ export function tick(previous: GameState): GameState {
     avatars[avatar.id] = avatar;
   };
 
-  for (const avatar of Object.values(state.avatars)) {
-    if (avatar.path.length === 0) continue;
+  for (let step = 0; step < WALK_STEPS_PER_TICK; step++) {
+    for (const avatar of Object.values(avatars)) walk(avatar);
+  }
+
+  const moved = avatars === state.avatars ? state : { ...state, avatars };
+  return updateSitting(moved);
+
+  /** Un paso de un avatar: avanza una baldosa de su camino. */
+  function walk(avatar: Avatar): void {
+    if (avatar.path.length === 0) return;
     const [next, ...rest] = avatar.path;
 
     // Alguien puede haber puesto un mueble en mitad del camino después de
@@ -61,7 +70,7 @@ export function tick(previous: GameState): GameState {
     if (!walkableIn(avatar.sceneId)(next.x, next.y) && !isSeatGoal) {
       const goal = avatar.path[avatar.path.length - 1];
       update({ ...avatar, path: planPath(state, avatar, goal) ?? [] });
-      continue;
+      return;
     }
 
     update({
@@ -73,7 +82,4 @@ export function tick(previous: GameState): GameState {
       sitting: false,
     });
   }
-
-  const moved = avatars === state.avatars ? state : { ...state, avatars };
-  return updateSitting(moved);
 }
