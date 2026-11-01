@@ -8,7 +8,8 @@
 //   - pasear por la acera,
 //   - entrar a curiosear en una tienda abierta (y salir al rato),
 //   - decir algo (más animado cuantos más negocios abiertos haya),
-//   - contestar si un jugador saluda cerca.
+//   - contestar si un jugador saluda cerca,
+//   - vender sus exclusivos a quien se acerque (ver vendors.ts).
 //
 // Lo que hacen lo hacen con las MISMAS acciones que un jugador (MOVE y SAY),
 // aplicadas con el reducer. Y como todo ocurre dentro del tick de la
@@ -27,6 +28,7 @@ import { createRandom } from './random';
 import { applyAction } from './reducer';
 import type { TravelerBrain } from './travelers';
 import type { Avatar, GameState, TilePoint } from './types';
+import { hasCustomerNear } from './vendors';
 import { SCENES } from './world.ids';
 
 /** Lo que recuerda un vecino entre una decisión y la siguiente. */
@@ -160,8 +162,10 @@ export function npcTick(state: GameState): GameState {
       }
     }
 
-    // 2. Solo piensan si están quietos y les toca.
+    // 2. Solo piensan si están quietos y les toca. Si venden exclusivos y hay
+    //    un jugador a su lado, se quedan quietos atendiéndole.
     if (avatar.path.length > 0 || next.tick < next.npcs[brain.id].nextThinkAt) continue;
+    if (hasCustomerNear(next, avatar)) continue;
     next = think(next, next.npcs[brain.id] as NeighborBrain, avatar);
   }
   return next;

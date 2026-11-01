@@ -48,6 +48,7 @@ import { createMapWindow } from './ui/mapWindow';
 import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
+import { createVendorWindow } from './ui/vendorWindow';
 import { createBoardWindow } from './ui/boardWindow';
 import { createGasWindow } from './ui/gasWindow';
 import { showToast } from './ui/toast';
@@ -225,6 +226,10 @@ const controller = new GameController(
       shopWindow.open(lotId);
       shopWindow.update(state, PLAYER_ID);
     },
+    openVendor: (npcId) => {
+      vendorWindow.open(npcId);
+      vendorWindow.update(state, PLAYER_ID);
+    },
     openGasCounter: () => {
       gasWindow.open();
       gasWindow.update(state, PLAYER_ID);
@@ -319,6 +324,10 @@ const shopWindow = createShopWindow((itemId) => {
   transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
   if (state.money[PLAYER_ID] !== before) showToast('¡Comprado! Está en tu inventario.');
 });
+// Lo que compras a un vecino llega con su aviso ("Has comprado..."): no hace falta otro.
+const vendorWindow = createVendorWindow((npcId, defId) =>
+  transport.dispatch({ type: 'BUY_FROM_VENDOR', avatarId: PLAYER_ID, npcId, defId }),
+);
 const gasWindow = createGasWindow({
   buyMaterial: (material, quantity) =>
     transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
@@ -420,6 +429,7 @@ function refreshUi(): void {
   rentWindow.update(state);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
+  vendorWindow.update(state, PLAYER_ID);
   gasWindow.update(state, PLAYER_ID);
   boardWindow.update(state, PLAYER_ID);
   mapWindow.update(state, PLAYER_ID);

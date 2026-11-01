@@ -9,6 +9,7 @@ import {
   canEditScene,
   canPlaceFurni,
   CATALOG,
+  createWalkableCheck,
   ECONOMY,
   footprintContains,
   furnitureInScene,
@@ -54,6 +55,8 @@ export interface ControllerEvents {
   openShop: (lotId: string) => void;
   /** Abre el mostrador de Hank (proveedor, encargos, trabajo, rasca y gana). */
   openGasCounter: () => void;
+  /** Abre la ventana de un vecino que vende exclusivos. */
+  openVendor: (npcId: string) => void;
   /** Abre el tablón de anuncios de la gasolinera. */
   openBoard: () => void;
   /** Usa una máquina de la gasolinera: compra un refresco o echa una partida. */
@@ -231,7 +234,19 @@ export class GameController {
       return;
     }
 
-    // 3. ¿Clic sobre un mueble? Lo seleccionamos. Si es sentable o pisable,
+    // 3. ¿Clic en un vecino que vende exclusivos? Vamos a su lado y abrimos
+    //    su ventana (él se queda quieto mientras estemos cerca).
+    if (picked?.kind === 'vendor') {
+      this.select(null);
+      const npc = state.avatars[picked.avatarId];
+      if (!npc) return;
+      const beside = this.besideOf(npc);
+      if (beside) this.moveTo(beside);
+      this.events.openVendor(npc.id);
+      return;
+    }
+
+    // 4. ¿Clic sobre un mueble? Lo seleccionamos. Si es sentable o pisable,
     //    además caminamos hasta él (y si es una silla, nos sentamos).
     if (picked?.kind === 'furni') {
       const item = state.furniture[picked.item.id];
@@ -293,7 +308,7 @@ export class GameController {
       return;
     }
 
-    // 4. Clic en el suelo: deseleccionamos y caminamos (si es una puerta de
+    // 5. Clic en el suelo: deseleccionamos y caminamos (si es una puerta de
     //    la calle, al llegar cambiaremos de escena).
     this.select(null);
     const scene = this.scene;
@@ -333,6 +348,22 @@ export class GameController {
       : getDoorAt(scene, x, y);
     if (door) this.goToDoor(door);
     else this.moveTo({ x, y });
+  }
+
+  /** Baldosa libre junto a alguien, la más cercana al jugador (o null si no hay). */
+  private besideOf(target: Point): Point | null {
+    const state = this.getState();
+    const player = state.avatars[this.playerId];
+    if (!player) return null;
+    const walkable = createWalkableCheck(state, player.sceneId);
+    const around = [
+      { x: target.x + 1, y: target.y },
+      { x: target.x, y: target.y + 1 },
+      { x: target.x - 1, y: target.y },
+      { x: target.x, y: target.y - 1 },
+    ].filter((t) => walkable(t.x, t.y));
+    const dist = (t: Point) => Math.abs(t.x - player.x) + Math.abs(t.y - player.y);
+    return around.sort((a, b) => dist(a) - dist(b))[0] ?? null;
   }
 
   /** ¿Puede el jugador decorar la escena en la que está? */

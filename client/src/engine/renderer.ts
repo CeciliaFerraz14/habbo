@@ -18,6 +18,7 @@ import {
   type Scene,
   type Vehicle,
   vehicleLength,
+  vendorOf,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
 import type { VehicleView, VehicleViews } from '../game/vehicleViews';
@@ -106,7 +107,11 @@ export interface RenderInput {
 const INTERIOR_DARKNESS = 0.55;
 
 /** Algo de la escena en lo que se puede hacer clic. */
-export type PickTarget = { kind: 'furni'; item: FurniItem } | { kind: 'door'; door: Door };
+export type PickTarget =
+  | { kind: 'furni'; item: FurniItem }
+  | { kind: 'door'; door: Door }
+  /** Un vecino que vende exclusivos (los demás avatares no se pueden tocar). */
+  | { kind: 'vendor'; avatarId: string };
 
 /** Dónde se dibujó cada cosa "clicable" en el último fotograma, para saber qué hay bajo el ratón. */
 interface DrawnPickable {
@@ -527,6 +532,7 @@ export class Renderer {
     this.drawAtTile(SHADOW, view.x, view.y, camera, -SHADOW.width / 2, HALF_H - 2);
     const top = HALF_H + 2 - sprite.height + bob;
     const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
+    if (vendorOf(avatar.id)) this.drawn.push({ target: { kind: 'vendor', avatarId: avatar.id }, sprite, ...at });
     // Los avatares no dan luz, pero tapan las luces que tengan detrás.
     this.lighting.occlude(sprite, at.x, at.y);
     // En la caja, la gorra de la gasolinera; si no, el sombrero de vaquero si lo lleva.

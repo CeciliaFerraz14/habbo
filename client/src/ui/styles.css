@@ -436,6 +436,11 @@ body {
   vertical-align: 1px;
 }
 
+/* Vecinos que venden exclusivos: rosa neón, para que se vea que se les puede tocar. */
+.name-tag.vendor {
+  background: rgba(150, 30, 90, 0.85);
+}
+
 /* El tuyo, en mostaza para encontrarte de un vistazo. */
 .name-tag.me {
   color: var(--mustard-light);

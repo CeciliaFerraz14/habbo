@@ -19,4 +19,5 @@ export * from './simulation';
 export * from './sync';
 export * from './travelers';
 export * from './types';
+export * from './vendors';
 export * from './world';

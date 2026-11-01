@@ -43,6 +43,7 @@ import { addHome, buildLot, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
+import { buyFromVendor } from './vendors';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -219,6 +220,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setFacade(state, action.avatarId, action.lotId, action.facade);
     case 'CLOSE_BUSINESS':
       return closeBusiness(state, action.avatarId, action.lotId);
+    case 'BUY_FROM_VENDOR':
+      return buyFromVendor(state, action.avatarId, action.npcId, action.defId);
 
     // --- Gasolinera: la lógica está en gasStation.ts ---
     case 'BUY_MATERIAL':

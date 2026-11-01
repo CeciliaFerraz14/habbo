@@ -45,6 +45,7 @@ import { rockingChair } from './rockingChair';
 import { sofa } from './sofa';
 import { tire } from './tire';
 import { vintageFridge } from './vintageFridge';
+import { gasPump, lavaLamp, neonCactus, pinkFlamingo, retroTv, wagonWheel } from './vendorItems';
 
 export const MODELS: Record<FurniId, ModelSource> = {
   // Muebles
@@ -90,6 +91,13 @@ export const MODELS: Record<FurniId, ModelSource> = {
   // Exclusivos (recompensas de rango) y la estatua del alcalde
   name_sign: nameSign,
   golden_jukebox: goldenJukebox,
+  // Exclusivos que venden los vecinos
+  pink_flamingo: pinkFlamingo,
+  lava_lamp: lavaLamp,
+  wagon_wheel: wagonWheel,
+  gas_pump: gasPump,
+  neon_cactus: neonCactus,
+  retro_tv: retroTv,
   mayor_statue: mayorStatue,
   // Plazas
   fountain,

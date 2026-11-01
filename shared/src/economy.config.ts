@@ -8,7 +8,7 @@
 // Los tiempos se escriben en SEGUNDOS para que sean fáciles de leer. La
 // simulación los convierte a ticks (ver secondsToTicks en economy.ts).
 // =============================================================================
-import type { DecorId, FurniId } from './catalog';
+import type { DecorId, FurniId, VendorItemId } from './catalog';
 
 export type BusinessType =
   | 'scrapyard'
@@ -231,6 +231,12 @@ export interface RankConfig {
   /** XP total necesaria para llegar a este rango. */
   xp: number;
   reward: RankReward | null;
+}
+
+/** Un vecino que vende exclusivos: su frase al abrir la ventana y lo que vende. */
+export interface Vendor {
+  pitch: string;
+  items: { defId: VendorItemId; price: number }[];
 }
 
 export interface Recipe {
@@ -510,6 +516,35 @@ export const ECONOMY = {
     /** No repone si ya tiene tantos productos a la venta. */
     targetStock: 6,
   },
+
+  /**
+   * Vecinos que venden muebles EXCLUSIVOS (no se fabrican ni se venden en las
+   * tiendas). Se les compra en persona: tocando al vecino, estando cerca. Es
+   * una salida de dinero: los precios están por encima de los muebles normales.
+   */
+  vendors: {
+    'npc-dolores': {
+      pitch: 'Cosas de mi casa que ya no caben. ¡Están como nuevas!',
+      items: [
+        { defId: 'pink_flamingo', price: 150 },
+        { defId: 'lava_lamp', price: 240 },
+      ],
+    },
+    'npc-tito': {
+      pitch: 'Esto lo rescaté de la Ruta cuando era joven. Ya no se hace.',
+      items: [
+        { defId: 'wagon_wheel', price: 180 },
+        { defId: 'gas_pump', price: 360 },
+      ],
+    },
+    'npc-nina': {
+      pitch: 'Lo hago yo misma en el garaje. ¡No lo vas a ver en otro sitio!',
+      items: [
+        { defId: 'neon_cactus', price: 220 },
+        { defId: 'retro_tv', price: 280 },
+      ],
+    },
+  } as Record<string, Vendor>,
 
   /** Recetas del taller: qué cuesta fabricar cada mueble. */
   recipes: {

@@ -2,7 +2,7 @@
 //
 // Igual que los bocadillos: elementos HTML (texto nítido) recolocados en cada
 // fotograma sobre la cabeza de cada avatar.
-import { levelOf, type GameState } from '@juego/shared';
+import { levelOf, vendorOf, type GameState } from '@juego/shared';
 import type { Camera } from '../engine/camera';
 import type { Point } from '../engine/iso';
 import type { Renderer } from '../engine/renderer';
@@ -39,7 +39,9 @@ export class NameTags {
     const seen = new Set<string>();
     for (const avatar of Object.values(state.avatars)) {
       const view = views.get(avatar.id);
-      if (avatar.isBot || avatar.sceneId !== sceneId || !view) continue;
+      // De los NPC, solo llevan cartel los vecinos que venden exclusivos.
+      const vendor = avatar.isBot && !!vendorOf(avatar.id);
+      if ((avatar.isBot && !vendor) || avatar.sceneId !== sceneId || !view) continue;
       seen.add(avatar.id);
 
       let tag = this.tags.get(avatar.id);
@@ -47,6 +49,7 @@ export class NameTags {
         tag = document.createElement('div');
         tag.className = 'name-tag';
         tag.classList.toggle('me', avatar.id === playerId);
+        tag.classList.toggle('vendor', vendor);
         this.layer.append(tag);
         this.tags.set(avatar.id, tag);
       }
@@ -56,7 +59,8 @@ export class NameTags {
       const key = `${level}|${avatar.name}`;
       if (tag.dataset.key !== key) {
         tag.dataset.key = key;
-        tag.replaceChildren(levelBadge(level), document.createTextNode(avatar.name));
+        if (vendor) tag.textContent = `${avatar.name} · Vende exclusivos`;
+        else tag.replaceChildren(levelBadge(level), document.createTextNode(avatar.name));
       }
       const head = toScreen(renderer.avatarHeadPosition(state, avatar, view, camera));
       const x = Math.round(head.x - tag.offsetWidth / 2);

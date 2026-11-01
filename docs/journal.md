@@ -2,6 +2,33 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Exclusivos que venden los vecinos
+
+**Qué se hizo**
+- Seis muebles exclusivos nuevos, que solo venden los vecinos (`ECONOMY.vendors`, `shared/src/vendors.ts`):
+  - Dolores: flamenco rosa ($150) y lámpara de lava ($240).
+  - Abuelo Tito: rueda de carreta ($180) y surtidor antiguo ($360).
+  - Nina: cactus de neón ($220) y televisor retro ($280).
+- Como los exclusivos de rango, no se fabrican, no se venden en las tiendas y Hank no los pide.
+- Al tocar a un vecino que vende, andas a su lado y se abre su ventana (`ui/vendorWindow.ts`). Solo se compra a 2 baldosas o menos (`BUY_FROM_VENDOR`); el dinero sale de la economía.
+- Mientras tienen un jugador al lado, los vecinos se quedan quietos atendiéndole. Llevan un cartel rosa: "Nombre · Vende exclusivos".
+- El renderer registra a los vecinos vendedores como algo que se puede tocar (`PickTarget` 'vendor').
+- Modelos en `client/src/sprites/furniture/vendorItems.ts`.
+- Comprobado con un script (lejos no compra, sin dinero no compra, no vende lo de otro vecino, se queda quieto) y en Chrome (tocar a Nina, comprar el televisor, aviso y "¡Gracias!").
+
+**Decisiones**
+- No hace falta migración: el inventario guarda `def_id` como texto.
+
+## 2026-11-01 · Andar el doble de rápido
+
+**Qué se hizo**
+- Los avatares andan 2 baldosas por tick (`WALK_STEPS_PER_TICK` en `shared/src/constants.ts`): unas 5 baldosas por segundo en vez de 2,5. Esto vale para todos, también los vecinos y los viajeros.
+- El cliente (`client/src/game/avatarViews.ts`) anima el paso baldosa a baldosa. Saca las baldosas por las que ha pasado el avatar de su camino anterior y las recorre a la misma velocidad, así que no corta esquinas aunque entre dos estados haya avanzado dos.
+- Comprobado con un script a 60 fps sobre un camino con giros: avanza como mucho 0,08 baldosas por fotograma y no se sale del camino en ningún momento.
+
+**Decisiones**
+- No se ha acortado el tick (400 ms). Los tiempos guardados (alquiler, obras, fabricación, subvención, día de la XP...) están en ticks, y cambiar su duración los habría descuadrado todos.
+
 ## 2026-11-01 · Avenida de las Plazas y mapa del pueblo
 
 **Qué se hizo**

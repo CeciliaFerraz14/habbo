@@ -61,11 +61,21 @@ export type StructureId =
   | 'park_bench';
 
 /**
- * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango. Se colocan
- * como cualquier mueble, pero no se fabrican, no se venden en tiendas y Hank
- * no los pide.
+ * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango o
+ * comprándoselos a los vecinos del pueblo (ver vendors.ts). Se colocan como
+ * cualquier mueble, pero no se fabrican, no se venden en tiendas y Hank no
+ * los pide.
  */
-export type ExclusiveId = 'name_sign' | 'golden_jukebox';
+export type ExclusiveId = 'name_sign' | 'golden_jukebox' | VendorItemId;
+
+/** Exclusivos que venden los vecinos (ver ECONOMY.vendors). */
+export type VendorItemId =
+  | 'pink_flamingo'
+  | 'lava_lamp'
+  | 'wagon_wheel'
+  | 'gas_pump'
+  | 'neon_cactus'
+  | 'retro_tv';
 
 export type FurniId = DecorId | ExclusiveId | StructureId;
 
@@ -97,7 +107,7 @@ export interface FurniDef {
   walkable: boolean;
   /** Estructura fija del escenario: no se puede mover, recoger ni comprar. */
   fixed?: true;
-  /** Recompensa de rango: no se fabrica ni se vende (ver ExclusiveId). */
+  /** Exclusivo: no se fabrica ni se vende en las tiendas (ver ExclusiveId). */
   exclusive?: true;
 }
 
@@ -110,6 +120,11 @@ function decor(
   sittable = false,
 ): FurniDef {
   return { id, name, width, depth, sittable, walkable: false };
+}
+
+/** Atajo para definir los exclusivos que venden los vecinos. */
+function vendorItem(id: VendorItemId, name: string): FurniDef {
+  return { id, name, width: 1, depth: 1, sittable: false, walkable: false, exclusive: true };
 }
 
 /** Atajo para definir estructuras fijas (no sentables ni pisables). */
@@ -160,6 +175,13 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   // Exclusivos (recompensas de rango)
   name_sign: { id: 'name_sign', name: 'Cartel de neón con tu nombre', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
   golden_jukebox: { id: 'golden_jukebox', name: 'Jukebox dorada', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
+  // Exclusivos de los vecinos
+  pink_flamingo: vendorItem('pink_flamingo', 'Flamenco rosa'),
+  lava_lamp: vendorItem('lava_lamp', 'Lámpara de lava'),
+  wagon_wheel: vendorItem('wagon_wheel', 'Rueda de carreta'),
+  gas_pump: vendorItem('gas_pump', 'Surtidor antiguo'),
+  neon_cactus: vendorItem('neon_cactus', 'Cactus de neón'),
+  retro_tv: vendorItem('retro_tv', 'Televisor retro'),
   mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
   fountain: structure('fountain', 'Fuente', 2, 2),
   // Banco de la plaza: fijo, pero se puede uno sentar.
