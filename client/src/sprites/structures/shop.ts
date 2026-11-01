@@ -52,6 +52,7 @@ function parseVariant(variant: string | undefined): ShopLook {
 }
 
 export function shop(variant: string | undefined): FurniModel {
+  if (variant === 'construction') return construction();
   const look = parseVariant(variant);
   const { open, facade } = look;
   // Las piezas de neón: apagadas son tubos grises; encendidas, dan luz.
@@ -118,6 +119,50 @@ function closedFront(): Box[] {
     box(63, 36, 14, 64, 62, 17, PLANK),
     box(63, 36, 25, 64, 62, 28, PLANK),
   ];
+}
+
+/** Panel amarillo de "obras" en el andamio; el texto lo escribe la interfaz (ui/furniLabels.ts). */
+export const WORKS_SIGN = { x: 66, y0: 18, y1: 46, z0: 8, z1: 18 };
+
+/**
+ * Local en obras (construido en un solar, ver buildLot): losa, muros a medio
+ * levantar, la estructura de madera y un andamio delante con su cartel.
+ */
+function construction(): FurniModel {
+  const steel = '#8a8f96';
+  const post = (x: number, y: number): Box => box(x, y, 3, x + 3, y + 3, 44, PLANK);
+  return {
+    boxes: [
+      // Losa de hormigón y muros a medio subir
+      box(0, 0, 0, 64, 64, 3, '#bdb4a2'),
+      box(0, 2, 3, 56, 62, 22, BACK_WALL),
+      box(56, 0, 3, 62, 18, 30, '#c9a77a'),
+      box(56, 32, 3, 62, 64, 16, '#c9a77a'),
+      // Estructura de madera: postes y vigas de arriba
+      post(0, 2),
+      post(0, 59),
+      post(28, 2),
+      post(28, 59),
+      post(53, 2),
+      post(53, 59),
+      box(0, 2, 41, 56, 5, 44, PLANK),
+      box(0, 59, 41, 56, 62, 44, PLANK),
+      box(53, 2, 41, 56, 62, 44, PLANK),
+      // Andamio delante de la fachada: tubos y dos plataformas
+      box(64, 2, 0, 65, 4, 56, steel),
+      box(64, 30, 0, 65, 32, 56, steel),
+      box(64, 60, 0, 65, 62, 56, steel),
+      box(62, 2, 26, 68, 62, 28, PLANK),
+      box(62, 2, 52, 68, 62, 54, PLANK),
+      // Cartel de obras, amarillo con franjas negras arriba y abajo
+      box(65, 16, 6, 66, 48, 20, '#f0c020'),
+      box(66, 16, 18, 67, 48, 20, '#2a2030'),
+      box(66, 16, 6, 67, 48, 8, '#2a2030'),
+      // Ladrillos y un saco de cemento esperando
+      box(4, 8, 3, 14, 18, 9, '#c0603c'),
+      box(40, 40, 3, 48, 50, 8, '#e8e0cc'),
+    ],
+  };
 }
 
 /** Lo que distingue a cada plantilla: ventanas, zócalos, persianas, toldos... */

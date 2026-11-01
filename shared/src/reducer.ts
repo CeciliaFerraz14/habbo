@@ -39,7 +39,7 @@ import { canPlaceFurni } from './furniture';
 import { isInsideScene } from './scene';
 import { addDailyXp, markSeen, perksOf } from './levels';
 import { isValidLook, sanitizeLook } from './looks';
-import { addHome, createTrailer, nextHomeSlot } from './world';
+import { addHome, buildLot, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
 import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
@@ -189,6 +189,8 @@ export function applyAction(state: GameState, action: Action): GameState {
     // --- Negocios: la lógica está en economy.ts ---
     case 'RENT_LOT':
       return rentLot(state, action.avatarId, action.lotId, action.business);
+    case 'BUILD_LOT':
+      return buildLot(state, action.avatarId, action.solar);
     case 'COLLECT_MATERIALS':
       return collectMaterials(state, action.avatarId, action.lotId);
     case 'CRAFT':

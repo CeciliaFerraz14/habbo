@@ -39,6 +39,7 @@ const CLIENT_ACTIONS = new Set<Action['type']>([
   'MOVE_FURNI',
   'PICKUP_FURNI',
   'RENT_LOT',
+  'BUILD_LOT',
   'COLLECT_MATERIALS',
   'CRAFT',
   'COLLECT_CRAFTED',

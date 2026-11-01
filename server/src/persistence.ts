@@ -19,9 +19,11 @@ import {
   buildingVariant,
   createInitialState,
   createTrailer,
+  addBuiltLot,
   addHome,
   lotSceneName,
   nextHomeSlot,
+  solarOfLot,
   withStatue,
   type AvatarLook,
   type FurniItem,
@@ -63,6 +65,7 @@ function rowToLot(row: Record<string, any>): Lot {
     nextProductionAt: Number(row.next_production_at),
     nextRestockAt: Number(row.next_restock_at),
     nextRentAt: Number(row.next_rent_at),
+    ...(row.built_by ? { builtBy: row.built_by, readyAt: Number(row.ready_at ?? 0) } : {}),
   };
 }
 
@@ -80,6 +83,8 @@ function lotToRow(lot: Lot) {
     next_production_at: lot.nextProductionAt,
     next_restock_at: lot.nextRestockAt,
     next_rent_at: lot.nextRentAt,
+    built_by: lot.builtBy ?? null,
+    ready_at: lot.readyAt ?? 0,
   };
 }
 
@@ -163,6 +168,13 @@ export class Persistence {
       state = addHome(state, p.id, p.home_slot ?? nextHomeSlot(state));
     }
 
+    // 2b. Locales construidos en los solares del Ensanche: su edificio, su
+    //     puerta y su interior (el resto del local viene con los demás, abajo).
+    for (const row of lotRows) {
+      const k = solarOfLot(row.id);
+      if (k !== null && row.built_by) state = addBuiltLot(state, k, row.built_by, Number(row.ready_at ?? 0));
+    }
+
     // 2. Locales. Si hay locales guardados, los muebles de los locales del
     //    mundo inicial (género generado de las tiendas NPC) se sustituyen por
     //    los guardados.
@@ -178,7 +190,7 @@ export class Persistence {
         lotMap[lot.id] = lot;
         // El edificio y el nombre del local se deducen del propio local.
         const building = furniMap[`${lot.id}-building`];
-        if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot) };
+        if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot, state.tick) };
         if (scenes[lot.id]) scenes[lot.id] = { ...scenes[lot.id], name: lotSceneName(lot) };
       }
     }

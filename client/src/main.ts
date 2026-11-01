@@ -4,10 +4,12 @@ import {
   DEFAULT_LOOK,
   ECONOMY,
   GAME_NAME,
+  isUnderConstruction,
   isValidLook,
   levelOf,
   perksOf,
   progressOf,
+  secondsToTicks,
   SCENES,
   subsidyAmount,
   subsidyTicksLeft,
@@ -28,6 +30,7 @@ import { DoorStates } from './game/doorStates';
 import { VehicleViews } from './game/vehicleViews';
 import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
+import { createBuildWindow } from './ui/buildWindow';
 import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
 import { LotSigns } from './ui/lotSigns';
@@ -199,7 +202,20 @@ const controller = new GameController(
   (p) => renderer.pickAt(p.x, p.y),
   {
     notify: showToast,
-    openRent: (lotId) => rentWindow.open(lotId, state, PLAYER_ID),
+    openRent: (lotId) => {
+      // Un local construido: en obras no se puede entrar, y cerrado solo lo
+      // abre su dueño.
+      const lot = state.lots[lotId];
+      if (lot && isUnderConstruction(lot, state.tick)) {
+        const minutes = Math.max(1, Math.ceil(((lot.readyAt ?? 0) - state.tick) / secondsToTicks(60)));
+        showToast(`${lot.label} está en obras: faltan ${minutes} min.`);
+      } else if (lot?.builtBy && lot.builtBy !== PLAYER_ID) {
+        showToast(`${lot.label}: local de ${state.progress[lot.builtBy]?.name ?? 'otro vecino'}, ahora cerrado.`);
+      } else {
+        rentWindow.open(lotId, state, PLAYER_ID);
+      }
+    },
+    openBuild: (solar) => buildWindow.open(solar, state, PLAYER_ID),
     openBusiness: (lotId) => {
       businessWindow.open(lotId);
       businessWindow.update(state, PLAYER_ID);
@@ -262,8 +278,12 @@ const wallet = createWallet(
   },
 );
 const rentWindow = createRentWindow((lotId, business) => {
+  const own = state.lots[lotId]?.builtBy === PLAYER_ID;
   transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
-  showToast('¡Local alquilado! Ya puedes entrar.');
+  showToast(own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.');
+});
+const buildWindow = createBuildWindow((solar) => {
+  transport.dispatch({ type: 'BUILD_LOT', avatarId: PLAYER_ID, solar });
 });
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>

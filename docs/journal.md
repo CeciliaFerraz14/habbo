@@ -2,6 +2,20 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-01 · Construir locales: el Ensanche
+
+**Qué se hizo**
+- La Calle Mayor sigue pasada la gasolinera por **el Ensanche**: solares en venta (`solar`, 4x4, con su cartel de "SE VENDE"). Siempre hay `ECONOMY.building.freeSolares` (2) libres; al construir en uno, aparece otro al final y la calle se alarga (`ensureSolares` en `shared/src/world.ts`).
+- Construir (`BUILD_LOT`, `buildLot`): $300 + 20 de chapa + 20 de madera vieja, 60 XP, sin nivel mínimo. La obra dura 3 minutos (edificio en obras, variante `construction`, con andamio y cartel de OBRAS). Al acabar (`finishConstructions` en el tick), el dueño recibe un aviso y el local aparece cerrado.
+- El local es de quien lo construye (`Lot.builtBy`, `readyAt`): abrir un negocio en él no cuesta fianza, no paga alquiler, no se pierde por no venir y, si cierra el negocio, sigue siendo suyo (`closeLot` lo conserva). Solo él puede abrirlo.
+- Interfaz: ventana del solar (`ui/buildWindow.ts`) con lo que tienes y lo que hace falta. La ventana de alquiler, en tu local construido, dice "Tu local" y "Abrir". Si tocas un local en obras o un local ajeno cerrado, sale un aviso. El tablón tiene una sección de solares, y el cartel de dónde estás dice "El Ensanche".
+- Persistencia: columnas `built_by` y `ready_at` en `lots` (migración 008). Al cargar el mundo, `addBuiltLot` vuelve a poner el edificio, la puerta y el interior de cada local construido.
+- Comprobado: script (sin materiales no deja, cobra, abre otro solar, en obras no se abre, al acabar avisa, otro no puede abrirlo, el dueño abre gratis, no paga alquiler, al cerrar sigue siendo suyo) y en Chrome (solares, obra, ventana).
+
+**Decisiones**
+- Los solares van al final de la Calle Mayor, no en las plazas: allí no caben más edificios mirando a la cámara, y la calle ya tenía acera y carretera para alargarse.
+- Ids `lot-e1`, `lot-e2`... ("Ensanche 1", "Ensanche 2"...), para no chocar con los locales de las parcelas (`lot7`, `lot8`...).
+
 ## 2026-11-01 · Logos de neón y fachadas más altas
 
 **Qué se hizo**

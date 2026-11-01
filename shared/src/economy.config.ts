@@ -266,6 +266,20 @@ export const ECONOMY = {
   },
 
   /**
+   * Construir un local en un solar del Ensanche (al final de la Calle Mayor):
+   * se paga el precio y los materiales, la obra dura unos minutos y el local es
+   * de quien lo construye para siempre: no paga alquiler y, si cierra el
+   * negocio, el local sigue siendo suyo (abrir otro en él no cuesta fianza).
+   */
+  building: {
+    price: 300,
+    materials: { sheet_metal: 20, old_wood: 20 } as Materials,
+    seconds: 3 * 60,
+    /** Solares libres que hay siempre a la venta (al construir en uno, se abre otro). */
+    freeSolares: 2,
+  },
+
+  /**
    * Subvención del pueblo: un ingreso fijo que cada jugador recoge a mano
    * (entrada de dinero). Es una red de seguridad, no un sueldo: conviene que
    * sea parecida al alquiler más barato para no restar interés a los viajeros.
@@ -296,6 +310,8 @@ export const ECONOMY = {
       shift: 10,
       /** Alquilar un local y abrir un negocio. */
       openBusiness: 30,
+      /** Construir un local en un solar. */
+      build: 60,
       /** Entrar a jugar (una vez al día). */
       daily: 5,
     },

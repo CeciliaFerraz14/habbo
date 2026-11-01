@@ -16,6 +16,7 @@ import {
   isDoorLocked,
   isInsideScene,
   lotOfStation,
+  solarOf,
   type Door,
   type FurniId,
   type GameState,
@@ -44,6 +45,8 @@ export interface ControllerEvents {
   notify: (message: string) => void;
   /** Abre la ventana para alquilar un local libre. */
   openRent: (lotId: string) => void;
+  /** Abre la ventana de un solar en venta, para construir en él. */
+  openBuild: (solar: number) => void;
   /** Abre la ventana de gestión de un negocio. */
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
@@ -254,6 +257,12 @@ export class GameController {
         if (item.defId === 'notice_board') return this.events.openBoard();
         if (item.defId === 'soda_machine') return this.events.useMachine('soda');
         if (item.defId === 'arcade_cabinet') return this.events.useMachine('pinball');
+        // Solar en venta: vamos delante del cartel y abrimos su ventana.
+        const solar = solarOf(item.id);
+        if (solar !== null) {
+          this.moveTo({ x: item.x + 2, y: item.y + 5 });
+          return this.events.openBuild(solar);
+        }
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
         if (door) this.goToDoor(door);

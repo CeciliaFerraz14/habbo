@@ -34,6 +34,8 @@ export type Action =
   // --- Negocios ---
   /** Alquilar un local libre y abrir en él un negocio. */
   | { type: 'RENT_LOT'; avatarId: string; lotId: string; business: BusinessType }
+  /** Construir un local en el solar número `solar` del Ensanche (ver buildLot). */
+  | { type: 'BUILD_LOT'; avatarId: string; solar: number }
   /** Productores (chatarrería, pozo...): recoger los materiales producidos. */
   | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
   /** Taller: empezar a fabricar un mueble. */

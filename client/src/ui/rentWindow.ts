@@ -1,4 +1,6 @@
-// Ventana para alquilar un local libre y elegir qué negocio abrir en él.
+// Ventana para alquilar un local libre y elegir qué negocio abrir en él. En un
+// local construido por el propio jugador (ver buildLot) no hay alquiler ni
+// fianza: solo se elige el negocio.
 import {
   BUSINESS_TYPES,
   ECONOMY,
@@ -28,12 +30,15 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
     const lot = state.lots[lotId];
     if (!lot) return;
     currentLot = lotId;
-    win.setTitle(`En alquiler: ${lot.label}`);
+    const own = lot.builtBy === playerId;
+    win.setTitle(own ? `Tu local: ${lot.label}` : `En alquiler: ${lot.label}`);
     const money = state.money[playerId] ?? 0;
 
     const intro = document.createElement('p');
     intro.className = 'hint';
-    intro.textContent = 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+    intro.textContent = own
+      ? 'Es tuyo: elige qué negocio abrir. No pagas fianza ni alquiler.'
+      : 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
 
     const list = document.createElement('div');
     list.className = 'option-list';
@@ -56,8 +61,8 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
 
       const button = document.createElement('button');
       button.className = 'btn btn-small';
-      button.textContent = `Alquilar · ${formatMoney(config.deposit)}`;
-      button.disabled = money < config.deposit;
+      button.textContent = own ? 'Abrir' : `Alquilar · ${formatMoney(config.deposit)}`;
+      button.disabled = !own && money < config.deposit;
       if (button.disabled) button.title = 'No tienes dinero suficiente';
       button.addEventListener('click', () => onRent(lotId, type));
 

@@ -19,6 +19,7 @@ import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
 import { shop } from '../structures/shop';
 import { shopCounter } from '../structures/shopCounter';
+import { solar } from '../structures/solar';
 import { sodaMachine } from '../structures/sodaMachine';
 import { streetLamp } from '../structures/streetLamp';
 import { trailer } from '../structures/trailer';
@@ -70,6 +71,7 @@ export const MODELS: Record<FurniId, ModelSource> = {
   street_lamp: streetLamp,
   saguaro,
   welcome_sign: welcomeSign,
+  solar,
   // Puestos de trabajo de los negocios
   scrap_pile: scrapPile,
   workbench,

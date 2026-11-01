@@ -5,7 +5,7 @@
 // Plano de la calle (x hacia la derecha, y hacia abajo; en pantalla la
 // carretera queda en diagonal):
 //
-//   y 0-3   [caravana 1]  [local1] ... [local6]  [gasolinera]
+//   y 0-3   [caravana 1]  [local1] ... [local6]  [gasolinera]  [Ensanche: solares]
 //   y 4     acera con las puertas (D) de los edificios (la de la gasolinera, en x = 39)
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
@@ -18,7 +18,21 @@
 // zonas cuadradas con edificios en los dos lados que se ven de frente (arriba
 // y a la izquierda) y una fuente en medio. Caben 4 parcelas por plaza; cuando
 // se llena, se abre la siguiente a su derecha y el mapa se ensancha. Ver addHome.
-import { createLot, setupNpcStores } from './economy';
+//
+// Además, pasada la gasolinera, la calle sigue por el ENSANCHE: solares en
+// venta donde los jugadores construyen locales propios. Siempre hay alguno
+// libre; al construir en uno, aparece otro al final. Ver buildLot.
+import {
+  addMaterials,
+  addNotice,
+  buildingVariant,
+  createLot,
+  hasMaterials,
+  secondsToTicks,
+  setupNpcStores,
+} from './economy';
+import { ECONOMY } from './economy.config';
+import { addXpFor } from './levels';
 import type { Lot } from './economy';
 import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
@@ -86,9 +100,8 @@ function streetGround(width: number, plazas: number): string[] {
   return rows;
 }
 
-/** Puerta del local número n en la escena de fuera (calle o plaza). */
-function lotDoor(n: number, spot: DoorSpot): Door {
-  const id = lotId(n);
+/** Puerta del local `id` en la escena de fuera (calle o plaza). */
+function lotDoor(id: string, spot: DoorSpot): Door {
   return {
     id: `door-${id}`,
     ...spot,
@@ -98,12 +111,11 @@ function lotDoor(n: number, spot: DoorSpot): Door {
   };
 }
 
-/** Interior del local número n: una sala vacía de 8x8 con la puerta en la pared izquierda. */
-function lotInterior(n: number, outsideSceneId: string): Scene {
-  const id = lotId(n);
+/** Interior del local `id`: una sala vacía de 8x8 con la puerta en la pared izquierda. */
+function lotInterior(id: string, name: string, outsideSceneId: string): Scene {
   return {
     id,
-    name: `Local ${n}`,
+    name,
     kind: 'interior',
     theme: 'adobe',
     width: 8,
@@ -120,9 +132,9 @@ function lotInterior(n: number, outsideSceneId: string): Scene {
   };
 }
 
-/** Edificio del local número n (con tablones mientras está en alquiler). */
-function lotBuilding(n: number, sceneId: string, x: number, y: number, rotation: 0 | 1): FurniItem {
-  return { id: `${lotId(n)}-building`, sceneId, defId: 'shop', x, y, rotation, variant: 'closed' };
+/** Edificio del local `id` (con tablones mientras está en alquiler). */
+function lotBuilding(id: string, sceneId: string, x: number, y: number, rotation: 0 | 1, variant = 'closed'): FurniItem {
+  return { id: `${id}-building`, sceneId, defId: 'shop', x, y, rotation, variant };
 }
 
 /** Puerta de la calle del local n del pueblo original (en la acera, frente a su tercera baldosa). */
@@ -142,9 +154,9 @@ function createScenes(): Scene[] {
       to: { sceneId: SCENES.gas, doorId: 'gas-exit' },
       buildingId: 'gas-station',
     },
-    ...BASE_LOT_XS.map((x, i) => lotDoor(i + 1, baseLotSpot(x))),
+    ...BASE_LOT_XS.map((x, i) => lotDoor(lotId(i + 1), baseLotSpot(x))),
   ];
-  const lotInteriors = BASE_LOT_XS.map((_, i) => lotInterior(i + 1, s));
+  const lotInteriors = BASE_LOT_XS.map((_, i) => lotInterior(lotId(i + 1), `Local ${i + 1}`, s));
 
   return [
     {
@@ -202,7 +214,7 @@ function createStreetStructures(): FurniItem[] {
     // Con rotación 1 la fachada mira a la carretera (+y).
     { id: 'gas-station', sceneId: s, defId: 'gas_station', x: 38, y: 0, rotation: 1 },
     { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 1, y: 11, rotation: 1 },
-    ...BASE_LOT_XS.map((x, i) => lotBuilding(i + 1, s, x, 0, 1)),
+    ...BASE_LOT_XS.map((x, i) => lotBuilding(lotId(i + 1), s, x, 0, 1)),
   ];
 
   // Farolas a lo largo de la acera, junto al bordillo.
@@ -305,6 +317,7 @@ const PLAZA_NAMES = [
  * plaza si cae en una (para el cartel de dónde estás), o null.
  */
 export function areaNameAt(state: GameState, x: number, y: number): string | null {
+  if (y <= 6 && x >= SOLAR_X0 - 1) return 'El Ensanche';
   const p = plazaAt(x, y);
   if (p === null || !state.furniture[`plaza-${p}:fountain`]) return null;
   return PLAZA_NAMES[p - 1] ?? `Plaza ${p}`;
@@ -443,10 +456,10 @@ export function addHome(state: GameState, playerId: string, slot: number): GameS
   if (layout.lot && layout.lotDoor) {
     const n = BASE_LOT_XS.length + slot;
     const { x, y, rotation } = at(layout.lot);
-    const building = lotBuilding(n, s, x, y, rotation);
+    const building = lotBuilding(lotId(n), s, x, y, rotation);
     furniture[building.id] = building;
-    doors.push(lotDoor(n, spot(layout.lotDoor)));
-    scenes[lotId(n)] = lotInterior(n, s);
+    doors.push(lotDoor(lotId(n), spot(layout.lotDoor)));
+    scenes[lotId(n)] = lotInterior(lotId(n), `Local ${n}`, s);
     // Si el local ya existía (mundo guardado), se conserva tal cual.
     if (!lots[lotId(n)]) lots = { ...lots, [lotId(n)]: createLot(lotId(n), `Local ${n}`) };
   }
@@ -458,6 +471,111 @@ export function addHome(state: GameState, playerId: string, slot: number): GameS
 export function nextHomeSlot(state: GameState): number {
   const slots = Object.values(state.homes);
   return slots.length === 0 ? 0 : Math.max(...slots) + 1;
+}
+
+// --- El Ensanche: solares para construir locales ------------------------------------
+
+/** Columna del primer solar (pasada la gasolinera) y distancia entre solares. */
+const SOLAR_X0 = 45;
+const SOLAR_STEP = 5;
+
+/** Id del local construido en el solar k (empezando en 0), y del cartel del solar. */
+export const builtLotId = (k: number) => `lot-e${k + 1}`;
+const solarItemId = (k: number) => `solar-${k}`;
+
+/** Número de solar de un cartel de solar (o null si el mueble no es uno). */
+export function solarOf(itemId: string): number | null {
+  const m = /^solar-(\d+)$/.exec(itemId);
+  return m ? Number(m[1]) : null;
+}
+
+/** Número de solar de un local construido (o null si no lo es). */
+export function solarOfLot(lotId: string): number | null {
+  const m = /^lot-e(\d+)$/.exec(lotId);
+  return m ? Number(m[1]) - 1 : null;
+}
+
+/** Plazas abiertas (para regenerar el suelo de la calle). */
+function openPlazas(state: GameState): number {
+  let p = 0;
+  while (state.furniture[`plaza-${p + 1}:fountain`]) p++;
+  return p;
+}
+
+/**
+ * Pone los carteles de los solares libres: tantos como haga falta para que
+ * haya ECONOMY.building.freeSolares a la venta (y los huecos que alguien se
+ * haya saltado). La calle se alarga para que quepan.
+ */
+function ensureSolares(state: GameState): GameState {
+  const built = Object.keys(state.lots)
+    .map(solarOfLot)
+    .filter((k): k is number => k !== null);
+  const total = Math.max(built.length + ECONOMY.building.freeSolares, Math.max(-1, ...built) + 1);
+  const furniture = { ...state.furniture };
+  for (let k = 0; k < total; k++) {
+    if (state.lots[builtLotId(k)] || furniture[solarItemId(k)]) continue;
+    furniture[solarItemId(k)] = {
+      id: solarItemId(k),
+      sceneId: SCENES.street,
+      defId: 'solar',
+      x: SOLAR_X0 + k * SOLAR_STEP,
+      y: 0,
+      rotation: 1,
+    };
+  }
+  const street = state.scenes[SCENES.street];
+  const width = Math.max(street.width, SOLAR_X0 + total * SOLAR_STEP);
+  const scenes =
+    width === street.width
+      ? state.scenes
+      : { ...state.scenes, [SCENES.street]: { ...street, width, ground: streetGround(width, openPlazas(state)) } };
+  return { ...state, furniture, scenes };
+}
+
+/**
+ * Pone en el mapa el local construido en el solar k: su edificio (en obras
+ * hasta readyAt), su puerta y su interior. Quita el cartel del solar y abre
+ * otro solar si hace falta. Se usa al construir y al cargar el mundo guardado.
+ */
+export function addBuiltLot(state: GameState, k: number, builtBy: string, readyAt: number): GameState {
+  const id = builtLotId(k);
+  const label = `Ensanche ${k + 1}`;
+  const x = SOLAR_X0 + k * SOLAR_STEP;
+  const s = SCENES.street;
+  const lot = state.lots[id] ?? { ...createLot(id, label), builtBy, readyAt };
+  const furniture = { ...state.furniture };
+  delete furniture[solarItemId(k)];
+  furniture[`${id}-building`] = lotBuilding(id, s, x, 0, 1, buildingVariant(lot, state.tick));
+  const street = state.scenes[s];
+  const scenes = {
+    ...state.scenes,
+    [s]: { ...street, doors: [...street.doors.filter((d) => d.lotId !== id), lotDoor(id, baseLotSpot(x))] },
+    [id]: lotInterior(id, label, s),
+  };
+  return ensureSolares({ ...state, furniture, scenes, lots: { ...state.lots, [id]: lot } });
+}
+
+/**
+ * Construir un local en el solar k: se pagan el precio y los materiales de
+ * ECONOMY.building, empieza la obra y el local será de quien lo construye.
+ */
+export function buildLot(state: GameState, avatarId: string, k: number): GameState {
+  const avatar = state.avatars[avatarId];
+  const { price, materials, seconds } = ECONOMY.building;
+  const money = state.money[avatarId] ?? 0;
+  const mine = state.materials[avatarId] ?? {};
+  if (!avatar || avatar.isBot || !Number.isInteger(k) || !state.furniture[solarItemId(k)]) return state;
+  if (money < price || !hasMaterials(mine, materials)) return state;
+
+  let next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: money - price },
+    materials: { ...state.materials, [avatarId]: addMaterials(mine, materials, -1) },
+  };
+  next = addBuiltLot(next, k, avatarId, state.tick + secondsToTicks(seconds));
+  next = addNotice(next, avatarId, `¡Empieza la obra del Ensanche ${k + 1}! Estará lista en ${Math.round(seconds / 60)} minutos.`);
+  return addXpFor(next, avatarId, 'build');
 }
 
 export function createInitialState(): GameState {
@@ -492,5 +610,6 @@ export function createInitialState(): GameState {
   };
   // Las tiendas de los NPC abren desde el principio, los vecinos salen a la
   // calle y Hank se pone detrás de su mostrador.
-  return setupNeighbors(setupNpcStores(state));
+  // Y al final de la calle, los solares del Ensanche.
+  return ensureSolares(setupNeighbors(setupNpcStores(state)));
 }
