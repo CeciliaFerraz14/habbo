@@ -2,6 +2,20 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Campo de algodón, bar y recreativos
+
+**Qué se hizo**
+- `shared/src/economy.config.ts`: negocios `cotton_field` (productor de tela), `bar` y `arcade` (servicios) en el orden de la ventana de alquiler, y fachadas `saloon` y `arcade`.
+- `shared/src/catalog.ts` y `economy.ts`: estructuras `cotton_bed`, `bar_tap` y `token_machine` como puestos de trabajo (`STATIONS`).
+- `shared/src/travelers.ts`: frases de los viajeros al pagar en el bar y en los recreativos.
+- Cliente: modelos de los tres puestos, iconos de neón (copo, jarra, joystick) y fachadas saloon y recreativos en `shop.ts`.
+- `supabase/migrations/004_bar_arcade_cotton.sql`: amplía `lots_business_check`.
+- `shared/src/businesses.test.ts`: 4 tests. README y CLAUDE.md actualizados.
+
+**Decisiones**
+- Bar y recreativos usan el camino genérico de servicios: no hizo falta tocar la simulación ni las ventanas.
+- La migración `004` está pendiente de aplicar a mano por la usuaria (probar antes con `begin; ... rollback;`). Sin ella el servidor funciona, pero no puede guardar un local con un negocio nuevo.
+
 ## 2026-11-03 · Tela, fichas y recetas de materiales en el taller
 
 **Qué se hizo**

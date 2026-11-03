@@ -142,9 +142,12 @@ const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rot
   scrapyard: { defId: 'scrap_pile', x: 3, y: 2, rotation: 0 },
   well: { defId: 'water_well', x: 3, y: 2, rotation: 0 },
   greenhouse: { defId: 'fruit_planter', x: 3, y: 2, rotation: 0 },
+  cotton_field: { defId: 'cotton_bed', x: 3, y: 2, rotation: 0 },
   workshop: { defId: 'workbench', x: 3, y: 2, rotation: 0 },
   store: { defId: 'shop_counter', x: 1, y: 1, rotation: 0 },
   diner: { defId: 'diner_grill', x: 1, y: 1, rotation: 0 },
+  bar: { defId: 'bar_tap', x: 1, y: 1, rotation: 0 },
+  arcade: { defId: 'token_machine', x: 1, y: 1, rotation: 0 },
   barber: { defId: 'barber_chair', x: 3, y: 2, rotation: 0 },
   greengrocer: { defId: 'fruit_stand', x: 1, y: 1, rotation: 0 },
 };

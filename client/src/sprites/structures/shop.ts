@@ -134,6 +134,24 @@ function templateFront(look: ShopLook): Box[] {
       }
       return [box(62, 4, 14, 63, 13, 30, GLASS), box(62, 38, 8, 63, 60, 30, GLASS), ...awning];
     }
+    case 'saloon': {
+      // Puertas batientes: dos hojas a media altura a cada lado del hueco de la puerta.
+      return [
+        box(62, 4, 14, 63, 13, 30, GLASS),
+        box(62, 38, 8, 63, 60, 30, GLASS),
+        box(63, 18, 6, 64, 25, 24, facade.trim),
+        box(63, 25, 6, 64, 32, 24, facade.trim),
+        box(63, 18, 24, 64, 32, 25, CREAM),
+      ];
+    }
+    case 'arcade': {
+      // Franjas horizontales de neón rosa (el remate) a los lados de la puerta.
+      const stripes: Box[] = [];
+      for (let z = 6; z < 40; z += 10) {
+        stripes.push(box(62, 0, z, 63, 18, z + 3, facade.trim), box(62, 32, z, 63, 64, z + 3, facade.trim));
+      }
+      return stripes;
+    }
     default:
       // Clásica: ventanuco y escaparate.
       return [box(62, 4, 14, 63, 13, 30, GLASS), box(62, 38, 10, 63, 60, 32, GLASS)];
@@ -144,7 +162,8 @@ function templateFront(look: ShopLook): Box[] {
  * Icono de neón en el cartel según el negocio, para saber desde la calle qué
  * es cada local: un neumático (chatarrería), una gota (pozo), una hoja
  * (invernadero), un martillo (taller), una bolsa (tienda), tenedor y cuchillo
- * (diner), unas tijeras (peluquería) o una manzana (frutería). Está hecho de
+ * (diner), una jarra (bar), un joystick (recreativos), un copo de algodón
+ * (campo de algodón), unas tijeras (peluquería) o una manzana (frutería). Está hecho de
  * tubos en el plano del cartel.
  */
 function businessIcon(
@@ -189,6 +208,31 @@ function businessIcon(
         neon(64, 28, 53, 65, 30, 57),
         neon(64, 36, 43, 65, 38, 57),
         neon(64, 38, 49, 65, 41, 57),
+      ];
+    case 'cotton_field':
+      // Copo de algodón: tres bolas en triángulo sobre el tallo.
+      return [
+        neon(64, 27, 51, 65, 37, 57),
+        neon(64, 22, 45, 65, 32, 51),
+        neon(64, 32, 45, 65, 42, 51),
+        neon(64, 30, 43, 65, 34, 45),
+      ];
+    case 'bar':
+      // Jarra: cuerpo, espuma y asa.
+      return [
+        neon(64, 24, 43, 65, 38, 45),
+        neon(64, 24, 45, 65, 26, 53),
+        neon(64, 36, 45, 65, 38, 53),
+        neon(64, 22, 53, 65, 40, 57),
+        neon(64, 38, 47, 65, 43, 49),
+        neon(64, 41, 49, 65, 43, 53),
+      ];
+    case 'arcade':
+      // Joystick: base, palanca y bola.
+      return [
+        neon(64, 22, 43, 65, 42, 47),
+        neon(64, 30, 47, 65, 34, 53),
+        neon(64, 28, 53, 65, 36, 57),
       ];
     case 'barber':
       // Tijeras abiertas: dos hojas en V y dos anillas abajo.

@@ -87,6 +87,8 @@ const PHRASES = {
   /** Al pagar un servicio, según el negocio. */
   served: {
     diner: ['¡Qué bien sienta comer!', 'El mejor menú de la carretera.', 'Rico, rico.'],
+    bar: ['¡Otra ronda!', 'Qué fresquita.', 'Brindo por este pueblo.'],
+    arcade: ['¡Nuevo récord!', 'Una partida más...', 'Casi llego al final.'],
     barber: ['¡Como nuevo!', 'Me encanta el corte.', '¿A que estoy más guapo?'],
     greengrocer: ['¡Qué fruta más fresca!', 'Para el camino.', 'Esto sí que es fruta.'],
   } as Partial<Record<BusinessType, string[]>>,

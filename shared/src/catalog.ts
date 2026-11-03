@@ -35,6 +35,9 @@ export type StructureId =
   | 'diner_grill'
   | 'barber_chair'
   | 'fruit_stand'
+  | 'cotton_bed'
+  | 'bar_tap'
+  | 'token_machine'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
   | 'car';
 
@@ -113,6 +116,9 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   diner_grill: structure('diner_grill', 'Plancha', 1, 2),
   barber_chair: structure('barber_chair', 'Sillón de barbero', 1, 2),
   fruit_stand: structure('fruit_stand', 'Puesto de fruta', 1, 2),
+  cotton_bed: structure('cotton_bed', 'Algodonal', 2, 2),
+  bar_tap: structure('bar_tap', 'Barra con grifo', 1, 2),
+  token_machine: structure('token_machine', 'Cambio de fichas', 1, 2),
   car: structure('car', 'Coche', 2, 1),
 };
 

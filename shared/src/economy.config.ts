@@ -14,9 +14,12 @@ export type BusinessType =
   | 'scrapyard'
   | 'well'
   | 'greenhouse'
+  | 'cotton_field'
   | 'workshop'
   | 'store'
   | 'diner'
+  | 'bar'
+  | 'arcade'
   | 'barber'
   | 'greengrocer';
 
@@ -35,7 +38,7 @@ export type BusinessKind = 'producer' | 'workshop' | 'store' | 'service';
  * desde la calle qué tipo de local es. Aquí solo se definen nombre y colores;
  * cómo se dibuja cada una está en client/src/sprites/structures/shop.ts.
  */
-export type FacadeId = 'classic' | 'diner' | 'garage' | 'boutique';
+export type FacadeId = 'classic' | 'diner' | 'garage' | 'boutique' | 'saloon' | 'arcade';
 
 export interface FacadeConfig {
   name: string;
@@ -70,6 +73,18 @@ export const FACADES: Record<FacadeId, FacadeConfig> = {
     description: 'Rosa pastel con toldo de rayas.',
     wall: '#e8a0b4',
     trim: '#2f8f8a',
+  },
+  saloon: {
+    name: 'Saloon',
+    description: 'Madera oscura con puertas batientes.',
+    wall: '#a0703c',
+    trim: '#5a3a24',
+  },
+  arcade: {
+    name: 'Recreativos',
+    description: 'Negra con franjas de neón.',
+    wall: '#2a2a3a',
+    trim: '#ff4fa3',
   },
 };
 
@@ -152,6 +167,16 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     rent: 22,
     production: { seconds: 20, output: { fruit: 2 }, storageCap: 30 },
   },
+  cotton_field: {
+    name: 'Campo de algodón',
+    kind: 'producer',
+    defaultFacade: 'classic',
+    description: 'Cultiva algodón y lo hila en tela. La necesita la tienda de ropa.',
+    neon: '#f6e7c8',
+    deposit: 70,
+    rent: 22,
+    production: { seconds: 20, output: { fabric: 2 }, storageCap: 30 },
+  },
   workshop: {
     name: 'Taller de muebles',
     kind: 'workshop',
@@ -179,6 +204,26 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     deposit: 140,
     rent: 35,
     service: { name: 'Menú del día', consumes: { water: 1, fruit: 1 }, baseValue: 45 },
+  },
+  bar: {
+    name: 'Bar',
+    kind: 'service',
+    defaultFacade: 'saloon',
+    description: 'Sirve rondas a los viajeros. Gasta agua y fruta.',
+    neon: '#ffb347',
+    deposit: 130,
+    rent: 32,
+    service: { name: 'Una ronda', consumes: { water: 1, fruit: 1 }, baseValue: 40 },
+  },
+  arcade: {
+    name: 'Recreativos',
+    kind: 'service',
+    defaultFacade: 'arcade',
+    description: 'Los viajeros echan una partida. Gasta fichas del taller.',
+    neon: '#4fffe0',
+    deposit: 150,
+    rent: 40,
+    service: { name: 'Una partida', consumes: { tokens: 2 }, baseValue: 50 },
   },
   barber: {
     name: 'Peluquería',
