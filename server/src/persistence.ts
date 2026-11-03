@@ -19,6 +19,7 @@ import {
   createInitialState,
   createTrailer,
   lotSceneName,
+  releaseNpcLots,
   type AvatarLook,
   type FurniItem,
   type GameState,
@@ -192,6 +193,10 @@ export class Persistence {
 
     state = { ...state, scenes, furniture: furniMap, lots: lotMap, money, materials, inventories };
     persistence.saved = state;
+    // Mundos guardados de antes de quitar las tiendas NPC: se liberan después de
+    // fijar `saved`, así el primer guardado escribe los locales ya reseteados y
+    // borra de Supabase los muebles que desaparecen.
+    state = releaseNpcLots(state);
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
     );

@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Liberar los locales NPC de los mundos guardados
+
+**Qué se hizo**
+- `shared/src/economy.ts`: nueva `releaseNpcLots`, que devuelve a alquiler los locales de un NPC (reusa `closeLot`) y borra su inventario y su dinero. Si no hay ninguno, devuelve el mismo estado. También se reajusta el comentario de `openBusiness`.
+- `server/src/persistence.ts`: `Persistence.load` la aplica tras fijar `saved`, así el primer guardado escribe los locales reseteados y borra sus muebles.
+- `supabase/migrations/003_free_npc_lots.sql`: libera los locales NPC en la base y elimina la columna `next_restock_at`.
+- 3 tests nuevos en `shared/src/economy.test.ts`.
+
+**Decisiones**
+- Se libera en el servidor al cargar y también hay migración: así funciona antes y después de aplicarla.
+- La migración `003` está pendiente de aplicar a mano por la usuaria (probar antes con `begin; ... rollback;` en el SQL Editor).
+
 ## 2026-11-03 · Locales de Elmer y Rosa en alquiler desde el principio
 
 **Qué se hizo**

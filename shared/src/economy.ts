@@ -211,8 +211,8 @@ export function rentLot(
 
 /**
  * Abre un negocio en un local (sin cobrar nada; rentLot cobra antes de
- * llamarla). El local
- * cambia de nombre, se enciende su neón y aparece su puesto de trabajo.
+ * llamarla). El local cambia de nombre, se enciende su neón y aparece su
+ * puesto de trabajo.
  */
 function openBusiness(
   state: GameState,
@@ -615,6 +615,27 @@ function closeLot(state: GameState, lotId: string): GameState {
     },
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lot.label } } : state.scenes,
   };
+}
+
+/**
+ * Devuelve a alquiler los locales que aún son de un NPC. Existe para los mundos
+ * guardados de antes de quitar las tiendas NPC: sus productos desaparecen
+ * junto con el dueño (su inventario y su dinero). Si no hay ninguno, devuelve
+ * el mismo estado.
+ */
+export function releaseNpcLots(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    const ownerId = lot.ownerId;
+    if (!ownerId || !isNpcId(ownerId)) continue;
+    next = closeLot(next, lot.id);
+    const inventories = { ...next.inventories };
+    const money = { ...next.money };
+    delete inventories[ownerId];
+    delete money[ownerId];
+    next = { ...next, inventories, money };
+  }
+  return next;
 }
 
 // --- Proveedor de materiales --------------------------------------------------
