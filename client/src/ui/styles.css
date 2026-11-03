@@ -485,6 +485,13 @@ body {
   image-rendering: pixelated;
 }
 
+.recipe > i {
+  justify-self: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--outline);
+}
+
 .recipe-info {
   display: flex;
   flex-direction: column;

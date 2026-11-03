@@ -9,13 +9,13 @@
 //   actualiza en su sitio en cada tick.
 import {
   CATALOG,
+  craftJobInfo,
   DECOR_IDS,
   ECONOMY,
   FACADE_IDS,
   FACADES,
   getListings,
   hasMaterials,
-  MATERIAL_RECIPES,
   MOVE_TICK_MS,
   secondsToTicks,
   totalMaterials,
@@ -29,7 +29,7 @@ import {
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
-import { formatMoney, materialChips } from './economyUi';
+import { formatMoney, materialChips, materialSwatch } from './economyUi';
 import { furniIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -273,13 +273,13 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     queue.className = 'queue';
     if (lot.jobs.length === 0) queue.append(text('Nada en fabricación.'));
     for (const job of lot.jobs) {
-      const isFurniture = 'defId' in job;
-      const recipe = isFurniture ? ECONOMY.recipes[job.defId] : MATERIAL_RECIPES[job.material]!;
-      const total = secondsToTicks(recipe.seconds);
+      const info = craftJobInfo(job);
+      if (!info) continue;
+      const total = secondsToTicks(info.seconds);
       const row = document.createElement('div');
       row.className = 'queue-row';
       const name = document.createElement('span');
-      name.textContent = isFurniture ? CATALOG[job.defId].name : ECONOMY.materials[job.material].name;
+      name.textContent = info.name;
       const bar = document.createElement('div');
       bar.className = 'progress';
       const fill = document.createElement('i');
@@ -324,11 +324,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       name.textContent = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
       info.append(name, materialChips(recipe.materials, { have: mine }));
       const canCraft = inside && !queueFull && hasMaterials(mine, recipe.materials);
-      row.append(
-        document.createElement('span'),
-        info,
-        button('Fabricar', canCraft, () => actions.craft(lot.id, material)),
-      );
+      row.append(materialSwatch(material), info, button('Fabricar', canCraft, () => actions.craft(lot.id, material)));
       recipes.append(row);
     }
 

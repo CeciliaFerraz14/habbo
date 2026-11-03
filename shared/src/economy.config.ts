@@ -26,7 +26,7 @@ export type BusinessType =
 /**
  * Cómo funciona cada negocio por dentro:
  * - producer: produce materiales solo cada cierto tiempo (chatarrería, pozo...).
- * - workshop: convierte materiales en muebles (taller).
+ * - workshop: convierte materiales en muebles y fichas (taller).
  * - store: vende muebles con el precio que pone el dueño (tienda).
  * - service: los viajeros pagan por un servicio (comer, cortarse el pelo...) que
  *   gasta materiales del almacén del local. El dueño lo repone y pone el precio.
@@ -181,7 +181,7 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     name: 'Taller de muebles',
     kind: 'workshop',
     defaultFacade: 'classic',
-    description: 'Convierte materiales en muebles siguiendo recetas.',
+    description: 'Convierte materiales en muebles y fichas siguiendo recetas.',
     neon: '#39e6ff',
     deposit: 120,
     rent: 35,
@@ -329,7 +329,7 @@ export const ECONOMY = {
   } satisfies Record<MaterialId, { name: string }>,
 
   workshop: {
-    /** Cuántos muebles puede tener en cola a la vez. */
+    /** Cuántos trabajos (muebles o materiales) puede tener en cola a la vez. */
     queueSize: 3,
   },
 
@@ -386,9 +386,25 @@ export const ECONOMY = {
 
 export const BUSINESS_TYPES = Object.keys(ECONOMY.businesses) as BusinessType[];
 export const MATERIAL_IDS = Object.keys(ECONOMY.materials) as MaterialId[];
-/** Materiales que vende el proveedor de la gasolinera (la tela y las fichas no). */
-/** Recetas de materiales indexables por cualquier MaterialId (ECONOMY.materialRecipes solo tiene las que existen). */
-export const MATERIAL_RECIPES: Partial<Record<MaterialId, MaterialRecipe>> = ECONOMY.materialRecipes;
 
 export type SupplierMaterialId = keyof typeof ECONOMY.supplier.prices;
+/** Materiales que vende el proveedor de la gasolinera (la tela y las fichas no). */
 export const SUPPLIER_MATERIAL_IDS = Object.keys(ECONOMY.supplier.prices) as SupplierMaterialId[];
+
+/**
+ * Las claves de las acciones vienen del cliente: `'toString' in config` sería
+ * cierto por el prototipo. Esta comprobación solo acepta claves propias.
+ */
+export function isOwnKey<T extends object>(config: T, key: PropertyKey): key is keyof T {
+  return Object.hasOwn(config, key);
+}
+
+/** ¿Es una receta de mueble? */
+export function isFurnitureRecipe(id: RecipeId): id is DecorId {
+  return isOwnKey(ECONOMY.recipes, id);
+}
+
+/** ¿Es una receta que fabrica un material? */
+export function isMaterialRecipe(id: RecipeId): id is keyof typeof ECONOMY.materialRecipes {
+  return isOwnKey(ECONOMY.materialRecipes, id);
+}

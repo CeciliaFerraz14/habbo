@@ -34,7 +34,8 @@ Abre http://localhost:5173
    - **Pozo**: produce agua.
    - **Invernadero**: produce fruta.
    - **Campo de algodón**: produce tela.
-   - **Taller de muebles**: convierte materiales en muebles según recetas.
+   - **Taller de muebles**: convierte materiales en muebles según recetas y fabrica
+     fichas (con chapa) para los recreativos.
    - **Tienda de decoración**: pones muebles a la venta con el precio que quieras.
    - **Diner**, **Bar**, **Recreativos**, **Peluquería** y **Frutería**: los viajeros
      pagan por el servicio (menú del día, ronda, partida, corte de pelo, bolsa de
@@ -42,9 +43,10 @@ Abre http://localhost:5173
      dejas en el almacén del local con "Reponer", y tú pones el precio.
 3. Dentro de cada local, haz clic en su **puesto de trabajo** (montón de chatarra,
    pozo, bancal, algodonal, banco de trabajo, mostrador, plancha, barra con grifo,
-   cambio de fichas, sillón de barbero o puesto de fruta) para gestionarlo. Desde ahí también eliges la
-   **plantilla de fachada** (Clásica, Diner, Garaje, Boutique, Saloon o Recreativos); el cartel de neón
-   muestra el icono del negocio para que se sepa desde la calle qué es cada local.
+   cambio de fichas, sillón de barbero o puesto de fruta) para gestionarlo. Desde ahí
+   también eliges la **plantilla de fachada** (Clásica, Diner, Garaje, Boutique,
+   Saloon o Recreativos); el cartel de neón muestra el icono del negocio para que se
+   sepa desde la calle qué es cada local.
 4. Los **viajeros** paran con sus coches, entran en las tiendas abiertas y compran
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
@@ -87,7 +89,7 @@ escriben en segundos.
 | Cuánto cabe en el almacén de un servicio y límites de precio | `services` |
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
-| Recetas del taller (materiales y tiempo) | `recipes` |
+| Recetas del taller (materiales y tiempo): muebles y fichas | `recipes`, `materialRecipes` |
 | Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
 | Precios del proveedor de materiales | `supplier` |

@@ -7,8 +7,10 @@
 --   (pegar el contenido de este fichero)
 --   rollback;
 --
--- El servidor funciona sin aplicarla, salvo para guardar un local con alguno de
--- los negocios nuevos: sin ella la comprobación lots_business_check lo rechaza.
+-- Aplicarla ANTES de desplegar el servidor con los negocios nuevos. Sin ella,
+-- lots_business_check rechaza el guardado de los locales y Persistence.save
+-- falla a medias (se guardan el dinero, los inventarios y los muebles, pero no
+-- el mundo ni next_id). Es segura con el servidor antiguo: solo amplía la lista.
 
 -- La lista de negocios crece (vive en shared/src/economy.config.ts).
 alter table public.lots drop constraint if exists lots_business_check;

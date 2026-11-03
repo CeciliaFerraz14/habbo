@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Revisión final de la parte 2
+
+**Qué se hizo**
+- `shared/src/economy.config.ts`: `isOwnKey`, `isFurnitureRecipe` e `isMaterialRecipe` (claves propias con `Object.hasOwn`); desaparece `MATERIAL_RECIPES`.
+- `shared/src/economy.ts`: `CRAFT`, `BUY_MATERIAL`, `SET_FACADE` y `RENT_LOT` ignoran claves como `toString` (antes `CRAFT` tiraba el servidor). Nueva `craftJobInfo`, usada por el reducer y por la ventana del taller. `collectCrafted` solo toca los materiales si recogió alguno.
+- Cliente: `planter.ts` comparte el bancal entre invernadero y algodón; `materialSwatch` se usa en las recetas de material; la máquina de fichas usa `PALETTE.neonPink`.
+- Textos del taller, README y comentarios al día; 6 tests nuevos.
+
+**Decisiones**
+- Un trabajo cuya receta ya no existe se ignora en todas partes (`craftJobInfo` devuelve null).
+- La migración `004` se aplica ANTES de desplegar el servidor nuevo: si no, `Persistence.save` falla a medias y se pierde dinero guardado a medias.
+
 ## 2026-11-03 · Campo de algodón, bar y recreativos
 
 **Qué se hizo**
@@ -14,7 +26,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 
 **Decisiones**
 - Bar y recreativos usan el camino genérico de servicios: no hizo falta tocar la simulación ni las ventanas.
-- La migración `004` está pendiente de aplicar a mano por la usuaria (probar antes con `begin; ... rollback;`). Sin ella el servidor funciona, pero no puede guardar un local con un negocio nuevo.
+- La migración `004` está pendiente de aplicar a mano por la usuaria (probar antes con `begin; ... rollback;`). Hay que aplicarla ANTES de desplegar el servidor nuevo: sin ella el guardado de locales falla a medias (se guarda el dinero, los inventarios y los muebles, pero no el mundo ni `next_id`). Con el servidor antiguo es segura.
 
 ## 2026-11-03 · Tela, fichas y recetas de materiales en el taller
 

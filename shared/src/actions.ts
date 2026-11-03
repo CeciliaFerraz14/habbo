@@ -38,7 +38,7 @@ export type Action =
   | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
   /** Taller: empezar a fabricar un mueble o un material. */
   | { type: 'CRAFT'; avatarId: string; lotId: string; recipe: RecipeId }
-  /** Taller: recoger los muebles terminados. */
+  /** Taller: recoger lo terminado (muebles y materiales). */
   | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string }
   /** Tienda: poner a la venta un mueble del inventario (se coloca en el local). */
   | { type: 'LIST_ITEM'; avatarId: string; lotId: string; itemId: string; price: number }

@@ -12,6 +12,13 @@ const MATERIAL_COLORS: Record<MaterialId, string> = {
   tokens: '#f2b134',
 };
 
+/** Cuadradito del color de un material. */
+export function materialSwatch(id: MaterialId): HTMLElement {
+  const swatch = document.createElement('i');
+  swatch.style.background = MATERIAL_COLORS[id];
+  return swatch;
+}
+
 /** "$ 120" */
 export function formatMoney(amount: number): string {
   return `${ECONOMY.currency} ${amount}`;
@@ -41,11 +48,9 @@ export function materialChips(
     chip.className = 'chip';
     // Si se pasa `have`, marcamos en rojo lo que no alcanza (para las recetas).
     if (options.have && (options.have[id] ?? 0) < qty) chip.classList.add('missing');
-    const swatch = document.createElement('i');
-    swatch.style.background = MATERIAL_COLORS[id];
     const label = options.max !== undefined ? `${qty}/${options.max}` : String(qty);
     const name = ECONOMY.materials[id].name;
-    chip.append(swatch, options.nameOnly ? name : `${name} ${label}`);
+    chip.append(materialSwatch(id), options.nameOnly ? name : `${name} ${label}`);
     row.append(chip);
   }
   return row;

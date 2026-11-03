@@ -19,15 +19,16 @@ import { CATALOG, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
   FACADES,
+  isFurnitureRecipe,
+  isMaterialRecipe,
+  isOwnKey,
   MATERIAL_IDS,
-  MATERIAL_RECIPES,
   type BusinessConfig,
   type BusinessKind,
   type BusinessType,
   type FacadeId,
   type Materials,
   type MaterialId,
-  type Recipe,
   type RecipeId,
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
@@ -38,9 +39,28 @@ import type { FurniItem, GameState, InventoryItem } from './types';
 /**
  * Un trabajo en la cola del taller: un mueble (`defId`) o un material
  * (`material`). La forma de los muebles no cambia: así se leen los guardados.
+ * `readyAt` es el tick en el que estará terminado.
  */
 export type CraftJob = { defId: DecorId; readyAt: number } | { material: MaterialId; readyAt: number };
-// `readyAt` es el tick en el que estará terminado.
+
+/**
+ * Lo que se sabe de un trabajo de la cola: nombre, duración y materiales que
+ * da al recogerlo (vacío en los muebles). Única política para una receta que
+ * ya no existe: devuelve null y tanto el reducer como la interfaz ignoran el
+ * trabajo.
+ */
+export function craftJobInfo(job: CraftJob): { name: string; seconds: number; yields: Materials } | null {
+  if ('defId' in job) {
+    return { name: CATALOG[job.defId].name, seconds: ECONOMY.recipes[job.defId].seconds, yields: {} };
+  }
+  if (!isMaterialRecipe(job.material)) return null;
+  const recipe = ECONOMY.materialRecipes[job.material];
+  return {
+    name: ECONOMY.materials[job.material].name,
+    seconds: recipe.seconds,
+    yields: { [job.material]: recipe.quantity },
+  };
+}
 
 /** Un local de la calle. */
 export interface Lot {
@@ -206,10 +226,11 @@ export function rentLot(
   business: BusinessType,
 ): GameState {
   const lot = state.lots[lotId];
+  if (!isOwnKey(ECONOMY.businesses, business)) return state;
   const config = ECONOMY.businesses[business];
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
-  if (!lot || !avatar || lot.ownerId !== null || !config || money < config.deposit) return state;
+  if (!lot || !avatar || lot.ownerId !== null || money < config.deposit) return state;
 
   const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
   return openBusiness(paid, lotId, avatarId, avatar.name, business);
@@ -290,9 +311,12 @@ export function startCraft(
   recipeId: RecipeId,
 ): GameState {
   const lot = state.lots[lotId];
-  const recipes: Partial<Record<RecipeId, Recipe>> = { ...ECONOMY.recipes, ...MATERIAL_RECIPES };
-  const recipe = recipes[recipeId];
-  const isFurniture = recipeId in ECONOMY.recipes;
+  // La receta viene del cliente: solo valen claves propias de la configuración.
+  const recipe = isFurnitureRecipe(recipeId)
+    ? ECONOMY.recipes[recipeId]
+    : isMaterialRecipe(recipeId)
+      ? ECONOMY.materialRecipes[recipeId]
+      : undefined;
   if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
   if (lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
 
@@ -304,7 +328,7 @@ export function startCraft(
   const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
   const start = Math.max(state.tick, lastReady);
   const readyAt = start + secondsToTicks(recipe.seconds);
-  const job: CraftJob = isFurniture ? { defId: recipeId as DecorId, readyAt } : { material: recipeId as MaterialId, readyAt };
+  const job: CraftJob = isFurnitureRecipe(recipeId) ? { defId: recipeId, readyAt } : { material: recipeId, readyAt };
 
   return {
     ...state,
@@ -326,11 +350,13 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
 
   const furniture = done.filter((job) => 'defId' in job);
   const items: InventoryItem[] = furniture.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
-  let mine = state.materials[avatarId] ?? {};
-  for (const job of done) {
-    if ('material' in job) {
-      mine = addMaterials(mine, { [job.material]: MATERIAL_RECIPES[job.material]?.quantity ?? 0 });
-    }
+  // Solo se toca el almacén del jugador si se recogió algún material.
+  const materialJobs = done.filter((job) => 'material' in job);
+  let materials = state.materials;
+  if (materialJobs.length > 0) {
+    let mine = state.materials[avatarId] ?? {};
+    for (const job of materialJobs) mine = addMaterials(mine, craftJobInfo(job)?.yields ?? {});
+    materials = { ...materials, [avatarId]: mine };
   }
   return {
     ...state,
@@ -339,7 +365,7 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
       ...state.inventories,
       [avatarId]: [...(state.inventories[avatarId] ?? []), ...items],
     },
-    materials: { ...state.materials, [avatarId]: mine },
+    materials,
     nextId: state.nextId + items.length,
   };
 }
@@ -671,9 +697,8 @@ export function buyMaterial(
   quantity: number,
 ): GameState {
   const avatar = state.avatars[avatarId];
-  const prices: Partial<Record<MaterialId, number>> = ECONOMY.supplier.prices;
-  const unitPrice = prices[material];
-  if (!avatar || avatar.sceneId !== 'street' || unitPrice === undefined) return state;
+  if (!avatar || avatar.sceneId !== 'street' || !isOwnKey(ECONOMY.supplier.prices, material)) return state;
+  const unitPrice = ECONOMY.supplier.prices[material];
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > ECONOMY.supplier.maxPerPurchase) {
     return state;
   }
@@ -708,7 +733,7 @@ export function setFacade(
   facade: FacadeId,
 ): GameState {
   const lot = state.lots[lotId];
-  if (!lot || lot.ownerId !== avatarId || !lot.business || !FACADES[facade]) return state;
+  if (!lot || lot.ownerId !== avatarId || !lot.business || !isOwnKey(FACADES, facade)) return state;
   const updated: Lot = { ...lot, facade };
   const buildingId = `${lotId}-building`;
   const building = state.furniture[buildingId];

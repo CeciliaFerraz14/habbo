@@ -1,10 +1,8 @@
 // Algodonal: el puesto de trabajo del campo de algodón (2x2). Cajón de madera
 // con tierra y cuatro matas con capullos blancos.
-import { box, type Box, type FurniModel } from '../furniture/model';
+import { box, type Box } from '../furniture/model';
 import { PALETTE } from '../palette';
-
-const LEAF = '#4f9a3a';
-const LEAF_DARK = '#3a7a2a';
+import { LEAF, LEAF_DARK, planter } from './planter';
 
 /** Una mata en (x, y) con tres capullos de algodón. */
 function plant(x: number, y: number): Box[] {
@@ -17,13 +15,4 @@ function plant(x: number, y: number): Box[] {
   ];
 }
 
-export const cottonBed: FurniModel = {
-  boxes: [
-    box(2, 2, 0, 30, 30, 8, '#8a5a34'), // cajón
-    box(4, 4, 8, 28, 28, 9, '#5a3a24'), // tierra
-    ...plant(5, 5),
-    ...plant(17, 5),
-    ...plant(5, 17),
-    ...plant(17, 17),
-  ],
-};
+export const cottonBed = planter(plant);

@@ -53,6 +53,7 @@ function withBusiness(business: BusinessType, storage: Materials = {}, price = 0
 
 test('cotton field produces fabric', () => {
   let state = withBusiness('cotton_field');
+  // Avanzamos 20 s de simulación: con el ritmo configurado salen 2 de tela.
   const until = secondsToTicks(20);
   while (state.tick <= until) state = tick(state);
   assert.equal(state.lots.lot1.storage.fabric, 2);
@@ -77,7 +78,11 @@ test('arcade serves only with tokens', () => {
 });
 
 test('new businesses have a station and a facade', () => {
-  const stations = { cotton_field: 'cotton_bed', bar: 'bar_tap', arcade: 'token_machine' } as const;
+  const stations = {
+    cotton_field: { defId: 'cotton_bed', x: 3, y: 2 },
+    bar: { defId: 'bar_tap', x: 1, y: 1 },
+    arcade: { defId: 'token_machine', x: 1, y: 1 },
+  } as const;
   for (const type of ['cotton_field', 'bar', 'arcade'] as const) {
     assert.ok(FACADES[ECONOMY.businesses[type].defaultFacade]);
     const base = createInitialState();
@@ -88,6 +93,7 @@ test('new businesses have a station and a facade', () => {
     };
     const next = applyAction(state, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: type });
     assert.equal(next.lots.lot1.business, type);
-    assert.equal(next.furniture[stationId('lot1')].defId, stations[type]);
+    const station = next.furniture[stationId('lot1')];
+    assert.deepEqual({ defId: station.defId, x: station.x, y: station.y }, stations[type]);
   }
 });

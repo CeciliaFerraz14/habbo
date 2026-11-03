@@ -1,9 +1,8 @@
 // Bancal: el puesto de trabajo del invernadero (2x2). Cajón de madera con
 // tierra y cuatro matas cargadas de fruta.
-import { box, type Box, type FurniModel } from '../furniture/model';
+import { box, type Box } from '../furniture/model';
+import { LEAF, LEAF_DARK, planter } from './planter';
 
-const LEAF = '#4f9a3a';
-const LEAF_DARK = '#3a7a2a';
 const FRUITS = ['#e8562e', '#f2b134', '#c83c3c', '#e8562e'];
 
 /** Una mata en (x, y) con dos frutas. */
@@ -16,13 +15,4 @@ function plant(x: number, y: number, fruit: string): Box[] {
   ];
 }
 
-export const fruitPlanter: FurniModel = {
-  boxes: [
-    box(2, 2, 0, 30, 30, 8, '#8a5a34'), // cajón
-    box(4, 4, 8, 28, 28, 9, '#5a3a24'), // tierra
-    ...plant(5, 5, FRUITS[0]),
-    ...plant(17, 5, FRUITS[1]),
-    ...plant(5, 17, FRUITS[2]),
-    ...plant(17, 17, FRUITS[3]),
-  ],
-};
+export const fruitPlanter = planter((x, y, i) => plant(x, y, FRUITS[i]));

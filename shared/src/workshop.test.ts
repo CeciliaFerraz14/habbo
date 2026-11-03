@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ECONOMY, SUPPLIER_MATERIAL_IDS, createInitialState, applyAction } from './index';
-import type { CraftJob, GameState, MaterialId, Materials } from './index';
+import type { BusinessType, CraftJob, FacadeId, GameState, MaterialId, Materials, RecipeId } from './index';
 
 /** Jugador p1 dentro de lot1, que es suyo y es un taller. */
 function withWorkshop(materials: Materials, jobs: CraftJob[] = []): GameState {
@@ -32,7 +32,7 @@ function withWorkshop(materials: Materials, jobs: CraftJob[] = []): GameState {
   };
 }
 
-const craft = (state: GameState, recipe: 'tokens' | 'tire') =>
+const craft = (state: GameState, recipe: RecipeId) =>
   applyAction(state, { type: 'CRAFT', avatarId: 'p1', lotId: 'lot1', recipe });
 const collect = (state: GameState) =>
   applyAction(state, { type: 'COLLECT_CRAFTED', avatarId: 'p1', lotId: 'lot1' });
@@ -79,4 +79,54 @@ test('supplier does not sell fabric or tokens', () => {
   street.avatars.p1 = { ...street.avatars.p1, sceneId: 'street' };
   const bought = applyAction(street, { type: 'BUY_MATERIAL', avatarId: 'p1', material: 'fabric', quantity: 1 });
   assert.equal(bought, street);
+});
+
+test('furniture recipe spends materials and delivers the item', () => {
+  const crafted = craft(withWorkshop({ tires: 3 }), 'tire');
+  assert.equal(crafted.materials.p1.tires, 1);
+  assert.deepEqual(crafted.lots.lot1.jobs.map((j) => 'defId' in j && j.defId), ['tire']);
+  const next = collect({ ...crafted, tick: crafted.lots.lot1.jobs[0].readyAt });
+  assert.deepEqual(next.inventories.p1.map((i) => i.defId), ['tire']);
+  assert.equal(next.materials.p1.tires, 1);
+});
+
+test('CRAFT with a non-recipe key does nothing', () => {
+  const state = withWorkshop({ sheet_metal: 5 });
+  for (const recipe of ['toString', 'constructor', '__proto__']) {
+    assert.equal(craft(state, recipe as RecipeId), state);
+  }
+});
+
+test('collecting only furniture leaves the materials untouched', () => {
+  const state = withWorkshop({}, [{ defId: 'tire', readyAt: 0 }]);
+  assert.equal(collect(state).materials, state.materials);
+});
+
+test('BUY_MATERIAL with a non-material key does nothing', () => {
+  const street = withWorkshop({});
+  street.avatars.p1 = { ...street.avatars.p1, sceneId: 'street' };
+  const bought = applyAction(street, {
+    type: 'BUY_MATERIAL',
+    avatarId: 'p1',
+    material: 'toString' as MaterialId,
+    quantity: 1,
+  });
+  assert.equal(bought, street);
+});
+
+test('SET_FACADE with a non-facade key does nothing', () => {
+  const state = withWorkshop({});
+  const next = applyAction(state, { type: 'SET_FACADE', avatarId: 'p1', lotId: 'lot1', facade: 'toString' as FacadeId });
+  assert.equal(next, state);
+});
+
+test('RENT_LOT with a non-business key does nothing', () => {
+  const base = createInitialState();
+  const state: GameState = {
+    ...base,
+    avatars: { p1: { ...withWorkshop({}).avatars.p1, sceneId: 'street' } },
+    money: { p1: 1000 },
+  };
+  const next = applyAction(state, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: 'toString' as BusinessType });
+  assert.equal(next, state);
 });
