@@ -6,6 +6,11 @@
 -- alquiler. El servidor ya los libera al cargar el mundo; esta migración limpia
 -- también la base de datos.
 --
+-- Aplicarla DESPUÉS de que el servidor con este código (commit 63b1f0c o
+-- posterior) esté en marcha: los servidores anteriores todavía escriben la
+-- columna next_restock_at, que esta migración elimina. Antes, comprobar en el
+-- log del servidor que el mundo se carga y se guarda sin errores.
+--
 -- Cómo probarla en el SQL Editor de Supabase: ejecutar
 --   begin;
 --   (el contenido de este fichero)

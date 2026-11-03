@@ -64,8 +64,9 @@ Las de `CLAUDE.md`. Las más relevantes aquí:
 - Esquema: solo migraciones nuevas en `supabase/migrations/`. No editar
   `001` ni `002`. No tocar la base de datos de producción.
 - Cada paso deja el juego funcionando con `npm run dev` y `npm run dev:offline`.
-- No hay tests automáticos: cada paso se comprueba con `npm run typecheck`,
-  `npm run build` y prueba manual en el navegador.
+- Hay tests con `npm test` (node:test + tsx): cada paso se comprueba con
+  `npm test`, `npm run typecheck`, `npm run build` y prueba manual en el
+  navegador.
 
 ## Diseño por partes
 
