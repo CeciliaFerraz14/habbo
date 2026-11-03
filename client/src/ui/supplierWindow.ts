@@ -18,58 +18,59 @@ export function createSupplierWindow(
     y: 110,
     width: 380,
   });
-  let signature = '';
+
+  // Las filas se crean una sola vez: así la cantidad que escribe el jugador
+  // se conserva entre compras. Al cambiar el dinero solo se tocan los botones y la nota.
+  const buttons = new Map<MaterialId, HTMLButtonElement>();
+  const list = document.createElement('div');
+  list.className = 'recipes';
+  for (const id of MATERIAL_IDS) {
+    const row = document.createElement('div');
+    row.className = 'recipe';
+    const info = document.createElement('div');
+    info.className = 'recipe-info';
+    info.append(materialChips({ [id]: 1 }, { nameOnly: true }), `${formatMoney(prices[id])} la unidad`);
+
+    const qty = document.createElement('input');
+    qty.type = 'number';
+    qty.className = 'price-input';
+    qty.min = '1';
+    qty.max = String(maxPerPurchase);
+    qty.value = '5';
+    const buy = document.createElement('button');
+    buy.className = 'btn btn-small';
+    buy.textContent = 'Comprar';
+    buy.addEventListener('click', () => onBuy(id, Math.round(Number(qty.value))));
+    buttons.set(id, buy);
+    const controls = document.createElement('div');
+    controls.className = 'row';
+    controls.append(qty, buy);
+    row.append(document.createElement('span'), info, controls);
+    list.append(row);
+  }
+  const note = document.createElement('p');
+  note.className = 'hint';
+  win.body.replaceChildren(list, note);
+
+  let shownMoney: number | null = null;
 
   const update = (state: GameState, playerId: string) => {
     if (!win.isOpen) return;
-    const money = state.money[playerId] ?? 0;
-    const onStreet = state.avatars[playerId]?.sceneId === 'street';
     // El proveedor está en la calle: si entras en un edificio, se cierra.
-    if (!onStreet) {
+    if (state.avatars[playerId]?.sceneId !== 'street') {
       win.close();
       return;
     }
-    const next = JSON.stringify([money, onStreet]);
-    if (next === signature) return;
-    signature = next;
-
-    const list = document.createElement('div');
-    list.className = 'recipes';
-    for (const id of MATERIAL_IDS) {
-      const row = document.createElement('div');
-      row.className = 'recipe';
-      const info = document.createElement('div');
-      info.className = 'recipe-info';
-      info.append(materialChips({ [id]: 1 }, { nameOnly: true }), `${formatMoney(prices[id])} la unidad`);
-
-      const qty = document.createElement('input');
-      qty.type = 'number';
-      qty.className = 'price-input';
-      qty.min = '1';
-      qty.max = String(maxPerPurchase);
-      qty.value = '5';
-      const buy = document.createElement('button');
-      buy.className = 'btn btn-small';
-      buy.textContent = 'Comprar';
-      buy.disabled = !onStreet || money < prices[id];
-      buy.addEventListener('click', () => onBuy(id, Math.round(Number(qty.value))));
-      const controls = document.createElement('div');
-      controls.className = 'row';
-      controls.append(qty, buy);
-      row.append(document.createElement('span'), info, controls);
-      list.append(row);
-    }
-    const note = document.createElement('p');
-    note.className = 'hint';
-    note.textContent = onStreet
-      ? `Llevas ${formatMoney(money)}. Máximo ${maxPerPurchase} unidades por compra.`
-      : 'El proveedor está en la gasolinera de la calle.';
-    win.body.replaceChildren(list, note);
+    const money = state.money[playerId] ?? 0;
+    if (money === shownMoney) return;
+    shownMoney = money;
+    for (const [id, buy] of buttons) buy.disabled = money < prices[id];
+    note.textContent = `Llevas ${formatMoney(money)}. Máximo ${maxPerPurchase} unidades por compra.`;
   };
 
   return {
     open() {
-      signature = '';
+      shownMoney = null;
       win.open();
     },
     update,

@@ -2,6 +2,15 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · La cantidad del proveedor se conserva tras comprar
+
+**Qué se hizo**
+- `client/src/ui/supplierWindow.ts`: las filas de materiales se crean una sola vez; al cambiar el dinero solo se actualizan los botones y la nota.
+
+**Decisiones**
+- Antes la ventana se reconstruía entera cada vez que cambiaba el dinero, así que tras cada compra los inputs volvían a 5. Construir el DOM una vez evita perder lo que escribe el jugador sin tener que guardar las cantidades aparte.
+- Quitadas las comprobaciones `onStreet` que no podían fallar: la ventana ya se cierra fuera de la calle antes de llegar ahí.
+
 ## 2026-10-27 · Alquiler una vez al día
 
 **Qué se hizo**
@@ -76,3 +85,4 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 **Pendiente**
 - No hay linter, formateador ni tests.
 - Los sprites de muebles usan colores hex fijos en vez de `PALETTE`.
+
