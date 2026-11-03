@@ -1,5 +1,5 @@
 // Ventana del proveedor de materiales (en la gasolinera).
-import { ECONOMY, MATERIAL_IDS, type GameState, type MaterialId } from '@juego/shared';
+import { ECONOMY, SUPPLIER_MATERIAL_IDS, type GameState, type MaterialId, type SupplierMaterialId } from '@juego/shared';
 import { formatMoney, materialChips } from './economyUi';
 import { PixelWindow } from './window';
 
@@ -21,10 +21,10 @@ export function createSupplierWindow(
 
   // Las filas se crean una sola vez: así la cantidad que escribe el jugador
   // se conserva entre compras. Al cambiar el dinero solo se tocan los botones y la nota.
-  const buttons = new Map<MaterialId, HTMLButtonElement>();
+  const buttons = new Map<SupplierMaterialId, HTMLButtonElement>();
   const list = document.createElement('div');
   list.className = 'recipes';
-  for (const id of MATERIAL_IDS) {
+  for (const id of SUPPLIER_MATERIAL_IDS) {
     const row = document.createElement('div');
     row.className = 'recipe';
     const info = document.createElement('div');

@@ -8,6 +8,8 @@ const MATERIAL_COLORS: Record<MaterialId, string> = {
   tires: '#3a3434',
   water: '#4fa3ff',
   fruit: '#e8562e',
+  fabric: '#e8e0d0',
+  tokens: '#f2b134',
 };
 
 /** "$ 120" */

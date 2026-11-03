@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Tela, fichas y recetas de materiales en el taller
+
+**Qué se hizo**
+- `shared/src/economy.config.ts`: materiales `fabric` (tela) y `tokens` (fichas), `MaterialRecipe`, `ECONOMY.materialRecipes` (fichas: 1 chapa, 15 s, 5 fichas), `RecipeId`, `MATERIAL_RECIPES` y `SUPPLIER_MATERIAL_IDS`. El proveedor ya no exige precio para todos los materiales.
+- `shared/src/economy.ts`: `CraftJob` admite trabajos de material; `startCraft` acepta un `RecipeId` y `collectCrafted` reparte muebles al inventario y materiales al almacén del jugador.
+- La acción `CRAFT` pasa de `defId` a `recipe` (reducer, `main.ts`).
+- Cliente: colores de las dos fichas, el proveedor solo lista sus materiales, y el taller muestra las recetas de materiales, el nombre de cada trabajo y un botón "Recoger" genérico.
+- `shared/src/workshop.test.ts`: 5 tests.
+
+**Decisiones**
+- Los trabajos de mueble conservan la forma `{ defId, readyAt }`: lo ya guardado en `lots.jobs` se sigue leyendo sin migración.
+- La tela y las fichas no se compran en la gasolinera: la tela vendrá del campo de algodón y las fichas del taller.
+
 ## 2026-11-03 · Liberar los locales NPC de los mundos guardados
 
 **Qué se hizo**

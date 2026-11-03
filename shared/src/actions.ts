@@ -6,8 +6,8 @@
 //
 // Sobre `avatarId`: en la fase 2 el servidor lo IGNORARÁ y usará el del
 // usuario conectado a ese socket, para que nadie pueda actuar en nombre de otro.
-import type { DecorId, Rotation } from './catalog';
-import type { BusinessType, FacadeId, MaterialId } from './economy.config';
+import type { Rotation } from './catalog';
+import type { BusinessType, FacadeId, MaterialId, RecipeId } from './economy.config';
 import type { Avatar, AvatarLook } from './types';
 
 export type Action =
@@ -36,8 +36,8 @@ export type Action =
   | { type: 'RENT_LOT'; avatarId: string; lotId: string; business: BusinessType }
   /** Productores (chatarrería, pozo...): recoger los materiales producidos. */
   | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
-  /** Taller: empezar a fabricar un mueble. */
-  | { type: 'CRAFT'; avatarId: string; lotId: string; defId: DecorId }
+  /** Taller: empezar a fabricar un mueble o un material. */
+  | { type: 'CRAFT'; avatarId: string; lotId: string; recipe: RecipeId }
   /** Taller: recoger los muebles terminados. */
   | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string }
   /** Tienda: poner a la venta un mueble del inventario (se coloca en el local). */

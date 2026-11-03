@@ -20,24 +20,27 @@ import {
   ECONOMY,
   FACADES,
   MATERIAL_IDS,
+  MATERIAL_RECIPES,
   type BusinessConfig,
   type BusinessKind,
   type BusinessType,
   type FacadeId,
   type Materials,
   type MaterialId,
+  type Recipe,
+  type RecipeId,
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
 
-/** Un mueble en la cola del taller. */
-export interface CraftJob {
-  defId: DecorId;
-  /** Tick en el que estará terminado. */
-  readyAt: number;
-}
+/**
+ * Un trabajo en la cola del taller: un mueble (`defId`) o un material
+ * (`material`). La forma de los muebles no cambia: así se leen los guardados.
+ */
+export type CraftJob = { defId: DecorId; readyAt: number } | { material: MaterialId; readyAt: number };
+// `readyAt` es el tick en el que estará terminado.
 
 /** Un local de la calle. */
 export interface Lot {
@@ -61,7 +64,7 @@ export interface Lot {
   price: number;
   /** Productores: tick de la próxima producción. */
   nextProductionAt: number;
-  /** Taller: muebles en fabricación (o terminados, si tick >= readyAt). */
+  /** Taller: muebles o materiales en fabricación (o terminados, si tick >= readyAt). */
   jobs: CraftJob[];
   /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
   nextRentAt: number;
@@ -276,15 +279,17 @@ export function collectMaterials(state: GameState, avatarId: string, lotId: stri
   };
 }
 
-/** Taller: empezar a fabricar un mueble. Los materiales se gastan al empezar. */
+/** Taller: empezar a fabricar un mueble o un material. Los materiales se gastan al empezar. */
 export function startCraft(
   state: GameState,
   avatarId: string,
   lotId: string,
-  defId: DecorId,
+  recipeId: RecipeId,
 ): GameState {
   const lot = state.lots[lotId];
-  const recipe = ECONOMY.recipes[defId];
+  const recipes: Partial<Record<RecipeId, Recipe>> = { ...ECONOMY.recipes, ...MATERIAL_RECIPES };
+  const recipe = recipes[recipeId];
+  const isFurniture = recipeId in ECONOMY.recipes;
   if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
   if (lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
 
@@ -295,7 +300,8 @@ export function startCraft(
   // último de la cola (o ahora, si la cola está vacía o ya terminó).
   const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
   const start = Math.max(state.tick, lastReady);
-  const job: CraftJob = { defId, readyAt: start + secondsToTicks(recipe.seconds) };
+  const readyAt = start + secondsToTicks(recipe.seconds);
+  const job: CraftJob = isFurniture ? { defId: recipeId as DecorId, readyAt } : { material: recipeId as MaterialId, readyAt };
 
   return {
     ...state,
@@ -304,7 +310,10 @@ export function startCraft(
   };
 }
 
-/** Taller: el dueño recoge los muebles terminados; van a su inventario. */
+/**
+ * Taller: el dueño recoge lo terminado. Los muebles van a su inventario y los
+ * materiales se suman a los suyos.
+ */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
   if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
@@ -312,7 +321,14 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
   const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
   if (done.length === 0) return state;
 
-  const items: InventoryItem[] = done.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
+  const furniture = done.filter((job) => 'defId' in job);
+  const items: InventoryItem[] = furniture.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
+  let mine = state.materials[avatarId] ?? {};
+  for (const job of done) {
+    if ('material' in job) {
+      mine = addMaterials(mine, { [job.material]: MATERIAL_RECIPES[job.material]?.quantity ?? 0 });
+    }
+  }
   return {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => j.readyAt > state.tick) } },
@@ -320,6 +336,7 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
       ...state.inventories,
       [avatarId]: [...(state.inventories[avatarId] ?? []), ...items],
     },
+    materials: { ...state.materials, [avatarId]: mine },
     nextId: state.nextId + items.length,
   };
 }
@@ -651,7 +668,8 @@ export function buyMaterial(
   quantity: number,
 ): GameState {
   const avatar = state.avatars[avatarId];
-  const unitPrice = ECONOMY.supplier.prices[material];
+  const prices: Partial<Record<MaterialId, number>> = ECONOMY.supplier.prices;
+  const unitPrice = prices[material];
   if (!avatar || avatar.sceneId !== 'street' || unitPrice === undefined) return state;
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > ECONOMY.supplier.maxPerPurchase) {
     return state;

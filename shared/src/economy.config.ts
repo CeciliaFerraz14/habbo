@@ -74,7 +74,7 @@ export const FACADES: Record<FacadeId, FacadeConfig> = {
 };
 
 export const FACADE_IDS = Object.keys(FACADES) as FacadeId[];
-export type MaterialId = 'sheet_metal' | 'old_wood' | 'tires' | 'water' | 'fruit';
+export type MaterialId = 'sheet_metal' | 'old_wood' | 'tires' | 'water' | 'fruit' | 'fabric' | 'tokens';
 /** Cantidades de materiales. Lo que no aparece cuenta como 0. */
 export type Materials = Partial<Record<MaterialId, number>>;
 
@@ -209,6 +209,15 @@ export interface Recipe {
   seconds: number;
 }
 
+/** Receta del taller que fabrica un material en vez de un mueble. */
+export interface MaterialRecipe extends Recipe {
+  /** Unidades de material que se obtienen al recogerla. */
+  quantity: number;
+}
+
+/** Lo que se puede fabricar en el taller: un mueble o un material. */
+export type RecipeId = DecorId | MaterialId;
+
 export const ECONOMY = {
   /** Símbolo de la moneda del pueblo. */
   currency: '$',
@@ -233,7 +242,7 @@ export const ECONOMY = {
    */
   supplier: {
     name: 'Suministros del Desierto',
-    prices: { sheet_metal: 8, old_wood: 6, tires: 10, water: 4, fruit: 5 } satisfies Record<MaterialId, number>,
+    prices: { sheet_metal: 8, old_wood: 6, tires: 10, water: 4, fruit: 5 } satisfies Partial<Record<MaterialId, number>>,
     /** Máximo de unidades por compra. */
     maxPerPurchase: 20,
   },
@@ -270,6 +279,8 @@ export const ECONOMY = {
     tires: { name: 'Neumáticos' },
     water: { name: 'Agua' },
     fruit: { name: 'Fruta' },
+    fabric: { name: 'Tela' },
+    tokens: { name: 'Fichas' },
   } satisfies Record<MaterialId, { name: string }>,
 
   workshop: {
@@ -306,6 +317,11 @@ export const ECONOMY = {
     jukebox: { materials: { sheet_metal: 2, old_wood: 3 }, seconds: 60 },
   } satisfies Record<DecorId, Recipe>,
 
+  /** Recetas del taller que producen materiales (no se compran en el proveedor). */
+  materialRecipes: {
+    tokens: { materials: { sheet_metal: 1 }, seconds: 15, quantity: 5 },
+  } satisfies Partial<Record<MaterialId, MaterialRecipe>>,
+
   /**
    * Valor de referencia de cada mueble. Lo usarán las tiendas como precio
    * sugerido y los viajeros para decidir si algo es caro o barato.
@@ -325,3 +341,9 @@ export const ECONOMY = {
 
 export const BUSINESS_TYPES = Object.keys(ECONOMY.businesses) as BusinessType[];
 export const MATERIAL_IDS = Object.keys(ECONOMY.materials) as MaterialId[];
+/** Materiales que vende el proveedor de la gasolinera (la tela y las fichas no). */
+/** Recetas de materiales indexables por cualquier MaterialId (ECONOMY.materialRecipes solo tiene las que existen). */
+export const MATERIAL_RECIPES: Partial<Record<MaterialId, MaterialRecipe>> = ECONOMY.materialRecipes;
+
+export type SupplierMaterialId = keyof typeof ECONOMY.supplier.prices;
+export const SUPPLIER_MATERIAL_IDS = Object.keys(ECONOMY.supplier.prices) as SupplierMaterialId[];

@@ -15,6 +15,7 @@ import {
   FACADES,
   getListings,
   hasMaterials,
+  MATERIAL_RECIPES,
   MOVE_TICK_MS,
   secondsToTicks,
   totalMaterials,
@@ -23,6 +24,8 @@ import {
   type GameState,
   type Lot,
   type MaterialId,
+  type MaterialRecipe,
+  type RecipeId,
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
@@ -32,7 +35,7 @@ import { PixelWindow } from './window';
 
 export interface BusinessActions {
   collectMaterials: (lotId: string) => void;
-  craft: (lotId: string, defId: DecorId) => void;
+  craft: (lotId: string, recipe: RecipeId) => void;
   collectCrafted: (lotId: string) => void;
   listItem: (lotId: string, itemId: string, price: number) => void;
   setPrice: (itemId: string, price: number) => void;
@@ -270,11 +273,13 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     queue.className = 'queue';
     if (lot.jobs.length === 0) queue.append(text('Nada en fabricación.'));
     for (const job of lot.jobs) {
-      const total = secondsToTicks(ECONOMY.recipes[job.defId].seconds);
+      const isFurniture = 'defId' in job;
+      const recipe = isFurniture ? ECONOMY.recipes[job.defId] : MATERIAL_RECIPES[job.material]!;
+      const total = secondsToTicks(recipe.seconds);
       const row = document.createElement('div');
       row.className = 'queue-row';
       const name = document.createElement('span');
-      name.textContent = CATALOG[job.defId].name;
+      name.textContent = isFurniture ? CATALOG[job.defId].name : ECONOMY.materials[job.material].name;
       const bar = document.createElement('div');
       bar.className = 'progress';
       const fill = document.createElement('i');
@@ -310,11 +315,27 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       row.append(furniIcon(defId), info, button('Fabricar', canCraft, () => actions.craft(lot.id, defId)));
       recipes.append(row);
     }
+    for (const [material, recipe] of Object.entries(ECONOMY.materialRecipes) as [MaterialId, MaterialRecipe][]) {
+      const row = document.createElement('div');
+      row.className = 'recipe';
+      const info = document.createElement('div');
+      info.className = 'recipe-info';
+      const name = document.createElement('div');
+      name.textContent = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
+      info.append(name, materialChips(recipe.materials, { have: mine }));
+      const canCraft = inside && !queueFull && hasMaterials(mine, recipe.materials);
+      row.append(
+        document.createElement('span'),
+        info,
+        button('Fabricar', canCraft, () => actions.craft(lot.id, material)),
+      );
+      recipes.append(row);
+    }
 
     win.body.append(
       text(`En fabricación (${lot.jobs.length}/${ECONOMY.workshop.queueSize}):`, 'section-title'),
       queue,
-      button(`Recoger muebles (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
+      button(`Recoger (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
       text('Recetas:', 'section-title'),
       recipes,
     );

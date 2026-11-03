@@ -190,7 +190,7 @@ const rentWindow = createRentWindow((lotId, business) => {
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>
     transport.dispatch({ type: 'COLLECT_MATERIALS', avatarId: PLAYER_ID, lotId }),
-  craft: (lotId, defId) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, defId }),
+  craft: (lotId, recipe) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, recipe }),
   collectCrafted: (lotId) =>
     transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
   listItem: (lotId, itemId, price) =>

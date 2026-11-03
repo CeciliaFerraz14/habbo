@@ -144,7 +144,7 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'COLLECT_MATERIALS':
       return collectMaterials(state, action.avatarId, action.lotId);
     case 'CRAFT':
-      return startCraft(state, action.avatarId, action.lotId, action.defId);
+      return startCraft(state, action.avatarId, action.lotId, action.recipe);
     case 'COLLECT_CRAFTED':
       return collectCrafted(state, action.avatarId, action.lotId);
     case 'LIST_ITEM':
