@@ -28,7 +28,7 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
-import { getEmissiveSprite, getFurniSprite, getModel } from '../sprites/furniture/bake';
+import { getFurniSprite, getModel, getPartSprite } from '../sprites/furniture/bake';
 import type { LightPool } from '../sprites/furniture/model';
 import { createBackdrop } from './backdrop';
 import { PHASE_DARKNESS, type DayPhase } from './daylight';
@@ -337,7 +337,7 @@ export class Renderer {
 
     // Capa de luces: el mueble tapa lo que tenga detrás y añade sus luces.
     this.lighting.occlude(sprite, at.x, at.y);
-    const lit = getEmissiveSprite(defId, rotation, variant);
+    const lit = getPartSprite(defId, rotation, 'emissive', variant);
     if (lit) {
       const p = tileToScreen(item.x, item.y);
       this.lighting.emit(
@@ -436,7 +436,7 @@ export class Renderer {
     const { sprite, offsetX, offsetY } = getFurniSprite('car', 0, 'all', car.color);
     const at = this.drawAtTile(sprite, view.x, view.y, camera, offsetX, offsetY);
     this.lighting.occlude(sprite, at.x, at.y);
-    const lit = getEmissiveSprite('car', 0, car.color);
+    const lit = getPartSprite('car', 0, 'emissive', car.color);
     if (lit) {
       const p = tileToScreen(view.x, view.y);
       this.lighting.emit(
@@ -471,10 +471,13 @@ export class Renderer {
 
       // Si el asiento mira hacia el fondo (NW o NE), su respaldo está entre la
       // cámara y el avatar: lo repintamos encima para que tape su espalda.
+      // Los asientos sin respaldo (taburetes) no tienen nada que repintar.
       if (seat && seat.rotation >= 2) {
-        const back = getFurniSprite(seat.defId, seat.rotation, 'backrest', seat.variant);
-        const b = this.drawAtTile(back.sprite, seat.x, seat.y, camera, back.offsetX, back.offsetY);
-        this.lighting.occlude(back.sprite, b.x, b.y);
+        const back = getPartSprite(seat.defId, seat.rotation, 'backrest', seat.variant);
+        if (back) {
+          const b = this.drawAtTile(back.sprite, seat.x, seat.y, camera, back.offsetX, back.offsetY);
+          this.lighting.occlude(back.sprite, b.x, b.y);
+        }
       }
       return;
     }

@@ -2,6 +2,16 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Girar un taburete con el avatar sentado congelaba el juego
+
+**Qué se hizo**
+- `client/src/sprites/furniture/bake.ts`: `getEmissiveSprite` pasa a ser `getPartSprite(defId, rotation, part, variant)`, que devuelve null si el mueble no tiene cajas de esa parte (respaldo o luces).
+- `client/src/engine/renderer.ts`: el respaldo de un asiento girado hacia el fondo se repinta solo si existe.
+
+**Decisiones**
+- Al seleccionar un asiento el avatar se sienta. Si después se giraba un taburete (sin respaldo) hacia NW o NE, el renderer pedía hornear su respaldo con cero cajas: el tamaño salía NaN, `new Array(NaN)` lanzaba `RangeError` y el bucle de render se paraba. El juego parecía no dejar girar.
+- Una sola función para respaldo y luces en vez de dos casi iguales.
+
 ## 2026-11-03 · La cantidad del proveedor se conserva tras comprar
 
 **Qué se hizo**

@@ -95,7 +95,6 @@ function visibleFaces(b: Box): { poly: Point[]; color: string }[] {
   ];
 }
 
-/** Qué parte del mueble hornear: entero, o solo el respaldo (ver Box.backrest). */
 /**
  * Qué parte del mueble hornear:
  * - 'all': entero.
@@ -247,14 +246,16 @@ export function getFurniSprite(
 }
 
 /**
- * Sprite con SOLO las piezas que dan luz de un mueble, o null si no tiene
- * ninguna. Usa la misma caché que getFurniSprite().
+ * Sprite con SOLO una parte del mueble (el respaldo o las piezas que dan luz),
+ * o null si el mueble no tiene ninguna caja de esa parte (un taburete no tiene
+ * respaldo). Usa la misma caché que getFurniSprite().
  */
-export function getEmissiveSprite(
+export function getPartSprite(
   defId: FurniId,
   rotation: Rotation,
+  part: Exclude<FurniPart, 'all'>,
   variant?: string,
 ): FurniSprite | null {
-  const hasLights = getModel(defId, variant).boxes.some((b) => b.emissive);
-  return hasLights ? getFurniSprite(defId, rotation, 'emissive', variant) : null;
+  const hasPart = getModel(defId, variant).boxes.some((b) => b[part]);
+  return hasPart ? getFurniSprite(defId, rotation, part, variant) : null;
 }
