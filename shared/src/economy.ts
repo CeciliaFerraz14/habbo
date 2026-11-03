@@ -15,7 +15,7 @@
 // estado si la acción no es válida (no eres el dueño, no tienes dinero...).
 // =============================================================================
 
-import { CATALOG, DECOR_IDS, type DecorId, type FurniId, type Rotation } from './catalog';
+import { CATALOG, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
   FACADES,
@@ -29,7 +29,6 @@ import {
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
-import { createRandom } from './random';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
 
@@ -64,8 +63,6 @@ export interface Lot {
   nextProductionAt: number;
   /** Taller: muebles en fabricación (o terminados, si tick >= readyAt). */
   jobs: CraftJob[];
-  /** Tienda de un NPC: tick en el que repondrá género. */
-  nextRestockAt: number;
   /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
   nextRentAt: number;
 }
@@ -87,7 +84,6 @@ export function createLot(id: string, label: string): Lot {
     price: 0,
     nextProductionAt: 0,
     jobs: [],
-    nextRestockAt: 0,
     nextRentAt: 0,
   };
 }
@@ -215,7 +211,7 @@ export function rentLot(
 
 /**
  * Abre un negocio en un local (sin cobrar nada; rentLot cobra antes de
- * llamarla y las tiendas de los NPC la usan al crear el mundo). El local
+ * llamarla). El local
  * cambia de nombre, se enciende su neón y aparece su puesto de trabajo.
  */
 function openBusiness(
@@ -259,12 +255,11 @@ function openBusiness(
   };
 }
 
-/** Nombre de la escena de un local ("Chatarrería · Local 1"; los de NPC llevan su nombre). */
+/** Nombre de la escena de un local ("Chatarrería · Local 1"). */
 export function lotSceneName(lot: Lot): string {
   if (!lot.business) return lot.label;
   const config = ECONOMY.businesses[lot.business];
-  const title = isNpcId(lot.ownerId) ? `${config.name} de ${lot.ownerName}` : config.name;
-  return `${title} · ${lot.label}`;
+  return `${config.name} · ${lot.label}`;
 }
 
 /** Productores: el dueño recoge los materiales acumulados. */
@@ -354,7 +349,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return chargeRent(restockNpcStores(produced));
+  return chargeRent(produced);
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -472,7 +467,7 @@ export function sellProduct(
 
 /**
  * Paga una venta al dueño de un negocio: el precio menos la comisión, que
- * desaparece de la economía. Si es un jugador, le deja un aviso con lo cobrado.
+ * desaparece de la economía. Le deja un aviso con lo cobrado.
  */
 function payOwner(state: GameState, ownerId: string, price: number, what: string): GameState {
   const earned = price - Math.round(price * ECONOMY.store.commissionRate);
@@ -480,7 +475,6 @@ function payOwner(state: GameState, ownerId: string, price: number, what: string
     ...state,
     money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + earned },
   };
-  if (isNpcId(ownerId)) return paid;
   return addNotice(paid, ownerId, `${what} por ${ECONOMY.currency}${earned}`);
 }
 
@@ -544,61 +538,6 @@ export function serveCustomer(state: GameState, lotId: string): GameState {
   return payOwner(served, lot.ownerId, lot.price, `Has cobrado ${service.name}`);
 }
 
-// --- Tiendas de los NPC -------------------------------------------------------
-
-/**
- * Añade a la tienda de un NPC un producto al azar, con su precio: el valor de
- * referencia por el margen del NPC. El azar viene de la semilla del estado.
- */
-function addRandomNpcProduct(state: GameState, lotId: string, markup: number): GameState {
-  const rng = createRandom(state.seed);
-  const defId = DECOR_IDS[Math.floor(rng.random() * DECOR_IDS.length)];
-  const price = Math.round(ECONOMY.baseValue[defId] * markup);
-  const next = { ...state, seed: rng.seed() };
-  const product = placeOnDisplay(next, lotId, `i${next.nextId}`, defId, price);
-  if (!product) return next;
-  return {
-    ...next,
-    furniture: { ...next.furniture, [product.id]: product },
-    nextId: next.nextId + 1,
-  };
-}
-
-/** Abre las tiendas de los NPC con su género inicial (al crear el mundo). */
-export function setupNpcStores(state: GameState): GameState {
-  let next = state;
-  for (const npc of ECONOMY.npcStores) {
-    if (!next.lots[npc.lotId]) continue;
-    next = openBusiness(next, npc.lotId, npc.ownerId, npc.ownerName, 'store');
-    next = { ...next, money: { ...next.money, [npc.ownerId]: 0 } };
-    for (let i = 0; i < npc.initialStock; i++) {
-      next = addRandomNpcProduct(next, npc.lotId, npc.markup);
-    }
-    next = withRestockTimer(next, npc.lotId);
-  }
-  return next;
-}
-
-function withRestockTimer(state: GameState, lotId: string): GameState {
-  const lot = state.lots[lotId];
-  const nextRestockAt = state.tick + secondsToTicks(ECONOMY.npcRestock.seconds);
-  return { ...state, lots: { ...state.lots, [lotId]: { ...lot, nextRestockAt } } };
-}
-
-/** Cada cierto tiempo, las tiendas de los NPC reponen un producto si les falta género. */
-function restockNpcStores(state: GameState): GameState {
-  let next = state;
-  for (const npc of ECONOMY.npcStores) {
-    const lot = next.lots[npc.lotId];
-    if (!lot || lot.ownerId !== npc.ownerId || next.tick < lot.nextRestockAt) continue;
-    if (getListings(next, npc.lotId).length < ECONOMY.npcRestock.targetStock) {
-      next = addRandomNpcProduct(next, npc.lotId, npc.markup);
-    }
-    next = withRestockTimer(next, npc.lotId);
-  }
-  return next;
-}
-
 // --- Avisos -----------------------------------------------------------------------
 
 /** Cuántos avisos se guardan como mucho (los más antiguos se olvidan). */
@@ -619,12 +558,11 @@ export function addNotice(state: GameState, avatarId: string, text: string): Gam
 /**
  * Cobra el alquiler de los locales de los jugadores cuando toca. Si el dueño
  * no tiene dinero suficiente, pierde el local.
- * (Los NPC no pagan alquiler: son parte del "decorado" del pueblo.)
  */
 function chargeRent(state: GameState): GameState {
   let next = state;
   for (const lot of Object.values(state.lots)) {
-    if (!lot.ownerId || !lot.business || isNpcId(lot.ownerId) || next.tick < lot.nextRentAt) continue;
+    if (!lot.ownerId || !lot.business || next.tick < lot.nextRentAt) continue;
     const rent = ECONOMY.businesses[lot.business].rent;
     const money = next.money[lot.ownerId] ?? 0;
 

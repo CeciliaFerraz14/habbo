@@ -48,7 +48,7 @@ Abre http://localhost:5173
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
 6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
-   las tiendas de los vecinos Rosa y Elmer.
+   las tiendas de otros jugadores.
 7. Decora tu caravana con lo que compres o fabriques.
 
 ## Controles
@@ -88,7 +88,6 @@ escriben en segundos.
 | Recetas del taller (materiales y tiempo) | `recipes` |
 | Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
-| Tiendas de los NPC y su reposición | `npcStores`, `npcRestock` |
 | Precios del proveedor de materiales | `supplier` |
 | Frecuencia de coches, probabilidad de parar y forma de comprar de los viajeros | `travelers` |
 
@@ -97,7 +96,7 @@ Cómo fluye el dinero:
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
 - **Sale** con el **alquiler** de los locales, la **comisión** de cada venta y las
   compras al **proveedor** de materiales.
-- **Circula** entre jugadores (y tiendas de NPC) cuando unos compran a otros.
+- **Circula** entre jugadores cuando unos compran a otros.
 
 Pistas para equilibrar:
 

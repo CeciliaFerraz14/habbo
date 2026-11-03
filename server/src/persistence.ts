@@ -54,7 +54,6 @@ function rowToLot(row: Record<string, any>): Lot {
     price: row.service_price ?? 0,
     jobs: row.jobs ?? [],
     nextProductionAt: Number(row.next_production_at),
-    nextRestockAt: Number(row.next_restock_at),
     nextRentAt: Number(row.next_rent_at),
   };
 }
@@ -71,7 +70,6 @@ function lotToRow(lot: Lot) {
     service_price: lot.price,
     jobs: lot.jobs,
     next_production_at: lot.nextProductionAt,
-    next_restock_at: lot.nextRestockAt,
     next_rent_at: lot.nextRentAt,
   };
 }
@@ -142,8 +140,7 @@ export class Persistence {
     }
 
     // 2. Locales. Si hay locales guardados, los muebles de los locales del
-    //    mundo inicial (género generado de las tiendas NPC) se sustituyen por
-    //    los guardados.
+    //    mundo inicial se sustituyen por los guardados.
     const scenes = { ...state.scenes };
     const furniMap = { ...state.furniture };
     const lotMap = { ...state.lots };

@@ -293,21 +293,6 @@ export const ECONOMY = {
     commissionRate: 0.05,
   },
 
-  /**
-   * Tiendas que llevan los NPC desde el principio, para que el pueblo no esté
-   * vacío y haya dónde comprar. Reponen género solas cada cierto tiempo.
-   */
-  npcStores: [
-    { lotId: 'lot4', ownerId: 'npc-rosa', ownerName: 'Rosa', markup: 1.3, initialStock: 5 },
-    { lotId: 'lot6', ownerId: 'npc-elmer', ownerName: 'Elmer', markup: 1.1, initialStock: 4 },
-  ],
-  npcRestock: {
-    /** Cada cuántos segundos repone un producto una tienda NPC. */
-    seconds: 45,
-    /** No repone si ya tiene tantos productos a la venta. */
-    targetStock: 6,
-  },
-
   /** Recetas del taller: qué cuesta fabricar cada mueble. */
   recipes: {
     tire: { materials: { tires: 2 }, seconds: 10 },

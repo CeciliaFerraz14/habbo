@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-03 · Locales de Elmer y Rosa en alquiler desde el principio
+
+**Qué se hizo**
+- `shared/src/economy.ts` y `economy.config.ts`: fuera las tiendas NPC (`npcStores`, `npcRestock`, reposición, `Lot.nextRestockAt`) y sus ramas en nombre de escena, cobro de ventas y alquiler.
+- `shared/src/world.ts`: el mundo inicial deja los 6 locales en alquiler.
+- `server/src/persistence.ts`: ya no se lee ni se guarda `next_restock_at` (la columna sigue en la base con su valor por defecto).
+- `shared/src/economy.test.ts` y script `npm test` (`node:test` con `tsx`, sin dependencias nuevas).
+- `client/tsconfig.json` excluye los tests de `shared`: el cliente no tiene los tipos de Node.
+
+**Decisiones**
+- `isNpcId` se mantiene exportada: la siguiente tarea la usa para liberar los locales NPC de mundos ya guardados.
+- Sin migración: la columna `next_restock_at` tiene valor por defecto, así que no hace falta tocar el esquema.
+
 ## 2026-11-03 · Girar un taburete con el avatar sentado congelaba el juego
 
 **Qué se hizo**

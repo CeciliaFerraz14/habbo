@@ -10,7 +10,7 @@
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
 //   y 10-13 desierto con cactus y el cartel de bienvenida
-import { createLot, setupNpcStores } from './economy';
+import { createLot } from './economy';
 import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
@@ -224,6 +224,6 @@ export function createInitialState(): GameState {
     notices: [],
     nextId: 100,
   };
-  // Las tiendas de los NPC abren desde el principio y los vecinos salen a la calle.
-  return setupNeighbors(setupNpcStores(state));
+  // Todos los locales empiezan en alquiler y los vecinos salen a la calle.
+  return setupNeighbors(state);
 }
