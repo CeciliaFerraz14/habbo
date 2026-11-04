@@ -2,6 +2,7 @@
 import {
   CATALOG,
   GARMENTS,
+  garmentKey,
   isGarmentItem,
   type FurniInventoryItem,
   type GarmentInventoryItem,
@@ -38,7 +39,7 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
     const garments = new Map<string, GarmentInventoryItem[]>();
     for (const item of items) {
       if (isGarmentItem(item)) {
-        const key = `${item.garment}|${item.color}`;
+        const key = garmentKey({ type: item.garment, color: item.color });
         garments.set(key, [...(garments.get(key) ?? []), item]);
       } else {
         groups.set(item.defId, [...(groups.get(item.defId) ?? []), item]);

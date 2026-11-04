@@ -12,7 +12,7 @@ export const tokenMachine: FurniModel = {
     glow(14, 6, 26, 15, 26, 34, PALETTE.neonCyan),
     // Ranura de las fichas y bandeja
     box(14, 12, 16, 15, 20, 18, PALETTE.outline),
-    box(14, 8, 6, 17, 24, 9, '#9aa3ad'),
+    box(14, 8, 6, 17, 24, 9, PALETTE.metal),
     // Ficha dorada en la bandeja (mismo color que el cuadradito de las fichas en la interfaz)
     box(15, 14, 9, 17, 18, 13, '#f2b134'),
   ],

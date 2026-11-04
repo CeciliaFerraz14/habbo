@@ -2,6 +2,15 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Arreglos de la revisión final de la parte 4
+
+**Qué se hizo**
+- `shared/src/reducer.ts`: JOIN normaliza el aspecto (`normalizeLook` o `DEFAULT_LOOK`) antes de quitar las prendas que no son suyas; cubre handshake, perfil guardado y modo local.
+- `shared/src/garments.ts`: `garmentKey` (clave tipo+color) y `withOutfit` (la única regla de "sin prendas, sin `outfit`"), usados por `normalizeLook`, `dropUnownedOutfit` y la interfaz.
+- `shared/src/economy.ts`: `listingValue` devuelve 0 para un producto que no es prenda ni mueble de decoración.
+- Cliente: el color del escaparate de ropa entra en la firma de `businessWindow` (ya no se pierde el precio escrito); "Quitar" va en la cabecera de cada ranura del editor; colores de estructuras en `PALETTE`.
+- Migración 005: aviso de que, con prendas guardadas, volver al servidor anterior no es seguro.
+
 ## 2026-11-04 · Interfaz de la tienda de ropa y del vestuario
 
 **Qué se hizo**

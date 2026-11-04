@@ -26,7 +26,7 @@
 // así todos los fotogramas miden lo mismo con sombrero o sin él, y los pies y
 // las caderas quedan en la misma fila del sprite.
 
-import type { AvatarLook, Direction, Garment, GarmentId, GarmentSlot } from '@juego/shared';
+import { garmentKey, type AvatarLook, type Direction, type Garment, type GarmentId, type GarmentSlot } from '@juego/shared';
 import { stackSprites, type Sprite } from './canvas';
 import { shade } from './color';
 import { PALETTE } from './palette';
@@ -290,7 +290,7 @@ const cache = new Map<string, AvatarFrames>();
 export function getAvatarFrames(look: AvatarLook): AvatarFrames {
   const outfitKey = SLOT_ORDER.map((slot) => {
     const garment = look.outfit?.[slot];
-    return garment ? `${garment.type}:${garment.color}` : '';
+    return garment ? garmentKey(garment) : '';
   }).join('|');
   const cacheKey = `${look.hair}|${look.skin}|${look.shirt}|${look.pants}|${outfitKey}`;
   const cached = cache.get(cacheKey);
@@ -326,7 +326,7 @@ const garmentCache = new Map<string, Sprite>();
  * serían manchas de color.
  */
 export function getGarmentSprite(garment: Garment): Sprite {
-  const key = `${garment.type}:${garment.color}`;
+  const key = garmentKey(garment);
   const cached = garmentCache.get(key);
   if (cached) return cached;
   const rows = outlined(trimmed(GARMENT_LAYERS[garment.type]('front', LEGS_STAND)));

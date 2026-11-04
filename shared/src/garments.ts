@@ -15,7 +15,7 @@
 // economía.
 // =============================================================================
 import { isOwnKey } from './economy.config';
-import type { FurniItem, GameState, GarmentInventoryItem, InventoryItem } from './types';
+import type { AvatarLook, FurniItem, GameState, GarmentInventoryItem, InventoryItem } from './types';
 
 /** Partes del cuerpo donde se lleva una prenda (una prenda por ranura). */
 export type GarmentSlot = 'head' | 'torso' | 'feet';
@@ -63,6 +63,20 @@ export function isGarmentDisplay<T extends Pick<FurniItem, 'garment' | 'variant'
   return isGarmentId(item.garment) && item.variant !== undefined;
 }
 
+/** Clave de una prenda por tipo y color (para agrupar y cachear). */
+export function garmentKey(garment: Garment): string {
+  return `${garment.type}|${garment.color}`;
+}
+
+/**
+ * Aspecto con esa ropa. Sin ninguna prenda no lleva `outfit`: una sola forma
+ * de "nada puesto".
+ */
+export function withOutfit(look: AvatarLook, outfit: Outfit): AvatarLook {
+  const { outfit: _old, ...colors } = look;
+  return Object.keys(outfit).length > 0 ? { ...colors, outfit } : colors;
+}
+
 /** ¿El avatar tiene en su inventario alguna prenda de ese tipo y color? */
 export function ownsGarment(state: GameState, avatarId: string, garment: Garment): boolean {
   return (state.inventories[avatarId] ?? []).some(
@@ -87,8 +101,6 @@ export function dropUnownedOutfit(state: GameState, avatarId: string): GameState
     else dropped = true;
   }
   if (!dropped) return state;
-  // Sin ninguna prenda, el aspecto no lleva outfit (una sola forma de "nada puesto").
-  const { outfit: _old, ...colors } = avatar.look;
-  const look = Object.keys(kept).length > 0 ? { ...colors, outfit: kept } : colors;
+  const look = withOutfit(avatar.look, kept);
   return { ...state, avatars: { ...state.avatars, [avatarId]: { ...avatar, look } } };
 }

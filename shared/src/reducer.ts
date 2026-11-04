@@ -26,7 +26,7 @@ import {
 import { ECONOMY } from './economy.config';
 import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
 import { dropUnownedOutfit, isGarmentItem } from './garments';
-import { normalizeLook } from './looks';
+import { DEFAULT_LOOK, normalizeLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
@@ -36,7 +36,8 @@ export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'JOIN': {
       let next = state;
-      let avatar = action.avatar;
+      // El aspecto puede venir de fuera (conexión, perfil guardado): se limpia.
+      let avatar = { ...action.avatar, look: normalizeLook(action.avatar.look) ?? DEFAULT_LOOK };
       // Cada jugador tiene su caravana: se crea la primera vez que entra.
       const trailerId = trailerSceneId(avatar.id);
       if (!avatar.isBot && !next.scenes[trailerId]) {

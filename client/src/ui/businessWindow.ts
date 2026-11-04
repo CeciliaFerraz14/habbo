@@ -18,8 +18,10 @@ import {
   GARMENT_COLORS,
   GARMENT_IDS,
   GARMENTS,
+  garmentKey,
   getListings,
   hasMaterials,
+  isGarmentDisplay,
   isKind,
   listingValue,
   MOVE_TICK_MS,
@@ -198,7 +200,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     for (const item of inventory) {
       if (!sellsItem(lot, item)) continue;
       const product = displayOf(item);
-      const key = `${product.defId}|${product.garment ?? ''}|${product.variant ?? ''}`;
+      const key = isGarmentDisplay(product) ? garmentKey({ type: product.garment, color: product.variant }) : product.defId;
       const group = groups.get(key) ?? { product, ids: [] };
       group.ids.push(item.id);
       groups.set(key, group);
@@ -400,7 +402,6 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       b.title = color;
       b.addEventListener('click', () => {
         garmentColor = color;
-        signature = '';
         if (latest) update(latest.state, latest.playerId);
       });
       colors.append(b);
@@ -442,7 +443,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
     const listings = getListings(state, lot.id);
     const inventory = state.inventories[playerId] ?? [];
-    const next = JSON.stringify([lot, mine, inside, done, listings, inventory]);
+    const next = JSON.stringify([lot, mine, inside, done, listings, inventory, garmentColor]);
     if (next !== signature) {
       signature = next;
       timers = [];

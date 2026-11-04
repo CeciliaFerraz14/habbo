@@ -481,9 +481,10 @@ export function productName(item: Product): string {
  * mueble. Es el precio sugerido y lo que los viajeros consideran justo.
  */
 export function listingValue(item: Product): number {
-  return isGarmentDisplay(item)
-    ? ECONOMY.garmentValue[item.garment]
-    : ECONOMY.baseValue[item.defId as DecorId];
+  if (isGarmentDisplay(item)) return ECONOMY.garmentValue[item.garment];
+  // Un producto que no es prenda ni mueble de decoración no tiene valor (0): el
+  // viajero lo descarta porque el precio entre 0 da infinito o NaN.
+  return isOwnKey(ECONOMY.baseValue, item.defId) ? ECONOMY.baseValue[item.defId] : 0;
 }
 
 /**

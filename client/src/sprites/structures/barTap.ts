@@ -3,8 +3,6 @@
 import { box, glow, type FurniModel } from '../furniture/model';
 import { PALETTE } from '../palette';
 
-const CHROME = '#d8dde3';
-
 export const barTap: FurniModel = {
   boxes: [
     // Cuerpo de madera, zócalo oscuro y encimera
@@ -12,10 +10,10 @@ export const barTap: FurniModel = {
     box(14, 1, 0, 15, 31, 3, '#5a3a24'),
     box(2, 0, 16, 16, 32, 19, '#5a3a24'),
     // Dos grifos: columna cromada y pico hacia los clientes
-    box(5, 6, 19, 8, 9, 27, CHROME),
-    box(8, 6, 24, 12, 9, 27, CHROME),
-    box(5, 22, 19, 8, 25, 27, CHROME),
-    box(8, 22, 24, 12, 25, 27, CHROME),
+    box(5, 6, 19, 8, 9, 27, PALETTE.chrome),
+    box(8, 6, 24, 12, 9, 27, PALETTE.chrome),
+    box(5, 22, 19, 8, 25, 27, PALETTE.chrome),
+    box(8, 22, 24, 12, 25, 27, PALETTE.chrome),
     // Jarra con cerveza y espuma
     box(9, 13, 19, 14, 19, 25, PALETTE.ochre),
     box(9, 13, 25, 14, 19, 27, PALETTE.cream),

@@ -9,6 +9,7 @@ import {
   applyAction,
   createInitialState,
   dropUnownedOutfit,
+  garmentKey,
   normalizeLook,
 } from './index';
 import type { AvatarLook, Garment, GameState, GarmentId, InventoryItem } from './index';
@@ -113,4 +114,24 @@ test('every garment has a recipe and a value', () => {
     assert.ok(ECONOMY.garmentRecipes[id].seconds > 0);
     assert.ok(ECONOMY.garmentValue[id] > 0);
   }
+});
+
+test('join normalises a saved look (extra fields, wrong slot)', () => {
+  const owner = { ...createInitialState(), inventories: { p1: [hatItem('g1')] } };
+  const join = (look: unknown) =>
+    applyAction(owner, { type: 'JOIN', avatar: { ...testPlayer('trailer'), look: look as AvatarLook } });
+
+  // Campos de más: se descartan.
+  const extra = join({ ...WITH_HAT, evil: 'x' });
+  assert.deepEqual(extra.avatars.p1.look, WITH_HAT);
+
+  // Prenda en la ranura equivocada (aunque sea suya): el aspecto vuelve al de por defecto.
+  const wrongSlot = join({ ...DEFAULT_LOOK, outfit: { feet: HAT } });
+  assert.deepEqual(wrongSlot.avatars.p1.look, DEFAULT_LOOK);
+});
+
+test('garmentKey is the same for the same type and colour only', () => {
+  assert.equal(garmentKey(HAT), garmentKey({ ...HAT }));
+  assert.notEqual(garmentKey(HAT), garmentKey({ ...HAT, color: GARMENT_COLORS[1] }));
+  assert.notEqual(garmentKey(HAT), garmentKey({ type: 'cap', color: HAT.color }));
 });

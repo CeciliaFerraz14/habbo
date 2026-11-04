@@ -4,7 +4,7 @@
 // - El reducer comprueba (normalizeLook) que un SET_LOOK solo usa estos colores. En la fase 2
 //   eso impide que alguien mande colores inventados al servidor.
 // - Los NPC (vecinos y viajeros) generan su aspecto al azar con randomLook().
-import { GARMENTS, isGarmentId, type Outfit } from './garments';
+import { GARMENTS, isGarmentId, withOutfit, type Outfit } from './garments';
 import type { AvatarLook, LookPart } from './types';
 
 export const LOOK_COLORS: Record<LookPart, readonly string[]> = {
@@ -55,7 +55,7 @@ export function normalizeLook(look: unknown): AvatarLook | null {
   if (look.outfit === undefined) return clean;
   const outfit = normalizeOutfit(look.outfit);
   if (!outfit) return null;
-  return Object.keys(outfit).length > 0 ? { ...clean, outfit } : clean;
+  return withOutfit(clean, outfit);
 }
 
 function normalizeOutfit(outfit: unknown): Outfit | null {

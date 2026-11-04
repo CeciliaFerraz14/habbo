@@ -19,6 +19,10 @@
 -- un inventario con prendas falla (no existen las columnas garment y color).
 -- Es segura con el servidor antiguo: solo añade columnas nulas y amplía checks
 -- (las filas que ya existen tienen def_id, así que cumplen el check nuevo).
+--
+-- Una vez guardadas prendas o burros de ropa, volver al servidor anterior NO
+-- es seguro: su CATALOG no tiene clothes_rack y las filas de prendas tienen
+-- def_id null.
 
 alter table public.inventory_items alter column def_id drop not null;
 alter table public.inventory_items add column if not exists garment text;

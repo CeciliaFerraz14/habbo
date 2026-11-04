@@ -29,6 +29,12 @@ export const PALETTE = {
   neonCyan: '#39e6ff',
   neonYellow: '#ffe14d',
 
+  // Materiales de los puestos y objetos de la calle
+  iron: '#3a3434',
+  wood: '#8a5a34',
+  chrome: '#d8dde3',
+  metal: '#9aa3ad',
+
   // Acentos
   turquoise: '#2f8f8a',
   turquoiseLight: '#5cc8bd',

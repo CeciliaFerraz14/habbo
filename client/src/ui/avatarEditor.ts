@@ -7,6 +7,7 @@
 // del juego.
 import {
   GARMENTS,
+  garmentKey,
   isGarmentItem,
   LOOK_COLORS,
   LOOK_PARTS,
@@ -115,18 +116,18 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
   /** Pone una prenda en su ranura o, con null, deja la ranura vacía. */
   const wear = (slot: GarmentSlot, garment: Garment | null) => {
     if (!current) return;
-    const { outfit, ...colors } = current;
-    const { [slot]: _old, ...others } = outfit ?? {};
-    const next = garment ? { ...others, [slot]: garment } : others;
-    // Sin ninguna prenda, el aspecto no lleva outfit (como en el reducer).
-    onChange(Object.keys(next).length > 0 ? { ...colors, outfit: next } : colors);
+    const { [slot]: _old, ...others } = current.outfit ?? {};
+    // Si no queda ninguna prenda, el reducer quita el outfit al normalizar.
+    onChange({ ...current, outfit: garment ? { ...others, [slot]: garment } : others });
   };
 
   const buildGarments = (look: AvatarLook, items: readonly InventoryItem[]) => {
     // Cada tipo y color una sola vez, agrupados por ranura.
     const owned = new Map<string, Garment>();
     for (const item of items) {
-      if (isGarmentItem(item)) owned.set(`${item.garment}|${item.color}`, { type: item.garment, color: item.color });
+      if (!isGarmentItem(item)) continue;
+      const garment = { type: item.garment, color: item.color };
+      owned.set(garmentKey(garment), garment);
     }
     const title = document.createElement('div');
     title.className = 'section-title';
@@ -146,6 +147,15 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
       const label = document.createElement('div');
       label.className = 'look-label';
       label.textContent = SLOT_NAMES[slot];
+      const remove = document.createElement('button');
+      remove.className = 'btn btn-small';
+      remove.textContent = 'Quitar';
+      remove.disabled = !worn;
+      remove.addEventListener('click', () => wear(slot, null));
+      // Etiqueta y "Quitar" en una fila propia, igual para las tres ranuras.
+      const header = document.createElement('div');
+      header.className = 'row';
+      header.append(label, remove);
       const row = document.createElement('div');
       row.className = 'row';
       for (const garment of mine) {
@@ -156,13 +166,7 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
         b.addEventListener('click', () => wear(slot, garment));
         row.append(b);
       }
-      const remove = document.createElement('button');
-      remove.className = 'btn btn-small';
-      remove.textContent = 'Quitar';
-      remove.disabled = !worn;
-      remove.addEventListener('click', () => wear(slot, null));
-      row.append(remove);
-      garments.append(label, row);
+      garments.append(header, row);
     }
   };
 
