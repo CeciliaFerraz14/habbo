@@ -33,6 +33,7 @@ import {
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni } from './furniture';
+import { isGarmentItem } from './garments';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
 
@@ -446,7 +447,8 @@ export function listItem(
   }
   const inventory = state.inventories[avatarId] ?? [];
   const item = inventory.find((i) => i.id === itemId);
-  if (!item) return state;
+  // La tienda de decoración solo vende muebles.
+  if (!item || isGarmentItem(item)) return state;
 
   const product = placeOnDisplay(state, lotId, item.id, item.defId as DecorId, price);
   if (!product) return state;

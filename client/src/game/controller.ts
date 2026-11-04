@@ -14,6 +14,7 @@ import {
   getDoorAt,
   getFootprint,
   isDoorLocked,
+  isGarmentItem,
   isInsideScene,
   lotOfStation,
   type Door,
@@ -116,7 +117,8 @@ export class GameController {
   /** Coge un mueble del inventario para colocarlo. */
   startPlacing(itemId: string): void {
     const item = (this.getState().inventories[this.playerId] ?? []).find((i) => i.id === itemId);
-    if (!item) return;
+    // Las prendas no se colocan en la sala.
+    if (!item || isGarmentItem(item)) return;
     if (!this.canDecorateHere()) {
       this.events.notify('Solo puedes decorar tu caravana y tus locales.');
       return;

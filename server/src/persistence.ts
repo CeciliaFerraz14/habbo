@@ -18,6 +18,7 @@ import {
   buildingVariant,
   createInitialState,
   createTrailer,
+  isGarmentItem,
   lotSceneName,
   releaseNpcLots,
   type AvatarLook,
@@ -73,6 +74,27 @@ function lotToRow(lot: Lot) {
     next_production_at: lot.nextProductionAt,
     next_rent_at: lot.nextRentAt,
   };
+}
+
+/**
+ * Objeto del inventario → fila de inventory_items. Un mueble lleva def_id y
+ * una prenda garment y color; lo demás va a null (todas las filas con las
+ * mismas columnas, para insertarlas de una vez).
+ */
+function itemToRow(item: InventoryItem, ownerId: string) {
+  const garment = isGarmentItem(item);
+  return {
+    id: item.id,
+    owner_id: ownerId,
+    def_id: garment ? null : item.defId,
+    garment: garment ? item.garment : null,
+    color: garment ? item.color : null,
+  };
+}
+
+/** Fila de inventory_items → objeto del inventario. */
+function rowToItem(row: Record<string, any>): InventoryItem {
+  return row.garment ? { id: row.id, garment: row.garment, color: row.color } : { id: row.id, defId: row.def_id };
 }
 
 function furniToRow(f: FurniItem) {
@@ -174,7 +196,7 @@ export class Persistence {
       scenes[trailer.id] = trailer;
     }
     for (const row of itemRows) {
-      inventories[row.owner_id]?.push({ id: row.id, defId: row.def_id });
+      inventories[row.owner_id]?.push(rowToItem(row));
     }
 
     // 4. Muebles de caravanas y locales.
@@ -246,7 +268,7 @@ export class Persistence {
       for (const id of changedPlayers) {
         if (state.inventories[id] === prev.inventories[id]) continue;
         check(await supabase.from('inventory_items').delete().eq('owner_id', id), 'inventory');
-        const rows = (state.inventories[id] ?? []).map((i) => ({ id: i.id, owner_id: id, def_id: i.defId }));
+        const rows = (state.inventories[id] ?? []).map((i) => itemToRow(i, id));
         if (rows.length) check(await supabase.from('inventory_items').insert(rows), 'inventory');
       }
 

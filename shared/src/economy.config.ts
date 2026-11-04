@@ -9,6 +9,7 @@
 // simulación los convierte a ticks (ver secondsToTicks en economy.ts).
 // =============================================================================
 import type { DecorId } from './catalog';
+import type { GarmentId } from './garments';
 
 export type BusinessType =
   | 'scrapyard'
@@ -367,6 +368,24 @@ export const ECONOMY = {
     arcade_machine: { materials: { sheet_metal: 3, old_wood: 1, tokens: 2 }, seconds: 50 },
     pinball: { materials: { sheet_metal: 3, tires: 1, tokens: 2 }, seconds: 60 },
   } satisfies Record<DecorId, Recipe>,
+
+  /** Recetas de la tienda de ropa: qué tela (y demás) cuesta coser cada prenda. */
+  garmentRecipes: {
+    cowboy_hat: { materials: { fabric: 2 }, seconds: 20 },
+    cap: { materials: { fabric: 1 }, seconds: 12 },
+    denim_jacket: { materials: { fabric: 3 }, seconds: 30 },
+    vest: { materials: { fabric: 2 }, seconds: 20 },
+    boots: { materials: { fabric: 1, tires: 1 }, seconds: 20 },
+  } satisfies Record<GarmentId, Recipe>,
+
+  /** Valor de referencia de cada prenda (precio sugerido y lo que pagan los viajeros). */
+  garmentValue: {
+    cowboy_hat: 45,
+    cap: 25,
+    denim_jacket: 70,
+    vest: 50,
+    boots: 40,
+  } satisfies Record<GarmentId, number>,
 
   /** Recetas del taller que producen materiales (no se compran en el proveedor). */
   materialRecipes: {

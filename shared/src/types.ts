@@ -3,6 +3,7 @@
 import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
+import type { GarmentId, Outfit } from './garments';
 import type { NpcBrain } from './npcs';
 import type { Vehicle } from './travelers';
 import type { Scene } from './scene';
@@ -20,12 +21,12 @@ export interface TilePoint {
  */
 export type Direction = 'NE' | 'SE' | 'SW' | 'NW';
 
-/** Colores del avatar, en formato "#rrggbb". */
-export interface AvatarLook {
-  hair: string;
-  skin: string;
-  shirt: string;
-  pants: string;
+/** Partes del avatar que tienen color. */
+export type LookPart = 'hair' | 'skin' | 'shirt' | 'pants';
+
+/** Colores del avatar, en formato "#rrggbb", y la ropa que lleva puesta. */
+export interface AvatarLook extends Record<LookPart, string> {
+  outfit?: Outfit;
 }
 
 export interface Avatar {
@@ -64,10 +65,20 @@ export interface Notice {
 }
 
 /** Un mueble guardado en el inventario (todavía sin colocar). */
-export interface InventoryItem {
+export interface FurniInventoryItem {
   id: string;
   defId: FurniId;
 }
+
+/** Una prenda guardada en el inventario. Se lleva puesta, no se coloca. */
+export interface GarmentInventoryItem {
+  id: string;
+  garment: GarmentId;
+  color: string;
+}
+
+/** Lo que se guarda en el inventario: muebles o prendas (ver isGarmentItem). */
+export type InventoryItem = FurniInventoryItem | GarmentInventoryItem;
 
 /** Un mueble colocado en una escena. */
 export interface FurniItem {

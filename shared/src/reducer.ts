@@ -25,6 +25,7 @@ import {
 } from './economy';
 import { ECONOMY } from './economy.config';
 import { canPlaceFurni } from './furniture';
+import { dropUnownedOutfit, isGarmentItem } from './garments';
 import { isValidLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
@@ -66,7 +67,8 @@ export function applyAction(state: GameState, action: Action): GameState {
           nextId: next.nextId + items.length,
         };
       }
-      return updateSitting(next);
+      // El aspecto guardado puede llevar prendas que ya no tiene: se las quitamos.
+      return updateSitting(dropUnownedOutfit(next, avatar.id));
     }
 
     case 'LEAVE': {
@@ -89,7 +91,8 @@ export function applyAction(state: GameState, action: Action): GameState {
       const avatar = state.avatars[action.avatarId];
       const inventory = state.inventories[action.avatarId] ?? [];
       const item = inventory.find((i) => i.id === action.itemId);
-      if (!avatar || !item) return state;
+      // Las prendas se llevan puestas, no se colocan.
+      if (!avatar || !item || isGarmentItem(item)) return state;
       const { sceneId } = avatar;
       if (!canEditScene(state, avatar.id, sceneId)) return state;
       if (!canPlaceFurni(state, sceneId, item.defId, action.x, action.y, action.rotation)) {
@@ -164,9 +167,10 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];
-      // Solo se aceptan colores de la lista de LOOK_COLORS.
+      // Solo se aceptan colores de la lista de LOOK_COLORS (y prendas que existen).
       if (!avatar || !isValidLook(action.look)) return state;
-      return withAvatar(state, { ...avatar, look: { ...action.look } });
+      // Las prendas que no tiene no se rechazan: se quitan y el resto se aplica.
+      return dropUnownedOutfit(withAvatar(state, { ...avatar, look: { ...action.look } }), avatar.id);
     }
 
     case 'SAY': {

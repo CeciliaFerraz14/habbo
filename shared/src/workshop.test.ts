@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ECONOMY, SUPPLIER_MATERIAL_IDS, createInitialState, applyAction } from './index';
+import { testPlayer } from './testHelpers';
+import { ECONOMY, SUPPLIER_MATERIAL_IDS, applyAction, createInitialState, isGarmentItem } from './index';
 import type { BusinessType, CraftJob, FacadeId, GameState, MaterialId, Materials, RecipeId } from './index';
 
 /** Jugador p1 dentro de lot1, que es suyo y es un taller. */
@@ -8,20 +9,7 @@ function withWorkshop(materials: Materials, jobs: CraftJob[] = []): GameState {
   const state = createInitialState();
   return {
     ...state,
-    avatars: {
-      p1: {
-        id: 'p1',
-        name: 'P1',
-        sceneId: 'lot1',
-        x: 1,
-        y: 1,
-        direction: 'SE',
-        path: [],
-        look: { hair: '#000000', skin: '#ffffff', shirt: '#ffffff', pants: '#000000' },
-        isBot: false,
-        sitting: false,
-      },
-    },
+    avatars: { p1: testPlayer() },
     lots: {
       ...state.lots,
       lot1: { ...state.lots.lot1, ownerId: 'p1', ownerName: 'P1', business: 'workshop', facade: 'classic', jobs },
@@ -36,6 +24,9 @@ const craft = (state: GameState, recipe: RecipeId) =>
   applyAction(state, { type: 'CRAFT', avatarId: 'p1', lotId: 'lot1', recipe });
 const collect = (state: GameState) =>
   applyAction(state, { type: 'COLLECT_CRAFTED', avatarId: 'p1', lotId: 'lot1' });
+/** Qué hay en el inventario de p1 (mueble o prenda de cada objeto). */
+const inventoryIds = (state: GameState) =>
+  state.inventories.p1.map((i) => (isGarmentItem(i) ? i.garment : i.defId));
 
 test('material recipe crafts tokens into the owner materials', () => {
   const crafted = craft(withWorkshop({ sheet_metal: 1 }), 'tokens');
@@ -61,14 +52,14 @@ test('collect mixed queue', () => {
     { material: 'tokens', readyAt: 0 },
   ]);
   const next = collect(state);
-  assert.deepEqual(next.inventories.p1.map((i) => i.defId), ['tire']);
+  assert.deepEqual(inventoryIds(next), ['tire']);
   assert.equal(next.materials.p1.tokens, 5);
   assert.deepEqual(next.lots.lot1.jobs, []);
 });
 
 test('old furniture jobs still collect', () => {
   const next = collect(withWorkshop({}, [{ defId: 'tire', readyAt: 0 }]));
-  assert.deepEqual(next.inventories.p1.map((i) => i.defId), ['tire']);
+  assert.deepEqual(inventoryIds(next), ['tire']);
 });
 
 test('supplier does not sell fabric or tokens', () => {
@@ -86,7 +77,7 @@ test('furniture recipe spends materials and delivers the item', () => {
   assert.equal(crafted.materials.p1.tires, 1);
   assert.deepEqual(crafted.lots.lot1.jobs.map((j) => 'defId' in j && j.defId), ['tire']);
   const next = collect({ ...crafted, tick: crafted.lots.lot1.jobs[0].readyAt });
-  assert.deepEqual(next.inventories.p1.map((i) => i.defId), ['tire']);
+  assert.deepEqual(inventoryIds(next), ['tire']);
   assert.equal(next.materials.p1.tires, 1);
 });
 
@@ -124,7 +115,7 @@ test('RENT_LOT with a non-business key does nothing', () => {
   const base = createInitialState();
   const state: GameState = {
     ...base,
-    avatars: { p1: { ...withWorkshop({}).avatars.p1, sceneId: 'street' } },
+    avatars: { p1: testPlayer('street') },
     money: { p1: 1000 },
   };
   const next = applyAction(state, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: 'toString' as BusinessType });

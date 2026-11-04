@@ -16,6 +16,7 @@ import {
   FACADES,
   getListings,
   hasMaterials,
+  isGarmentItem,
   MOVE_TICK_MS,
   secondsToTicks,
   totalMaterials,
@@ -181,10 +182,12 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const inventory = state.inventories[playerId] ?? [];
     const groups = new Map<DecorId, string[]>();
     for (const item of inventory) {
+      // Las prendas no se venden en la tienda de decoración.
+      if (isGarmentItem(item)) continue;
       const defId = item.defId as DecorId;
       groups.set(defId, [...(groups.get(defId) ?? []), item.id]);
     }
-    if (groups.size === 0) forSale.append(text('Tu inventario está vacío. Fabrica muebles en un taller.'));
+    if (groups.size === 0) forSale.append(text('No tienes muebles en el inventario. Fabrícalos en un taller.'));
     for (const [defId, ids] of groups) {
       const row = document.createElement('div');
       row.className = 'recipe';

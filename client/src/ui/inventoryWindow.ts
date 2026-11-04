@@ -1,5 +1,12 @@
-// Ventana del inventario: muebles que tiene el jugador sin colocar.
-import { CATALOG, type InventoryItem } from '@juego/shared';
+// Ventana del inventario: muebles que tiene el jugador sin colocar y prendas.
+import {
+  CATALOG,
+  GARMENTS,
+  isGarmentItem,
+  type FurniInventoryItem,
+  type GarmentInventoryItem,
+  type InventoryItem,
+} from '@juego/shared';
 import { furniIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -25,12 +32,17 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
     lastItems = items;
     grid.replaceChildren();
 
-    // Agrupamos por tipo de mueble para mostrar "Silla x3" en lugar de tres tarjetas.
-    const groups = new Map<string, InventoryItem[]>();
+    // Agrupamos por tipo de mueble para mostrar "Silla x3" en lugar de tres
+    // tarjetas. Las prendas, por tipo y color.
+    const groups = new Map<string, FurniInventoryItem[]>();
+    const garments = new Map<string, GarmentInventoryItem[]>();
     for (const item of items) {
-      const group = groups.get(item.defId) ?? [];
-      group.push(item);
-      groups.set(item.defId, group);
+      if (isGarmentItem(item)) {
+        const key = `${item.garment}|${item.color}`;
+        garments.set(key, [...(garments.get(key) ?? []), item]);
+      } else {
+        groups.set(item.defId, [...(groups.get(item.defId) ?? []), item]);
+      }
     }
 
     for (const group of groups.values()) {
@@ -49,6 +61,28 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
 
       card.append(furniIcon(def.id), name, count);
       card.addEventListener('click', () => onPick(group[0].id));
+      grid.append(card);
+    }
+
+    // Las prendas no se colocan en la sala: la tarjeta no es un botón.
+    for (const group of garments.values()) {
+      const { garment, color } = group[0];
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'facade-swatch';
+      swatch.style.background = color;
+
+      const name = document.createElement('div');
+      name.className = 'card-name';
+      name.textContent = GARMENTS[garment].name;
+
+      const count = document.createElement('div');
+      count.className = 'badge';
+      count.textContent = `x${group.length}`;
+
+      card.append(swatch, name, count);
       grid.append(card);
     }
 

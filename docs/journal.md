@@ -2,6 +2,23 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Prendas: catálogo, inventario y aspecto
+
+**Qué se hizo**
+- `shared/src/garments.ts`: catálogo de prendas (`cowboy_hat`, `cap`, `denim_jacket`, `vest`, `boots`) con nombre y ranura (`head`, `torso`, `feet`), `isGarmentId`, `isGarmentItem`, `ownsGarment` y `dropUnownedOutfit`.
+- `shared/src/economy.config.ts`: `garmentRecipes` y `garmentValue`. `shared/src/looks.ts`: `GARMENT_COLORS` e `isValidLook` valida el `outfit` (prenda que existe, en su ranura y con un color permitido) y rechaza aspectos que no son objetos.
+- `shared/src/types.ts`: `AvatarLook.outfit`, `LookPart`, e `InventoryItem` pasa a ser `FurniInventoryItem | GarmentInventoryItem`.
+- Reducer: `SET_LOOK` y `JOIN` aplican el aspecto y quitan las prendas que no tiene; `PLACE_FURNI` y `LIST_ITEM` ignoran prendas.
+- `server/src/persistence.ts`: lee y escribe `garment` y `color` en `inventory_items`.
+- `supabase/migrations/005_clothing.sql`: `inventory_items.def_id` admite null, columnas `garment` y `color` con check de que la fila es mueble o prenda, `furniture.garment` (para la tienda de ropa) y `clothing` en `lots_business_check`.
+- Cliente mínimo: el inventario lista las prendas con nombre y color, sin colocarlas; la tienda de decoración no ofrece prendas.
+- `shared/src/testHelpers.ts`: el jugador de prueba que repetían `workshop.test.ts` y `businesses.test.ts`. 9 tests nuevos en `garments.test.ts`.
+
+**Decisiones**
+- Llevar una prenda no la saca del inventario: el aspecto guarda tipo y color, y basta con tener una prenda igual. Si se pierde (venta), `dropUnownedOutfit` la quita de encima.
+- Una prenda que no tienes no invalida el aspecto entero: se quita y el resto se aplica. Un color no permitido sí rechaza el aspecto, como antes.
+- La migración `005` incluye ya lo que necesita la tienda de ropa (`furniture.garment` y `clothing`), para que la parte 4 tenga una sola migración. Se aplica ANTES de desplegar el servidor nuevo (probar antes con `begin; ... rollback;`); con el servidor antiguo es segura porque solo amplía.
+
 ## 2026-11-04 · Diana, barril y neón del algodón más legibles
 
 **Qué se hizo**

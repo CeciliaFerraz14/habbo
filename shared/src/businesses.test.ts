@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { testPlayer } from './testHelpers';
 import {
   ECONOMY,
   FACADES,
@@ -19,20 +20,7 @@ function withBusiness(business: BusinessType, storage: Materials = {}, price = 0
   const config = ECONOMY.businesses[business];
   return {
     ...state,
-    avatars: {
-      p1: {
-        id: 'p1',
-        name: 'P1',
-        sceneId: 'lot1',
-        x: 1,
-        y: 1,
-        direction: 'SE',
-        path: [],
-        look: { hair: '#000000', skin: '#ffffff', shirt: '#ffffff', pants: '#000000' },
-        isBot: false,
-        sitting: false,
-      },
-    },
+    avatars: { p1: testPlayer() },
     lots: {
       ...state.lots,
       lot1: {
@@ -88,7 +76,7 @@ test('new businesses have a station and a facade', () => {
     const base = createInitialState();
     const state: GameState = {
       ...base,
-      avatars: { p1: { ...withBusiness(type).avatars.p1, sceneId: 'street' } },
+      avatars: { p1: testPlayer('street') },
       money: { p1: 1000 },
     };
     const next = applyAction(state, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: type });

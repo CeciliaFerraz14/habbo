@@ -3,11 +3,11 @@
 // Cada clic en una muestra envía una acción SET_LOOK. El editor no guarda su
 // propia copia del aspecto: lo lee siempre del estado (update()), así lo que
 // ves en la ventana es exactamente lo que ve el resto del juego.
-import { LOOK_COLORS, LOOK_PARTS, randomLook, type AvatarLook, type Direction } from '@juego/shared';
+import { LOOK_COLORS, LOOK_PARTS, randomLook, type AvatarLook, type Direction, type LookPart } from '@juego/shared';
 import { getAvatarFrames, WALK_CYCLE } from '../sprites/avatar';
 import { PixelWindow } from './window';
 
-const PART_NAMES: Record<keyof AvatarLook, string> = {
+const PART_NAMES: Record<LookPart, string> = {
   hair: 'Pelo',
   skin: 'Piel',
   shirt: 'Camiseta',
