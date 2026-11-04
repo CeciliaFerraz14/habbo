@@ -294,6 +294,29 @@ export const ECONOMY = {
   },
 
   /**
+   * Solares al otro lado de la carretera: un jugador construye un local y lo
+   * alquila a otros como casero. Cada periodo de alquiler paga un
+   * mantenimiento por solar (salida de dinero), esté alquilado o no.
+   */
+  plots: {
+    /** Lo que cuesta construir (sale de la economía). */
+    buildCost: {
+      money: 600,
+      materials: { sheet_metal: 10, old_wood: 10, tires: 4 } satisfies Materials,
+    },
+    /** Límites del alquiler diario que puede fijar el casero. */
+    rent: { min: 10, max: 120 },
+    /** Límites de la fianza que puede fijar el casero. */
+    deposit: { min: 0, max: 400 },
+    /** Fianza y alquiler con los que empieza un solar recién construido. */
+    initialTerms: { deposit: 100, rent: 40 },
+    /** Mantenimiento que paga el casero cada periodo por solar construido. */
+    upkeep: 12,
+    /** Parte de cada fianza y alquiler que se queda el ayuntamiento (sale de la economía). */
+    commissionRate: 0.1,
+  },
+
+  /**
    * Proveedor de materiales (en la gasolinera). Otra forma de conseguir
    * materiales sin tener chatarrería, a cambio de dinero (salida de dinero).
    */

@@ -2,6 +2,23 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Solares: construir, alquilar como casero y mantenimiento
+
+**Qué se hizo**
+- `shared/src/world.ts`: la calle pasa a 19 filas: acera sur (y 10, con farolas en x 6, 16, 26 y 36), solares de 4x4 en y 11-14 (`PLOT_SITES`, ids `lot7`…`lot12`, "Solar 1"…"Solar 6", en las x de los locales), acera trasera (y 15) con sus puertas y desierto en y 16-18, adonde se mueven los cactus del sur y el cartel de bienvenida. Cada solar sin construir tiene un cartel `plot_sign` en `(x + 3, 14)`. La puerta, el interior y el edificio de un local salen de `lotStreetDoor`, `lotInterior` y `lotBuilding`, que usan los locales del ayuntamiento y `restorePlot`.
+- `restorePlot(state, lot)` (world.ts): la única función que pone las piezas de un solar construido (interior, edificio `shop` con rotación 1 y su variante, puerta con `lotId`) y quita el cartel. Es idempotente para que el servidor la llame al cargar.
+- `shared/src/plots.ts`: `buildPlot` (acción `BUILD_PLOT`: en la calle, solar libre, dinero y materiales de `ECONOMY.plots.buildCost`, que salen de la economía) y `setPlotTerms` (acción `SET_PLOT_TERMS`: solo el casero, solo sin inquilino, enteros dentro de los límites).
+- `shared/src/economy.ts`: `Lot` gana `landlordId`, `landlordName`, `terms`, `nextUpkeepAt` y `suspended`. En un solar, `rentLot` cobra la fianza del casero y se la paga menos `ECONOMY.plots.commissionRate`, rechaza al casero y un solar suspendido; `chargeRent` cobra el alquiler del casero y se lo paga igual; `closeLot` conserva el casero. `chargeUpkeep`, en el tick junto a `chargeRent`, cobra el mantenimiento diario. `isIntegerBetween` sustituye las tres comprobaciones de enteros que había (precios, servicio, proveedor). `payOwner` recibe la comisión.
+- `shared/src/economy.config.ts`: `ECONOMY.plots`. `catalog.ts`: estructura `plot_sign` (1x1). Cliente: `structures/plotSign.ts` con `PALETTE`. Servidor: `BUILD_PLOT` y `SET_PLOT_TERMS` en `CLIENT_ACTIONS`; `rowToLot` parte de `createLot` para que compile (las columnas de casero llegan con la migración 006).
+- Tests: `plots.test.ts` (10).
+
+**Decisiones**
+- Un solar sin construir no está en `state.lots`: así no cuenta como negocio, no hay que guardarlo y el casero aparece solo al construir.
+- `buildPlot` y `setPlotTerms` van en `plots.ts` y `restorePlot` en `world.ts`, no en `economy.ts`: `world.ts` ya importa de `economy.ts`, y al revés sería una importación circular.
+- Si el casero no puede pagar el mantenimiento, el solar queda suspendido y se le vuelve a cobrar en cada tick hasta que pague (un solo aviso), en vez de esperar al día siguiente: "no admite inquilinos hasta que pague".
+- `closeLot` copia siempre los campos de casero: en un local del ayuntamiento son los de `createLot`, así que no hace falta distinguirlos.
+- Una fianza de 0 no le manda al casero un aviso de "$0".
+
 ## 2026-11-04 · Arreglos de la revisión final de la parte 4
 
 **Qué se hizo**

@@ -10,6 +10,7 @@ import { dinerGrill } from '../structures/dinerGrill';
 import { fruitPlanter } from '../structures/fruitPlanter';
 import { fruitStand } from '../structures/fruitStand';
 import { gasStation } from '../structures/gasStation';
+import { plotSign } from '../structures/plotSign';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
 import { sewingMachine } from '../structures/sewingMachine';
@@ -60,6 +61,7 @@ export const MODELS: Record<FurniId, ModelSource> = {
   street_lamp: streetLamp,
   saguaro,
   welcome_sign: welcomeSign,
+  plot_sign: plotSign,
   // Puestos de trabajo de los negocios
   scrap_pile: scrapPile,
   workbench,

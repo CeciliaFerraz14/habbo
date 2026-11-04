@@ -73,7 +73,16 @@ export function craftJobInfo(job: CraftJob): { name: string; seconds: number; yi
   };
 }
 
-/** Un local de la calle. */
+/** Fianza y alquiler diario que fija el casero de un solar. */
+export interface PlotTerms {
+  deposit: number;
+  rent: number;
+}
+
+/**
+ * Un local de la calle: uno de los del ayuntamiento o un solar construido por
+ * un jugador (el casero), que lo alquila a otros.
+ */
 export interface Lot {
   /** Mismo id que su escena interior (lot1, lot2...). */
   id: string;
@@ -99,6 +108,15 @@ export interface Lot {
   jobs: CraftJob[];
   /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
   nextRentAt: number;
+  /** Solar: quién lo construyó y lo alquila (null en los locales del ayuntamiento). */
+  landlordId: string | null;
+  landlordName: string | null;
+  /** Solar: fianza y alquiler del casero, que sustituyen a los del negocio. */
+  terms: PlotTerms | null;
+  /** Solar: tick en el que se cobrará el próximo mantenimiento al casero. */
+  nextUpkeepAt: number;
+  /** Solar: el casero no pagó el mantenimiento y no admite inquilinos nuevos. */
+  suspended: boolean;
 }
 
 /** Convierte segundos de la configuración a ticks de simulación. */
@@ -119,7 +137,17 @@ export function createLot(id: string, label: string): Lot {
     nextProductionAt: 0,
     jobs: [],
     nextRentAt: 0,
+    landlordId: null,
+    landlordName: null,
+    terms: null,
+    nextUpkeepAt: 0,
+    suspended: false,
   };
+}
+
+/** ¿Es un entero entre min y max (incluidos)? Para los números que manda el cliente. */
+export function isIntegerBetween(value: number, min: number, max: number): boolean {
+  return Number.isInteger(value) && value >= min && value <= max;
 }
 
 /** Configuración del negocio de un local (o null si está en alquiler). */
@@ -247,7 +275,9 @@ function isOwnerInside(state: GameState, avatarId: string, lot: Lot | undefined)
 
 /**
  * Alquilar un local libre y abrir en él un negocio: se paga la fianza y se
- * abre el negocio.
+ * abre el negocio. En un solar la fianza es la del casero y se le paga a él
+ * (menos la comisión); el casero no puede alquilar el suyo, y un solar
+ * suspendido por no pagar el mantenimiento no admite inquilinos.
  */
 export function rentLot(
   state: GameState,
@@ -260,9 +290,15 @@ export function rentLot(
   const config = ECONOMY.businesses[business];
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
-  if (!lot || !avatar || lot.ownerId !== null || money < config.deposit) return state;
+  if (!lot || !avatar || lot.ownerId !== null) return state;
+  if (lot.landlordId === avatarId || lot.suspended) return state;
+  const deposit = lot.terms?.deposit ?? config.deposit;
+  if (money < deposit) return state;
 
-  const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
+  let paid: GameState = { ...state, money: { ...state.money, [avatarId]: money - deposit } };
+  if (lot.landlordId && deposit > 0) {
+    paid = payOwner(paid, lot.landlordId, deposit, `Fianza del ${lot.label}`, ECONOMY.plots.commissionRate);
+  }
   return openBusiness(paid, lotId, avatarId, avatar.name, business);
 }
 
@@ -453,7 +489,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return chargeRent(produced);
+  return chargeUpkeep(chargeRent(produced));
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -467,8 +503,7 @@ export function getListings(state: GameState, lotId: string): FurniItem[] {
 
 /** ¿Es un precio válido? Entero y dentro de los límites de la configuración. */
 function isValidPrice(price: number): boolean {
-  const { minPrice, maxPrice } = ECONOMY.store;
-  return Number.isInteger(price) && price >= minPrice && price <= maxPrice;
+  return isIntegerBetween(price, ECONOMY.store.minPrice, ECONOMY.store.maxPrice);
 }
 
 /** Nombre de un producto a la venta: la prenda de un burro o el mueble. */
@@ -598,11 +633,18 @@ export function sellProduct(
 }
 
 /**
- * Paga una venta al dueño de un negocio: el precio menos la comisión, que
- * desaparece de la economía. Le deja un aviso con lo cobrado.
+ * Paga una venta al dueño de un negocio (o una fianza o un alquiler al casero
+ * de un solar): el precio menos la comisión, que desaparece de la economía.
+ * Le deja un aviso con lo cobrado.
  */
-function payOwner(state: GameState, ownerId: string, price: number, what: string): GameState {
-  const earned = price - Math.round(price * ECONOMY.store.commissionRate);
+function payOwner(
+  state: GameState,
+  ownerId: string,
+  price: number,
+  what: string,
+  commissionRate: number = ECONOMY.store.commissionRate,
+): GameState {
+  const earned = price - Math.round(price * commissionRate);
   const paid: GameState = {
     ...state,
     money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + earned },
@@ -652,7 +694,7 @@ export function setServicePrice(
   const lot = state.lots[lotId];
   const { minPrice, maxPrice } = ECONOMY.services;
   if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'service')) return state;
-  if (!Number.isInteger(price) || price < minPrice || price > maxPrice) return state;
+  if (!isIntegerBetween(price, minPrice, maxPrice)) return state;
   return { ...state, lots: { ...state.lots, [lotId]: { ...lot, price } } };
 }
 
@@ -689,13 +731,14 @@ export function addNotice(state: GameState, avatarId: string, text: string): Gam
 
 /**
  * Cobra el alquiler de los locales de los jugadores cuando toca. Si el dueño
- * no tiene dinero suficiente, pierde el local.
+ * no tiene dinero suficiente, pierde el local. En un solar el alquiler es el
+ * del casero y se le paga a él menos la comisión.
  */
 function chargeRent(state: GameState): GameState {
   let next = state;
   for (const lot of Object.values(state.lots)) {
     if (!lot.ownerId || !lot.business || next.tick < lot.nextRentAt) continue;
-    const rent = ECONOMY.businesses[lot.business].rent;
+    const rent = lot.terms?.rent ?? ECONOMY.businesses[lot.business].rent;
     const money = next.money[lot.ownerId] ?? 0;
 
     if (money < rent) {
@@ -712,6 +755,50 @@ function chargeRent(state: GameState): GameState {
       },
     };
     next = addNotice(next, lot.ownerId, `Alquiler del ${lot.label}: -${ECONOMY.currency}${rent}`);
+    if (lot.landlordId) {
+      next = payOwner(next, lot.landlordId, rent, `Alquiler del ${lot.label}`, ECONOMY.plots.commissionRate);
+    }
+  }
+  return next;
+}
+
+/**
+ * Cobra al casero de cada solar el mantenimiento cuando toca, esté alquilado
+ * o no. Si no puede pagarlo, el solar queda suspendido (no admite inquilinos
+ * nuevos, pero no echa al que hay) y se le vuelve a intentar cobrar en cada
+ * tick hasta que pague; entonces vuelve a admitirlos.
+ */
+function chargeUpkeep(state: GameState): GameState {
+  let next = state;
+  const { upkeep } = ECONOMY.plots;
+  for (const lot of Object.values(state.lots)) {
+    if (!lot.landlordId || next.tick < lot.nextUpkeepAt) continue;
+    const money = next.money[lot.landlordId] ?? 0;
+
+    if (money < upkeep) {
+      // Solo se avisa (y se cambia el estado) la primera vez.
+      if (lot.suspended) continue;
+      next = { ...next, lots: { ...next.lots, [lot.id]: { ...next.lots[lot.id], suspended: true } } };
+      next = addNotice(
+        next,
+        lot.landlordId,
+        `No has podido pagar el mantenimiento del ${lot.label}: no admite inquilinos nuevos hasta que pagues.`,
+      );
+      continue;
+    }
+    next = {
+      ...next,
+      money: { ...next.money, [lot.landlordId]: money - upkeep },
+      lots: {
+        ...next.lots,
+        [lot.id]: {
+          ...next.lots[lot.id],
+          suspended: false,
+          nextUpkeepAt: next.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
+        },
+      },
+    };
+    next = addNotice(next, lot.landlordId, `Mantenimiento del ${lot.label}: -${ECONOMY.currency}${upkeep}`);
   }
   return next;
 }
@@ -720,6 +807,7 @@ function chargeRent(state: GameState): GameState {
  * Cierra un local (vuelve a estar en alquiler): los muebles que había dentro
  * (productos incluidos, y las prendas de los burros) vuelven al inventario del
  * dueño, desaparece el puesto de trabajo y el edificio vuelve a tener tablones.
+ * Un solar sigue siendo del casero, con sus condiciones y su mantenimiento.
  */
 function closeLot(state: GameState, lotId: string): GameState {
   const lot = state.lots[lotId];
@@ -736,11 +824,13 @@ function closeLot(state: GameState, lotId: string): GameState {
   const building = furniture[`${lotId}-building`];
   if (building) furniture[building.id] = { ...building, variant: 'closed' };
 
+  const { landlordId, landlordName, terms, nextUpkeepAt, suspended } = lot;
+  const vacant: Lot = { ...createLot(lot.id, lot.label), landlordId, landlordName, terms, nextUpkeepAt, suspended };
   const scene = state.scenes[lotId];
   return {
     ...state,
     furniture,
-    lots: { ...state.lots, [lotId]: createLot(lot.id, lot.label) },
+    lots: { ...state.lots, [lotId]: vacant },
     inventories: {
       ...state.inventories,
       [ownerId]: [...(state.inventories[ownerId] ?? []), ...returned],
@@ -785,9 +875,7 @@ export function buyMaterial(
   const avatar = state.avatars[avatarId];
   if (!avatar || avatar.sceneId !== 'street' || !isOwnKey(ECONOMY.supplier.prices, material)) return state;
   const unitPrice = ECONOMY.supplier.prices[material];
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > ECONOMY.supplier.maxPerPurchase) {
-    return state;
-  }
+  if (!isIntegerBetween(quantity, 1, ECONOMY.supplier.maxPerPurchase)) return state;
   const cost = unitPrice * quantity;
   const money = state.money[avatarId] ?? 0;
   if (money < cost) return state;

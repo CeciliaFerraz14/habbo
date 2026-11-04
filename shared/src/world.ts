@@ -9,8 +9,12 @@
 //   y 4     acera con las puertas (D) de los edificios
 //   y 5-6   acera (con farolas en y = 6)
 //   y 7-9   carretera, con la línea central en y = 8
-//   y 10-13 desierto con cactus y el cartel de bienvenida
-import { createLot } from './economy';
+//   y 10    acera sur (con farolas), junto a la carretera
+//   y 11-14 [solar1] [solar2] ... [solar6]: arena con un cartel hasta que
+//           alguien construye; entonces, un local con la fachada hacia +y
+//   y 15    acera trasera con las puertas de los solares construidos
+//   y 16-18 desierto con cactus y el cartel de bienvenida
+import { buildingVariant, createLot, lotSceneName, type Lot } from './economy';
 import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
@@ -28,7 +32,7 @@ export const START_TILE = { x: 6, y: 3 };
 
 
 const STREET_WIDTH = 44;
-const STREET_DEPTH = 14;
+const STREET_DEPTH = 19;
 
 /** Coordenada x de cada uno de los 6 locales (todos en y = 0, de 4x4 baldosas). */
 const LOT_XS = [8, 13, 18, 23, 28, 33];
@@ -36,12 +40,39 @@ const LOT_XS = [8, 13, 18, 23, 28, 33];
 export const lotId = (i: number) => `lot${i}`;
 export const LOT_IDS = LOT_XS.map((_, i) => lotId(i + 1));
 
+/** Fila de arriba de los solares (ocupan de y = 11 a y = 14). */
+const PLOT_Y = 11;
+/** Acera trasera de los solares, donde están sus puertas. */
+const PLOT_DOOR_Y = 15;
+
+/**
+ * Solares: sitios fijos enfrente de los locales, en las mismas x y del mismo
+ * tamaño. Sus ids siguen a los de los locales (lot7...lot12) porque, una vez
+ * construidos, son locales como los demás. Un solar sin construir NO está en
+ * `state.lots`: solo existe aquí y como un cartel en la calle.
+ */
+export const PLOT_SITES = LOT_XS.map((x, i) => ({
+  lotId: lotId(LOT_XS.length + i + 1),
+  label: `Solar ${i + 1}`,
+  x,
+}));
+
+/** ¿Es el id de un solar? (viene del cliente: solo valen los de PLOT_SITES) */
+export function isPlotId(id: string): boolean {
+  return PLOT_SITES.some((site) => site.lotId === id);
+}
+
+/** Id del cartel de un solar sin construir. */
+const plotSignId = (id: string) => `${id}-sign`;
+/** Id del edificio de un local en la calle. */
+const lotBuildingId = (id: string) => `${id}-building`;
+
 /** Genera el mapa de suelo de la calle, fila a fila. */
 function streetGround(): string[] {
   const rows: string[] = [];
   for (let y = 0; y < STREET_DEPTH; y++) {
     let tile: string;
-    if (y >= 4 && y <= 6) tile = 's'; // acera
+    if ((y >= 4 && y <= 6) || y === 10 || y === PLOT_DOOR_Y) tile = 's'; // aceras
     else if (y === 7 || y === 9) tile = 'r'; // carriles
     else if (y === 8) tile = '-'; // línea central (con raya cada dos baldosas)
     else tile = '.'; // arena
@@ -54,10 +85,51 @@ function streetGround(): string[] {
   return rows;
 }
 
-function createScenes(): Scene[] {
-  const s = SCENES.street;
+/**
+ * Puerta de la calle de un local: en la fila `y`, frente a la tercera baldosa
+ * del edificio, y quien sale aparece en `spawnY` (la baldosa de fuera).
+ */
+function lotStreetDoor(id: string, x: number, y: number, spawnY: number): Door {
+  return {
+    id: `street-${id}`,
+    x: x + 2,
+    y,
+    spawn: { x: x + 2, y: spawnY },
+    to: { sceneId: id, doorId: `${id}-exit` },
+    buildingId: lotBuildingId(id),
+    lotId: id,
+  };
+}
 
-  // Puertas de la calle: la de la caravana y una por local.
+/** Interior de un local: una sala vacía de 8x8 con la puerta en la pared izquierda. */
+function lotInterior(id: string, name: string): Scene {
+  return {
+    id,
+    name,
+    kind: 'interior',
+    theme: 'adobe',
+    width: 8,
+    depth: 8,
+    doors: [
+      {
+        id: `${id}-exit`,
+        x: 0,
+        y: 5,
+        spawn: { x: 1, y: 5 },
+        to: { sceneId: SCENES.street, doorId: `street-${id}` },
+      },
+    ],
+  };
+}
+
+/** Edificio de un local en la calle. Con rotación 1 la fachada mira a +y. */
+function lotBuilding(id: string, x: number, y: number, variant: string): FurniItem {
+  return { id: lotBuildingId(id), sceneId: SCENES.street, defId: 'shop', x, y, rotation: 1, variant };
+}
+
+function createScenes(): Scene[] {
+  // Puertas de la calle: la de la caravana y una por local. Las de los
+  // solares se añaden al construirlos (restorePlot).
   const streetDoors: Door[] = [
     {
       id: 'street-trailer',
@@ -68,46 +140,12 @@ function createScenes(): Scene[] {
       to: { sceneId: SCENES.trailer, doorId: 'trailer-exit' },
       buildingId: 'trailer-building',
     },
-    ...LOT_XS.map((x, i): Door => {
-      const id = lotId(i + 1);
-      return {
-        id: `street-${id}`,
-        // La puerta está en la fachada, frente a la tercera baldosa del local.
-        x: x + 2,
-        y: 4,
-        spawn: { x: x + 2, y: 5 },
-        to: { sceneId: id, doorId: `${id}-exit` },
-        buildingId: `${id}-building`,
-        lotId: id,
-      };
-    }),
+    ...LOT_XS.map((x, i) => lotStreetDoor(lotId(i + 1), x, 4, 5)),
   ];
-
-  // Interior de cada local: una sala vacía de 8x8 con la puerta en la pared izquierda.
-  const lotInteriors = LOT_XS.map((_, i): Scene => {
-    const id = lotId(i + 1);
-    return {
-      id,
-      name: `Local ${i + 1}`,
-      kind: 'interior',
-      theme: 'adobe',
-      width: 8,
-      depth: 8,
-      doors: [
-        {
-          id: `${id}-exit`,
-          x: 0,
-          y: 5,
-          spawn: { x: 1, y: 5 },
-          to: { sceneId: s, doorId: `street-${id}` },
-        },
-      ],
-    };
-  });
 
   return [
     {
-      id: s,
+      id: SCENES.street,
       name: 'Calle Mayor',
       kind: 'street',
       width: STREET_WIDTH,
@@ -115,7 +153,7 @@ function createScenes(): Scene[] {
       doors: streetDoors,
       ground: streetGround(),
     },
-    ...lotInteriors,
+    ...LOT_XS.map((_, i) => lotInterior(lotId(i + 1), `Local ${i + 1}`)),
   ];
 }
 
@@ -126,35 +164,64 @@ function createStreetStructures(): FurniItem[] {
     // Con rotación 1 la fachada mira a la carretera (+y).
     { id: 'trailer-building', sceneId: s, defId: 'trailer', x: 1, y: 1, rotation: 1 },
     { id: 'gas-station', sceneId: s, defId: 'gas_station', x: 38, y: 0, rotation: 1 },
-    { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 1, y: 11, rotation: 1 },
-    ...LOT_XS.map(
-      (x, i): FurniItem => ({
-        id: `${lotId(i + 1)}-building`,
+    { id: 'welcome-sign', sceneId: s, defId: 'welcome_sign', x: 1, y: 17, rotation: 1 },
+    ...LOT_XS.map((x, i) => lotBuilding(lotId(i + 1), x, 0, 'closed')),
+    // Cartel de "Se vende" en la esquina delantera de cada solar.
+    ...PLOT_SITES.map(
+      (site): FurniItem => ({
+        id: plotSignId(site.lotId),
         sceneId: s,
-        defId: 'shop',
-        x,
-        y: 0,
+        defId: 'plot_sign',
+        x: site.x + 3,
+        y: PLOT_Y + 3,
         rotation: 1,
-        variant: 'closed',
       }),
     ),
   ];
 
-  // Farolas a lo largo de la acera, junto al bordillo.
+  // Farolas a lo largo de las dos aceras, junto al bordillo.
   [6, 16, 26, 36].forEach((x, i) => {
     items.push({ id: `lamp-${i}`, sceneId: s, defId: 'street_lamp', x, y: 6, rotation: 0 });
+    items.push({ id: `lamp-south-${i}`, sceneId: s, defId: 'street_lamp', x, y: 10, rotation: 0 });
   });
 
-  // Cactus en el desierto y en los huecos entre edificios.
+  // Cactus en los huecos entre edificios y en el desierto de detrás de los
+  // solares (en y 17-18, para no tapar la salida de sus puertas en y = 16).
   const cacti = [
-    [6, 2], [12, 2], [2, 12], [9, 11], [14, 13], [20, 11],
-    [25, 12], [31, 13], [35, 11], [41, 12],
+    [6, 2], [12, 2], [4, 18], [9, 17], [14, 18], [20, 17],
+    [25, 18], [31, 17], [35, 18], [41, 17],
   ];
   cacti.forEach(([x, y], i) => {
     items.push({ id: `cactus-${i}`, sceneId: s, defId: 'saguaro', x, y, rotation: 0 });
   });
 
   return items;
+}
+
+/**
+ * Pone en el mundo las piezas de un solar construido: su interior, el edificio
+ * (con la variante que toca según el negocio), la puerta en la calle, y quita
+ * el cartel. Es la ÚNICA función que crea esas piezas: la usan buildPlot al
+ * construir y el servidor al cargar los solares guardados. Por eso es
+ * idempotente: si una pieza ya está, la deja como está.
+ */
+export function restorePlot(state: GameState, lot: Lot): GameState {
+  const site = PLOT_SITES.find((p) => p.lotId === lot.id);
+  if (!site) return state;
+  const street = state.scenes[SCENES.street];
+
+  const scenes = { ...state.scenes };
+  scenes[lot.id] ??= lotInterior(lot.id, lotSceneName(lot));
+  const door = lotStreetDoor(lot.id, site.x, PLOT_DOOR_Y, PLOT_DOOR_Y + 1);
+  if (!street.doors.some((d) => d.id === door.id)) {
+    scenes[street.id] = { ...street, doors: [...street.doors, door] };
+  }
+
+  const { [plotSignId(lot.id)]: _sign, ...furniture } = state.furniture;
+  const building = lotBuilding(lot.id, site.x, PLOT_Y, buildingVariant(lot));
+  furniture[building.id] = building;
+
+  return { ...state, scenes, furniture };
 }
 
 /**

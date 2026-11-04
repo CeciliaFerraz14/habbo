@@ -17,6 +17,7 @@
 import {
   buildingVariant,
   createInitialState,
+  createLot,
   createTrailer,
   isGarmentItem,
   lotSceneName,
@@ -46,8 +47,9 @@ interface ProfileInfo {
 /** Fila de la tabla lots → objeto Lot del juego. */
 function rowToLot(row: Record<string, any>): Lot {
   return {
-    id: row.id,
-    label: row.label,
+    // Los campos de casero de los solares aún no tienen columnas: un local
+    // leído se carga como uno del ayuntamiento (los de createLot).
+    ...createLot(row.id, row.label),
     ownerId: row.owner_id,
     ownerName: row.owner_name,
     business: row.business,

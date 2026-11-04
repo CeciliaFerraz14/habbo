@@ -59,4 +59,9 @@ export type Action =
   /** Cambiar la plantilla de fachada de un local propio. */
   | { type: 'SET_FACADE'; avatarId: string; lotId: string; facade: FacadeId }
   /** Comprar materiales al proveedor de la gasolinera. */
-  | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number };
+  | { type: 'BUY_MATERIAL'; avatarId: string; material: MaterialId; quantity: number }
+  // --- Solares ---
+  /** Construir un local en un solar libre (quien lo construye es su casero). */
+  | { type: 'BUILD_PLOT'; avatarId: string; lotId: string }
+  /** El casero cambia la fianza y el alquiler diario de su solar libre. */
+  | { type: 'SET_PLOT_TERMS'; avatarId: string; lotId: string; deposit: number; rent: number };

@@ -30,6 +30,7 @@ import { DEFAULT_LOOK, normalizeLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
+import { buildPlot, setPlotTerms } from './plots';
 import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
 
 export function applyAction(state: GameState, action: Action): GameState {
@@ -163,6 +164,12 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setFacade(state, action.avatarId, action.lotId, action.facade);
     case 'BUY_MATERIAL':
       return buyMaterial(state, action.avatarId, action.material, action.quantity);
+
+    // --- Solares: la lógica está en plots.ts ---
+    case 'BUILD_PLOT':
+      return buildPlot(state, action.avatarId, action.lotId);
+    case 'SET_PLOT_TERMS':
+      return setPlotTerms(state, action.avatarId, action.lotId, action.deposit, action.rent);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];
