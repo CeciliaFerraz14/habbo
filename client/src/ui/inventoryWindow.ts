@@ -86,10 +86,9 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
       grid.append(card);
     }
 
-    hint.textContent =
-      items.length === 0
-        ? 'Vacío. Consigue muebles en el catálogo.'
-        : 'Elige un mueble y haz clic en la sala. R o clic derecho: girar. Esc: cancelar.';
+    if (items.length === 0) hint.textContent = 'Vacío. Consigue muebles en el catálogo.';
+    else if (groups.size === 0) hint.textContent = 'Las prendas se llevan puestas: no se colocan en la sala.';
+    else hint.textContent = 'Elige un mueble y haz clic en la sala. R o clic derecho: girar. Esc: cancelar.';
   };
 
   return { win, update };

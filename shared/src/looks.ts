@@ -1,10 +1,10 @@
 // Colores permitidos para el aspecto de los avatares.
 //
 // Están en /shared por dos motivos:
-// - El reducer comprueba que un SET_LOOK solo usa estos colores. En la fase 2
+// - El reducer comprueba (normalizeLook) que un SET_LOOK solo usa estos colores. En la fase 2
 //   eso impide que alguien mande colores inventados al servidor.
 // - Los NPC (vecinos y viajeros) generan su aspecto al azar con randomLook().
-import { GARMENTS, isGarmentId } from './garments';
+import { GARMENTS, isGarmentId, type Outfit } from './garments';
 import type { AvatarLook, LookPart } from './types';
 
 export const LOOK_COLORS: Record<LookPart, readonly string[]> = {
@@ -31,26 +31,46 @@ export const DEFAULT_LOOK: AvatarLook = {
 };
 
 /**
- * ¿Todos los colores del aspecto están entre los permitidos? Si lleva ropa,
- * cada prenda tiene que existir, ir en su ranura y tener un color de
- * GARMENT_COLORS. El aspecto viene del cliente: no nos fiamos de su forma.
- * Aquí no se mira si las prendas son suyas (eso lo hace dropUnownedOutfit).
+ * Comprueba un aspecto que viene del cliente y devuelve una copia limpia, o
+ * null si no vale. Vale si todos los colores están entre los permitidos y, si
+ * lleva ropa, cada prenda existe, va en su ranura y tiene un color de
+ * GARMENT_COLORS. No nos fiamos de su forma: la copia solo lleva los campos
+ * conocidos, así nadie cuela datos de más que luego se envían a todos y se
+ * guardan. Aquí no se mira si las prendas son suyas (eso lo hace
+ * dropUnownedOutfit).
  */
-export function isValidLook(look: AvatarLook): boolean {
-  if (typeof look !== 'object' || look === null) return false;
-  return LOOK_PARTS.every((part) => LOOK_COLORS[part].includes(look[part])) && isValidOutfit(look.outfit);
+export function normalizeLook(look: unknown): AvatarLook | null {
+  if (!isRecord(look)) return null;
+  const clean = {} as AvatarLook;
+  for (const part of LOOK_PARTS) {
+    const color = look[part];
+    if (typeof color !== 'string' || !LOOK_COLORS[part].includes(color)) return null;
+    clean[part] = color;
+  }
+  if (look.outfit === undefined) return clean;
+  const outfit = normalizeOutfit(look.outfit);
+  if (!outfit) return null;
+  return Object.keys(outfit).length > 0 ? { ...clean, outfit } : clean;
 }
 
-function isValidOutfit(outfit: unknown): boolean {
-  if (outfit === undefined) return true;
-  if (typeof outfit !== 'object' || outfit === null || Array.isArray(outfit)) return false;
-  return Object.entries(outfit).every(([slot, garment]) => {
-    if (typeof garment !== 'object' || garment === null) return false;
-    const { type, color } = garment as Record<string, unknown>;
+function normalizeOutfit(outfit: unknown): Outfit | null {
+  if (!isRecord(outfit)) return null;
+  const clean: Outfit = {};
+  for (const [slot, garment] of Object.entries(outfit)) {
+    if (!isRecord(garment)) return null;
+    const { type, color } = garment;
     // La ranura tiene que ser la de esa prenda: así 'toString' o unas botas en
     // la cabeza no pasan.
-    return isGarmentId(type) && GARMENTS[type].slot === slot && GARMENT_COLORS.includes(color as string);
-  });
+    if (!isGarmentId(type) || GARMENTS[type].slot !== slot) return null;
+    if (typeof color !== 'string' || !GARMENT_COLORS.includes(color)) return null;
+    clean[GARMENTS[type].slot] = { type, color };
+  }
+  return clean;
+}
+
+/** ¿Es un objeto normal (ni null ni un array)? */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

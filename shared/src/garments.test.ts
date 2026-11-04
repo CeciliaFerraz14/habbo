@@ -9,7 +9,7 @@ import {
   applyAction,
   createInitialState,
   dropUnownedOutfit,
-  isValidLook,
+  normalizeLook,
 } from './index';
 import type { AvatarLook, Garment, GameState, GarmentId, InventoryItem } from './index';
 
@@ -27,11 +27,11 @@ const setLook = (state: GameState, look: AvatarLook) =>
   applyAction(state, { type: 'SET_LOOK', avatarId: 'p1', look });
 
 test('look without outfit is valid', () => {
-  assert.ok(isValidLook(DEFAULT_LOOK));
+  assert.deepEqual(normalizeLook(DEFAULT_LOOK), DEFAULT_LOOK);
 });
 
 test('outfit must use a known garment in its slot and an allowed color', () => {
-  assert.ok(isValidLook(WITH_HAT));
+  assert.deepEqual(normalizeLook(WITH_HAT), WITH_HAT);
   const invalid: unknown[] = [
     { head: { type: 'boots', color: GARMENT_COLORS[0] } },
     { head: { type: 'cowboy_hat', color: '#123456' } },
@@ -41,13 +41,20 @@ test('outfit must use a known garment in its slot and an allowed color', () => {
     [],
   ];
   for (const outfit of invalid) {
-    assert.equal(isValidLook({ ...DEFAULT_LOOK, outfit } as unknown as AvatarLook), false);
+    assert.equal(normalizeLook({ ...DEFAULT_LOOK, outfit }), null);
   }
+});
+
+test('extra fields in a look are not stored', () => {
+  const junk = { ...DEFAULT_LOOK, junk: 'x', outfit: { head: { ...HAT, junk: 'x' } } };
+  const worn = setLook(withPlayer([hatItem('g1')]), junk as AvatarLook);
+  assert.deepEqual(worn.avatars.p1.look, WITH_HAT);
+  assert.equal(normalizeLook({ ...DEFAULT_LOOK, outfit: {} })?.outfit, undefined);
 });
 
 test('cannot wear a garment you do not own', () => {
   const naked = setLook(withPlayer([]), WITH_HAT);
-  assert.equal(naked.avatars.p1.look.outfit?.head, undefined);
+  assert.equal('outfit' in naked.avatars.p1.look, false);
   assert.equal(naked.avatars.p1.look.shirt, DEFAULT_LOOK.shirt);
 
   const owned = setLook(withPlayer([hatItem('g1')]), WITH_HAT);
@@ -79,7 +86,7 @@ test('a second identical garment keeps it on', () => {
   assert.equal(dropUnownedOutfit(sold, 'p1'), sold);
 
   const none = { ...worn, inventories: { ...worn.inventories, p1: [] } };
-  assert.equal(dropUnownedOutfit(none, 'p1').avatars.p1.look.outfit?.head, undefined);
+  assert.deepEqual(dropUnownedOutfit(none, 'p1').avatars.p1.look, DEFAULT_LOOK);
 });
 
 test('garments cannot be placed as furniture', () => {

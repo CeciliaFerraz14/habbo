@@ -5,7 +5,8 @@
 -- Qué cambia:
 -- - inventory_items guarda también prendas: def_id pasa a admitir null y hay
 --   dos columnas nuevas, garment (tipo de prenda) y color. Cada fila es un
---   mueble (def_id) o una prenda (garment), nunca las dos cosas ni ninguna.
+--   mueble (def_id) o una prenda (garment y color), nunca las dos cosas ni
+--   ninguna.
 -- - furniture.garment: la prenda que se expone a la venta en un burro de ropa.
 -- - lots_business_check admite la tienda de ropa ('clothing').
 --
@@ -24,7 +25,7 @@ alter table public.inventory_items add column if not exists garment text;
 alter table public.inventory_items add column if not exists color text;
 alter table public.inventory_items drop constraint if exists inventory_items_kind_check;
 alter table public.inventory_items add constraint inventory_items_kind_check check (
-  (def_id is null) <> (garment is null)
+  (def_id is null) <> (garment is null) and (garment is null) = (color is null)
 );
 
 alter table public.furniture add column if not exists garment text;

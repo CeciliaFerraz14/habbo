@@ -1,11 +1,10 @@
 // Punto de entrada del servidor: HTTP + Socket.IO.
 import {
   DEFAULT_LOOK,
-  isValidLook,
+  normalizeLook,
   START_SCENE,
   START_TILE,
   type Avatar,
-  type AvatarLook,
 } from '@juego/shared';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -54,8 +53,7 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   const { id, name } = socket.data.identity as PlayerIdentity;
   // El cliente propone su aspecto, pero solo aceptamos colores permitidos.
-  const proposed = socket.handshake.auth?.look as AvatarLook | undefined;
-  const look = proposed && isValidLook(proposed) ? proposed : DEFAULT_LOOK;
+  const look = normalizeLook(socket.handshake.auth?.look) ?? DEFAULT_LOOK;
 
   const avatar: Avatar = {
     id,

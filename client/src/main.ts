@@ -2,7 +2,7 @@
 import {
   DEFAULT_LOOK,
   GAME_NAME,
-  isValidLook,
+  normalizeLook,
   SCENES,
   trailerSceneId,
   type AvatarLook,
@@ -81,8 +81,8 @@ const LOOK_STORAGE_KEY = 'pixel-springs:look';
 
 function loadLook(): AvatarLook {
   try {
-    const saved = JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null');
-    if (saved && isValidLook(saved)) return saved;
+    const saved = normalizeLook(JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null'));
+    if (saved) return saved;
   } catch {
     // Sin acceso o datos corruptos: usamos el aspecto por defecto.
   }

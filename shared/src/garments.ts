@@ -76,6 +76,8 @@ export function dropUnownedOutfit(state: GameState, avatarId: string): GameState
     else dropped = true;
   }
   if (!dropped) return state;
-  const look = { ...avatar.look, outfit: kept };
+  // Sin ninguna prenda, el aspecto no lleva outfit (una sola forma de "nada puesto").
+  const { outfit: _old, ...colors } = avatar.look;
+  const look = Object.keys(kept).length > 0 ? { ...colors, outfit: kept } : colors;
   return { ...state, avatars: { ...state.avatars, [avatarId]: { ...avatar, look } } };
 }

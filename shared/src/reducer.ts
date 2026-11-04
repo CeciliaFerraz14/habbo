@@ -26,7 +26,7 @@ import {
 import { ECONOMY } from './economy.config';
 import { canPlaceFurni } from './furniture';
 import { dropUnownedOutfit, isGarmentItem } from './garments';
-import { isValidLook } from './looks';
+import { normalizeLook } from './looks';
 import { createTrailer } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
@@ -168,9 +168,10 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];
       // Solo se aceptan colores de la lista de LOOK_COLORS (y prendas que existen).
-      if (!avatar || !isValidLook(action.look)) return state;
+      const look = normalizeLook(action.look);
+      if (!avatar || !look) return state;
       // Las prendas que no tiene no se rechazan: se quitan y el resto se aplica.
-      return dropUnownedOutfit(withAvatar(state, { ...avatar, look: { ...action.look } }), avatar.id);
+      return dropUnownedOutfit(withAvatar(state, { ...avatar, look }), avatar.id);
     }
 
     case 'SAY': {
