@@ -13,6 +13,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - Hueco fijo en vez de altura variable: de pie el sprite se apoya por abajo y sentado por `HIP_ROW`, así que los pies y el asiento no se mueven, con sombrero o sin él.
 - Cada capa se hornea con su propia paleta y se apila con `drawImage`: así cada prenda puede tener su color sin inventar letras por ranura.
 - Las botas no se dibujan a mano por fotograma: se derivan de las piernas (zapatos y el píxel de pantalón de encima), y siguen la animación y la postura de sentado.
+- Tras la revisión: la chaqueta de frente tenía píxeles `T` (camiseta) que no están en la paleta de una capa y rompían el horneado; ahora son transparentes y se ve la camiseta del cuerpo. Todas las capas usan solo `O`, `G`, `g` y `.`.
 - Los bocadillos se anclan al borde de arriba del sprite (3 px más arriba que antes sin sombrero) para no tapar nunca un sombrero. La vista previa del editor (28 px de alto) ya cabe el sprite de 27 px.
 
 ## 2026-11-04 · Tienda de ropa: coser, exponer y vender prendas

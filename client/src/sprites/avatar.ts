@@ -174,12 +174,12 @@ const CAP_BACK = [...CAP_CROWN, '..OgggO..OgggO..'];
 // Chaqueta vaquera: mangas hasta las muñecas y, de frente, abierta con las
 // solapas (g) a los lados de la camiseta.
 const JACKET_FRONT = [
-  '...OOGGTTGGOO...',
-  '..OGGGgTTgGGGO..',
-  '.OGGOGgTTgGOGGO.',
-  '.OGGOGGTTGGOGGO.',
-  '.OGgOGGTTGGOGgO.',
-  '....OgGTTGgO....',
+  '...OOGG..GGOO...',
+  '..OGGGg..gGGGO..',
+  '.OGGOGg..gGOGGO.',
+  '.OGGOGG..GGOGGO.',
+  '.OGgOGG..GGOGgO.',
+  '....OgG..GgO....',
 ];
 
 // De espaldas: entera, con la costura del canesú (g) a la altura de los hombros.
