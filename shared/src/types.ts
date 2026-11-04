@@ -101,6 +101,11 @@ export interface FurniItem {
    * colocado en el local, que cualquiera puede comprar.
    */
   price?: number;
+  /**
+   * Solo los expositores de la tienda de ropa ('clothes_rack'): la prenda que
+   * se vende. Su color va en `variant`, como el color del coche.
+   */
+  garment?: GarmentId;
 }
 
 /** Todo el estado del mundo. Es lo que en la fase 2 tendrá el servidor. */

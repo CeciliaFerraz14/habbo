@@ -43,6 +43,9 @@ export type StructureId =
   | 'cotton_bed'
   | 'bar_tap'
   | 'token_machine'
+  | 'sewing_machine'
+  // Expositor de una prenda a la venta en la tienda de ropa (ver FurniItem.garment)
+  | 'clothes_rack'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
   | 'car';
 
@@ -129,6 +132,8 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   cotton_bed: structure('cotton_bed', 'Algodonal', 2, 2),
   bar_tap: structure('bar_tap', 'Barra con grifo', 1, 2),
   token_machine: structure('token_machine', 'Cambio de fichas', 1, 2),
+  sewing_machine: structure('sewing_machine', 'Máquina de coser', 1, 2),
+  clothes_rack: structure('clothes_rack', 'Burro de ropa', 1, 1),
   car: structure('car', 'Coche', 2, 1),
 };
 

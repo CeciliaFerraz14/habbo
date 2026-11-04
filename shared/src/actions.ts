@@ -36,11 +36,17 @@ export type Action =
   | { type: 'RENT_LOT'; avatarId: string; lotId: string; business: BusinessType }
   /** Productores (chatarrería, pozo...): recoger los materiales producidos. */
   | { type: 'COLLECT_MATERIALS'; avatarId: string; lotId: string }
-  /** Taller: empezar a fabricar un mueble o un material. */
-  | { type: 'CRAFT'; avatarId: string; lotId: string; recipe: RecipeId }
-  /** Taller: recoger lo terminado (muebles y materiales). */
+  /**
+   * Taller: empezar a fabricar un mueble o un material. Tienda de ropa: coser
+   * una prenda del color `color` (obligatorio en las prendas, ignorado en lo demás).
+   */
+  | { type: 'CRAFT'; avatarId: string; lotId: string; recipe: RecipeId; color?: string }
+  /** Taller y tienda de ropa: recoger lo terminado (muebles, materiales y prendas). */
   | { type: 'COLLECT_CRAFTED'; avatarId: string; lotId: string }
-  /** Tienda: poner a la venta un mueble del inventario (se coloca en el local). */
+  /**
+   * Tienda: poner a la venta un mueble del inventario (se coloca en el local).
+   * Tienda de ropa: lo mismo con una prenda, que se expone en un burro.
+   */
   | { type: 'LIST_ITEM'; avatarId: string; lotId: string; itemId: string; price: number }
   /** Tienda: cambiar el precio de un producto. (Para retirarlo, PICKUP_FURNI.) */
   | { type: 'SET_PRICE'; avatarId: string; itemId: string; price: number }

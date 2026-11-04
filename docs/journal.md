@@ -2,6 +2,23 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Tienda de ropa: coser, exponer y vender prendas
+
+**Qué se hizo**
+- `shared/src/economy.config.ts`: negocio `clothing` ("Tienda de ropa", tipo `clothing`, fachada `boutique`, neón `#ffb3d9`, fianza 140, alquiler 40) detrás de `store`. `RecipeId` incluye las prendas.
+- `shared/src/catalog.ts`: estructuras `sewing_machine` (puesto de la tienda de ropa, 1x2) y `clothes_rack` (expositor de una prenda, 1x1). `FurniItem.garment`: la prenda de un burro; su color va en `variant`, como el del coche.
+- `shared/src/economy.ts`: `CraftJob` con una tercera forma `{ garment, color, readyAt }`, resuelta en `craftJobInfo`. `craftOrder` decide qué fabrica cada negocio (el taller, muebles y materiales; la tienda de ropa, prendas de un color de `GARMENT_COLORS`) y `CRAFT` lleva `color`. `collectCrafted` entrega también prendas. `LIST_ITEM` acepta en cada tienda solo lo suyo y, al poner a la venta una prenda, llama a `dropUnownedOutfit`. `productName` y `listingValue` (valor de referencia de un producto, mueble o prenda) para avisos y viajeros. `sellsProducts` agrupa las dos tiendas.
+- `shared/src/furniture.ts`: `isPickable` e `inventoryItemOf`, usados por `PICKUP_FURNI`, `BUY_ITEM` y el cierre de un local: retirar, comprar o perder el local devuelve la prenda del burro, no el burro. `shared/src/garments.ts`: `isGarmentDisplay`. `shared/src/looks.ts`: `isGarmentColor`, la misma comprobación que ya usaba `normalizeLook`.
+- `shared/src/travelers.ts`: el precio se compara con `listingValue`; la variedad cuenta prendas distintas; un viajero que compra una prenda se la pone (`restyle`, compartido con la peluquería).
+- `server/src/persistence.ts`: lee y escribe `furniture.garment` (columna de la migración `005`).
+- Cliente: modelos `sewingMachine.ts` y `clothesRack.ts` (función de la variante, que pinta la prenda colgada) y neón de percha en `shop.ts`. La ventana del negocio usa `productName`; para `clothing` sigue saliendo la sección de la tienda hasta la Task 4.
+- Tests: `clothing.test.ts` (8). `withBusiness` pasa a `testHelpers.ts` para compartirlo con `businesses.test.ts`.
+
+**Decisiones**
+- El burro es una estructura fija: no se mueve como un mueble, pero sí se recoge (`isPickable`), y entonces vuelve la prenda.
+- Un color que no es de `GARMENT_COLORS` (o que falta) rechaza el `CRAFT` de una prenda; en el taller el color se ignora.
+- La variedad de los viajeros cuenta tipos de prenda: si no, una tienda de ropa siempre tendría variedad 1.
+
 ## 2026-11-04 · Prendas: catálogo, inventario y aspecto
 
 **Qué se hizo**

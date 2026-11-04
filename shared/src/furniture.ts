@@ -3,8 +3,9 @@
 // Casi todas las funciones reciben un `sceneId`: los muebles de la caravana no
 // bloquean el paso en la calle, aunque estén en las mismas coordenadas.
 import { CATALOG, type FurniId, type Rotation } from './catalog';
+import { isGarmentDisplay } from './garments';
 import { isInsideScene } from './scene';
-import type { FurniItem, GameState } from './types';
+import type { FurniItem, GameState, InventoryItem } from './types';
 
 /** Rectángulo de baldosas que ocupa un mueble: desde (x, y), `width` x `depth` baldosas. */
 export interface Footprint {
@@ -12,6 +13,21 @@ export interface Footprint {
   y: number;
   width: number;
   depth: number;
+}
+
+/**
+ * ¿Se puede recoger este mueble y guardarlo en un inventario? Los muebles sí;
+ * las estructuras fijas no, salvo el burro de ropa, que devuelve su prenda.
+ */
+export function isPickable(item: FurniItem): boolean {
+  return !CATALOG[item.defId].fixed || isGarmentDisplay(item);
+}
+
+/** Lo que vuelve al inventario al recoger un mueble: la prenda de un burro o el propio mueble. */
+export function inventoryItemOf(item: FurniItem): InventoryItem {
+  return isGarmentDisplay(item)
+    ? { id: item.id, garment: item.garment, color: item.variant }
+    : { id: item.id, defId: item.defId };
 }
 
 /** Lo mínimo para saber dónde está un mueble (sirve también para muebles aún sin colocar). */

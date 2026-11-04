@@ -24,7 +24,7 @@ import {
   startCraft,
 } from './economy';
 import { ECONOMY } from './economy.config';
-import { canPlaceFurni } from './furniture';
+import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
 import { dropUnownedOutfit, isGarmentItem } from './garments';
 import { normalizeLook } from './looks';
 import { createTrailer } from './world';
@@ -128,15 +128,13 @@ export function applyAction(state: GameState, action: Action): GameState {
     }
 
     case 'PICKUP_FURNI': {
+      // Retirar un producto de la venta también es recogerlo (un burro devuelve su prenda).
       const item = state.furniture[action.itemId];
-      if (!item || CATALOG[item.defId].fixed) return state;
+      if (!item || !isPickable(item)) return state;
       if (!canEditScene(state, action.avatarId, item.sceneId)) return state;
       const { [item.id]: _removed, ...furniture } = state.furniture;
       const inventory = state.inventories[action.avatarId] ?? [];
-      const next = withInventory(state, action.avatarId, [
-        ...inventory,
-        { id: item.id, defId: item.defId },
-      ]);
+      const next = withInventory(state, action.avatarId, [...inventory, inventoryItemOf(item)]);
       // Si alguien estaba sentado encima, updateSitting lo levanta.
       return updateSitting({ ...next, furniture });
     }
@@ -147,7 +145,7 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'COLLECT_MATERIALS':
       return collectMaterials(state, action.avatarId, action.lotId);
     case 'CRAFT':
-      return startCraft(state, action.avatarId, action.lotId, action.recipe);
+      return startCraft(state, action.avatarId, action.lotId, action.recipe, action.color);
     case 'COLLECT_CRAFTED':
       return collectCrafted(state, action.avatarId, action.lotId);
     case 'LIST_ITEM':

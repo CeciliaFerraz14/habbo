@@ -107,6 +107,8 @@ function furniToRow(f: FurniItem) {
     rotation: f.rotation,
     variant: f.variant ?? null,
     price: f.price ?? null,
+    // Solo los burros de la tienda de ropa: la prenda a la venta.
+    garment: f.garment ?? null,
   };
 }
 
@@ -210,6 +212,7 @@ export class Persistence {
         rotation: row.rotation,
         ...(row.variant ? { variant: row.variant } : {}),
         ...(row.price ? { price: row.price } : {}),
+        ...(row.garment ? { garment: row.garment } : {}),
       };
     }
 

@@ -18,6 +18,7 @@ export type BusinessType =
   | 'cotton_field'
   | 'workshop'
   | 'store'
+  | 'clothing'
   | 'diner'
   | 'bar'
   | 'arcade'
@@ -29,10 +30,11 @@ export type BusinessType =
  * - producer: produce materiales solo cada cierto tiempo (chatarrería, pozo...).
  * - workshop: convierte materiales en muebles y fichas (taller).
  * - store: vende muebles con el precio que pone el dueño (tienda).
+ * - clothing: cose prendas con tela y las vende como la tienda (tienda de ropa).
  * - service: los viajeros pagan por un servicio (comer, cortarse el pelo...) que
  *   gasta materiales del almacén del local. El dueño lo repone y pone el precio.
  */
-export type BusinessKind = 'producer' | 'workshop' | 'store' | 'service';
+export type BusinessKind = 'producer' | 'workshop' | 'store' | 'clothing' | 'service';
 
 /**
  * Plantillas de fachada de los locales. El dueño elige una para que se vea
@@ -196,6 +198,15 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     deposit: 150,
     rent: 45,
   },
+  clothing: {
+    name: 'Tienda de ropa',
+    kind: 'clothing',
+    defaultFacade: 'boutique',
+    description: 'Cose prendas con tela y las vende a jugadores y viajeros.',
+    neon: '#ffb3d9',
+    deposit: 140,
+    rent: 40,
+  },
   diner: {
     name: 'Diner',
     kind: 'service',
@@ -261,8 +272,8 @@ export interface MaterialRecipe extends Recipe {
   quantity: number;
 }
 
-/** Lo que se puede fabricar en el taller: un mueble o un material. */
-export type RecipeId = DecorId | MaterialId;
+/** Lo que se puede fabricar: un mueble o un material (taller) o una prenda (tienda de ropa). */
+export type RecipeId = DecorId | MaterialId | GarmentId;
 
 export const ECONOMY = {
   /** Símbolo de la moneda del pueblo. */
@@ -330,7 +341,7 @@ export const ECONOMY = {
   } satisfies Record<MaterialId, { name: string }>,
 
   workshop: {
-    /** Cuántos trabajos (muebles o materiales) puede tener en cola a la vez. */
+    /** Cuántos trabajos puede tener en cola a la vez (también la tienda de ropa). */
     queueSize: 3,
   },
 
@@ -341,6 +352,7 @@ export const ECONOMY = {
     maxPrice: 999,
   },
 
+  /** Escaparate de la tienda de decoración y de la tienda de ropa. */
   store: {
     /** Cuántos productos caben a la venta en una tienda. */
     maxListings: 8,

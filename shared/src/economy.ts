@@ -29,20 +29,26 @@ import {
   type FacadeId,
   type Materials,
   type MaterialId,
+  type Recipe,
   type RecipeId,
 } from './economy.config';
 import { MOVE_TICK_MS } from './constants';
-import { canPlaceFurni } from './furniture';
-import { isGarmentItem } from './garments';
+import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
+import { dropUnownedOutfit, GARMENTS, isGarmentDisplay, isGarmentId, isGarmentItem, type GarmentId } from './garments';
+import { isGarmentColor } from './looks';
 import { trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem } from './types';
 
 /**
  * Un trabajo en la cola del taller: un mueble (`defId`) o un material
- * (`material`). La forma de los muebles no cambia: así se leen los guardados.
+ * (`material`); o de la tienda de ropa: una prenda (`garment`) de un color.
+ * La forma de los muebles no cambia: así se leen los guardados.
  * `readyAt` es el tick en el que estará terminado.
  */
-export type CraftJob = { defId: DecorId; readyAt: number } | { material: MaterialId; readyAt: number };
+export type CraftJob =
+  | { defId: DecorId; readyAt: number }
+  | { material: MaterialId; readyAt: number }
+  | { garment: GarmentId; color: string; readyAt: number };
 
 /**
  * Lo que se sabe de un trabajo de la cola: nombre, duración y materiales que
@@ -53,6 +59,10 @@ export type CraftJob = { defId: DecorId; readyAt: number } | { material: Materia
 export function craftJobInfo(job: CraftJob): { name: string; seconds: number; yields: Materials } | null {
   if ('defId' in job) {
     return { name: CATALOG[job.defId].name, seconds: ECONOMY.recipes[job.defId].seconds, yields: {} };
+  }
+  if ('garment' in job) {
+    if (!isGarmentId(job.garment)) return null;
+    return { name: GARMENTS[job.garment].name, seconds: ECONOMY.garmentRecipes[job.garment].seconds, yields: {} };
   }
   if (!isMaterialRecipe(job.material)) return null;
   const recipe = ECONOMY.materialRecipes[job.material];
@@ -85,7 +95,7 @@ export interface Lot {
   price: number;
   /** Productores: tick de la próxima producción. */
   nextProductionAt: number;
-  /** Taller: muebles o materiales en fabricación (o terminados, si tick >= readyAt). */
+  /** Taller y tienda de ropa: trabajos en fabricación (o terminados, si tick >= readyAt). */
   jobs: CraftJob[];
   /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
   nextRentAt: number;
@@ -122,9 +132,14 @@ export function isKind(lot: Lot | undefined, kind: BusinessKind): boolean {
   return businessOf(lot)?.kind === kind;
 }
 
+/** ¿Vende productos expuestos en el local? (tienda de decoración y tienda de ropa) */
+export function sellsProducts(lot: Lot | undefined): boolean {
+  return isKind(lot, 'store') || isKind(lot, 'clothing');
+}
+
 /** ¿Pueden entrar clientes a comprar? (tiendas y servicios) */
 export function servesCustomers(lot: Lot | undefined): boolean {
-  return isKind(lot, 'store') || isKind(lot, 'service');
+  return sellsProducts(lot) || isKind(lot, 'service');
 }
 
 /** ¿Este dueño es un NPC? Los ids de los NPC empiezan por "npc-". */
@@ -166,6 +181,7 @@ const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rot
   cotton_field: { defId: 'cotton_bed', x: 3, y: 2, rotation: 0 },
   workshop: { defId: 'workbench', x: 3, y: 2, rotation: 0 },
   store: { defId: 'shop_counter', x: 1, y: 1, rotation: 0 },
+  clothing: { defId: 'sewing_machine', x: 1, y: 1, rotation: 0 },
   diner: { defId: 'diner_grill', x: 1, y: 1, rotation: 0 },
   bar: { defId: 'bar_tap', x: 1, y: 1, rotation: 0 },
   arcade: { defId: 'token_machine', x: 1, y: 1, rotation: 0 },
@@ -304,22 +320,46 @@ export function collectMaterials(state: GameState, avatarId: string, lotId: stri
   };
 }
 
-/** Taller: empezar a fabricar un mueble o un material. Los materiales se gastan al empezar. */
+/**
+ * Receta de lo que se pide fabricar y el trabajo que pone en la cola, si este
+ * negocio lo fabrica: el taller hace muebles y materiales, y la tienda de ropa
+ * prendas de un color de GARMENT_COLORS. Si no, null.
+ */
+function craftOrder(
+  lot: Lot,
+  recipeId: RecipeId,
+  color: unknown,
+): { recipe: Recipe; job: (readyAt: number) => CraftJob } | null {
+  // La receta y el color vienen del cliente: solo valen claves propias de la
+  // configuración y colores de la lista.
+  if (isKind(lot, 'workshop') && isFurnitureRecipe(recipeId)) {
+    return { recipe: ECONOMY.recipes[recipeId], job: (readyAt) => ({ defId: recipeId, readyAt }) };
+  }
+  if (isKind(lot, 'workshop') && isMaterialRecipe(recipeId)) {
+    return { recipe: ECONOMY.materialRecipes[recipeId], job: (readyAt) => ({ material: recipeId, readyAt }) };
+  }
+  if (isKind(lot, 'clothing') && isGarmentId(recipeId) && isGarmentColor(color)) {
+    return { recipe: ECONOMY.garmentRecipes[recipeId], job: (readyAt) => ({ garment: recipeId, color, readyAt }) };
+  }
+  return null;
+}
+
+/**
+ * Taller y tienda de ropa: empezar a fabricar algo (en la tienda de ropa, de
+ * ese color). Los materiales se gastan al empezar.
+ */
 export function startCraft(
   state: GameState,
   avatarId: string,
   lotId: string,
   recipeId: RecipeId,
+  color?: string,
 ): GameState {
   const lot = state.lots[lotId];
-  // La receta viene del cliente: solo valen claves propias de la configuración.
-  const recipe = isFurnitureRecipe(recipeId)
-    ? ECONOMY.recipes[recipeId]
-    : isMaterialRecipe(recipeId)
-      ? ECONOMY.materialRecipes[recipeId]
-      : undefined;
-  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop') || !recipe) return state;
-  if (lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
+  if (!isOwnerInside(state, avatarId, lot)) return state;
+  const order = craftOrder(lot, recipeId, color);
+  if (!order || lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
+  const { recipe } = order;
 
   const mine = state.materials[avatarId] ?? {};
   if (!hasMaterials(mine, recipe.materials)) return state;
@@ -328,8 +368,7 @@ export function startCraft(
   // último de la cola (o ahora, si la cola está vacía o ya terminó).
   const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
   const start = Math.max(state.tick, lastReady);
-  const readyAt = start + secondsToTicks(recipe.seconds);
-  const job: CraftJob = isFurnitureRecipe(recipeId) ? { defId: recipeId, readyAt } : { material: recipeId, readyAt };
+  const job = order.job(start + secondsToTicks(recipe.seconds));
 
   return {
     ...state,
@@ -339,18 +378,25 @@ export function startCraft(
 }
 
 /**
- * Taller: el dueño recoge lo terminado. Los muebles van a su inventario y los
- * materiales se suman a los suyos.
+ * Taller y tienda de ropa: el dueño recoge lo terminado. Los muebles y las
+ * prendas van a su inventario y los materiales se suman a los suyos.
  */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
+  if (!isOwnerInside(state, avatarId, lot) || !(isKind(lot, 'workshop') || isKind(lot, 'clothing'))) {
+    return state;
+  }
 
   const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
   if (done.length === 0) return state;
 
-  const furniture = done.filter((job) => 'defId' in job);
-  const items: InventoryItem[] = furniture.map((job, i) => ({ id: `i${state.nextId + i}`, defId: job.defId }));
+  const items: InventoryItem[] = [];
+  for (const job of done) {
+    const id = `i${state.nextId + items.length}`;
+    if ('defId' in job) items.push({ id, defId: job.defId });
+    // Una prenda que ya no existe se ignora (ver craftJobInfo).
+    else if ('garment' in job && craftJobInfo(job)) items.push({ id, garment: job.garment, color: job.color });
+  }
   // Solo se toca el almacén del jugador si se recogió algún material.
   const materialJobs = done.filter((job) => 'material' in job);
   let materials = state.materials;
@@ -414,26 +460,53 @@ function isValidPrice(price: number): boolean {
   return Number.isInteger(price) && price >= minPrice && price <= maxPrice;
 }
 
+/** Nombre de un producto a la venta: la prenda de un burro o el mueble. */
+export function productName(item: FurniItem): string {
+  return isGarmentDisplay(item) ? GARMENTS[item.garment].name : CATALOG[item.defId].name;
+}
+
 /**
- * Coloca un mueble a la venta en el primer hueco de exposición libre.
+ * Valor de referencia de un producto: el de la prenda de un burro o el del
+ * mueble. Es el precio sugerido y lo que los viajeros consideran justo.
+ */
+export function listingValue(item: FurniItem): number {
+  return isGarmentDisplay(item)
+    ? ECONOMY.garmentValue[item.garment]
+    : ECONOMY.baseValue[item.defId as DecorId];
+}
+
+/**
+ * Cómo se expone un objeto del inventario: un mueble tal cual y una prenda en
+ * un burro de ropa con su color (inventoryItemOf hace el camino contrario).
+ */
+function displayOf(item: InventoryItem): Pick<FurniItem, 'id' | 'defId' | 'variant' | 'garment'> {
+  return isGarmentItem(item)
+    ? { id: item.id, defId: 'clothes_rack', variant: item.color, garment: item.garment }
+    : { id: item.id, defId: item.defId };
+}
+
+/**
+ * Coloca un producto a la venta en el primer hueco de exposición libre.
  * Devuelve null si la tienda está llena o no cabe en ningún hueco.
  */
 function placeOnDisplay(
   state: GameState,
   lotId: string,
-  id: string,
-  defId: DecorId,
+  product: Pick<FurniItem, 'id' | 'defId' | 'variant' | 'garment'>,
   price: number,
 ): FurniItem | null {
   if (getListings(state, lotId).length >= ECONOMY.store.maxListings) return null;
   const slot = DISPLAY_SLOTS.find((s) =>
-    canPlaceFurni(state, lotId, defId, s.x, s.y, DISPLAY_ROTATION),
+    canPlaceFurni(state, lotId, product.defId, s.x, s.y, DISPLAY_ROTATION),
   );
   if (!slot) return null;
-  return { id, sceneId: lotId, defId, ...slot, rotation: DISPLAY_ROTATION, price };
+  return { ...product, sceneId: lotId, ...slot, rotation: DISPLAY_ROTATION, price };
 }
 
-/** El dueño pone a la venta un mueble de su inventario. */
+/**
+ * El dueño pone a la venta algo de su inventario: un mueble en la tienda de
+ * decoración o una prenda en la tienda de ropa.
+ */
 export function listItem(
   state: GameState,
   avatarId: string,
@@ -442,21 +515,23 @@ export function listItem(
   price: number,
 ): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'store') || !isValidPrice(price)) {
+  if (!isOwnerInside(state, avatarId, lot) || !sellsProducts(lot) || !isValidPrice(price)) {
     return state;
   }
   const inventory = state.inventories[avatarId] ?? [];
   const item = inventory.find((i) => i.id === itemId);
-  // La tienda de decoración solo vende muebles.
-  if (!item || isGarmentItem(item)) return state;
+  // Cada tienda vende lo suyo: la de decoración, muebles; la de ropa, prendas.
+  if (!item || isGarmentItem(item) !== isKind(lot, 'clothing')) return state;
 
-  const product = placeOnDisplay(state, lotId, item.id, item.defId as DecorId, price);
+  const product = placeOnDisplay(state, lotId, displayOf(item), price);
   if (!product) return state;
-  return {
+  const listed: GameState = {
     ...state,
     furniture: { ...state.furniture, [product.id]: product },
     inventories: { ...state.inventories, [avatarId]: inventory.filter((i) => i.id !== itemId) },
   };
+  // Si llevaba puesta esa prenda y no tiene otra igual, se le quita.
+  return dropUnownedOutfit(listed, avatarId);
 }
 
 /** El dueño cambia el precio de un producto. */
@@ -493,7 +568,7 @@ export function buyItem(state: GameState, buyerId: string, itemId: string): Game
     money: { ...s.money, [buyerId]: money - price },
     inventories: {
       ...s.inventories,
-      [buyerId]: [...(s.inventories[buyerId] ?? []), { id: item.id, defId: item.defId }],
+      [buyerId]: [...(s.inventories[buyerId] ?? []), inventoryItemOf(item)],
     },
   }));
 }
@@ -509,7 +584,7 @@ export function sellProduct(
   deliver: (s: GameState) => GameState,
 ): GameState {
   const { [item.id]: _sold, ...furniture } = state.furniture;
-  const name = CATALOG[item.defId].name;
+  const name = productName(item);
   return deliver(payOwner({ ...state, furniture }, ownerId, item.price ?? 0, `Has vendido ${name}`));
 }
 
@@ -634,8 +709,8 @@ function chargeRent(state: GameState): GameState {
 
 /**
  * Cierra un local (vuelve a estar en alquiler): los muebles que había dentro
- * (productos incluidos) vuelven al inventario del dueño, desaparece el puesto
- * de trabajo y el edificio vuelve a tener tablones.
+ * (productos incluidos, y las prendas de los burros) vuelven al inventario del
+ * dueño, desaparece el puesto de trabajo y el edificio vuelve a tener tablones.
  */
 function closeLot(state: GameState, lotId: string): GameState {
   const lot = state.lots[lotId];
@@ -647,7 +722,7 @@ function closeLot(state: GameState, lotId: string): GameState {
   for (const item of Object.values(state.furniture)) {
     if (item.sceneId !== lotId) continue;
     delete furniture[item.id];
-    if (!CATALOG[item.defId].fixed) returned.push({ id: item.id, defId: item.defId });
+    if (isPickable(item)) returned.push(inventoryItemOf(item));
   }
   const building = furniture[`${lotId}-building`];
   if (building) furniture[building.id] = { ...building, variant: 'closed' };

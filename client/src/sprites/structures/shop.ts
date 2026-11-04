@@ -274,6 +274,18 @@ function businessIcon(
         neon(64, 27, 53, 65, 29, 57),
         neon(64, 35, 53, 65, 37, 57),
       ];
+    case 'clothing':
+      // Percha: gancho arriba, hombros en escalera y barra abajo.
+      return [
+        neon(64, 31, 53, 65, 33, 57),
+        neon(64, 33, 55, 65, 35, 57),
+        neon(64, 29, 49, 65, 35, 53),
+        neon(64, 26, 47, 65, 29, 49),
+        neon(64, 35, 47, 65, 38, 49),
+        neon(64, 22, 45, 65, 26, 47),
+        neon(64, 38, 45, 65, 42, 47),
+        neon(64, 22, 43, 65, 42, 45),
+      ];
     default:
       return [];
   }

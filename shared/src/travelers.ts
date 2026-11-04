@@ -24,6 +24,7 @@ import {
   canServe,
   getListings,
   isKind,
+  listingValue,
   secondsToTicks,
   sellProduct,
   serveCustomer,
@@ -31,11 +32,12 @@ import {
   type Lot,
 } from './economy';
 import { ECONOMY, type BusinessType } from './economy.config';
+import { GARMENTS, isGarmentDisplay } from './garments';
 import { randomLook } from './looks';
 import { isDoorLocked } from './movement';
 import { move, say, updateBrain, wander } from './npcs';
 import { createRandom } from './random';
-import type { Avatar, FurniItem, GameState } from './types';
+import type { Avatar, AvatarLook, FurniItem, GameState } from './types';
 import { SCENES } from './world.ids';
 
 /** Un coche en la carretera. Circulan todos hacia +x (calle de sentido único). */
@@ -306,12 +308,13 @@ export function chooseProduct(
 ): FurniItem | null {
   const t = ECONOMY.travelers;
   const listings = getListings(state, lotId);
-  const ratio = (item: FurniItem) => item.price! / ECONOMY.baseValue[item.defId as keyof typeof ECONOMY.baseValue];
+  const ratio = (item: FurniItem) => item.price! / listingValue(item);
   const candidates = listings.filter((item) => item.price! <= budget && ratio(item) <= t.maxPriceRatio);
   if (candidates.length === 0) return null;
 
   const best = candidates.reduce((a, b) => (ratio(b) < ratio(a) ? b : a));
-  const variety = new Set(listings.map((l) => l.defId)).size;
+  // En la tienda de ropa todo son burros: la variedad la dan las prendas.
+  const variety = new Set(listings.map((l) => l.garment ?? l.defId)).size;
   const chance = t.baseBuyChance + t.varietyBonus * variety + t.bargainBonus * (1 - ratio(best));
   return random() < Math.min(0.95, Math.max(0.05, chance)) ? best : null;
 }
@@ -342,8 +345,14 @@ function decideAndBuy(
   if (!product || !lot?.ownerId) return say(state, avatar.id, PHRASES.nothing, random);
 
   // El viajero se lleva el mueble fuera del pueblo: no va a ningún inventario.
-  // (Si el dueño es un jugador, sellProduct ya le deja un aviso de la venta.)
+  // Una prenda se la pone y sale con ella. (Si el dueño es un jugador,
+  // sellProduct ya le deja un aviso de la venta.)
   let next = sellProduct(state, product, lot.ownerId, (s) => s);
+  if (isGarmentDisplay(product)) {
+    const garment = { type: product.garment, color: product.variant };
+    const outfit = { ...next.avatars[avatar.id].look.outfit, [GARMENTS[product.garment].slot]: garment };
+    next = restyle(next, avatar.id, { outfit });
+  }
   next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - product.price! });
   return say(next, avatar.id, PHRASES.bought, random);
 }
@@ -361,13 +370,16 @@ function decideAndServe(
   let next = serveCustomer(state, lot.id);
   next = updateBrain<TravelerBrain>(next, brain.id, { budget: brain.budget - lot.price });
   // En la peluquería el viajero sale con el pelo de otro color.
-  if (lot.business === 'barber') {
-    const traveler = next.avatars[avatar.id];
-    const look = { ...traveler.look, hair: randomLook(random).hair };
-    next = { ...next, avatars: { ...next.avatars, [avatar.id]: { ...traveler, look } } };
-  }
+  if (lot.business === 'barber') next = restyle(next, avatar.id, { hair: randomLook(random).hair });
   const phrases = (lot.business && PHRASES.served[lot.business]) || PHRASES.bought;
   return say(next, avatar.id, phrases, random);
+}
+
+/** Cambia parte del aspecto de un viajero (sale de la peluquería o de la tienda de ropa). */
+function restyle(state: GameState, avatarId: string, change: Partial<AvatarLook>): GameState {
+  const traveler = state.avatars[avatarId];
+  const look = { ...traveler.look, ...change };
+  return { ...state, avatars: { ...state.avatars, [avatarId]: { ...traveler, look } } };
 }
 
 /** El viajero desaparece y su coche se marcha. */

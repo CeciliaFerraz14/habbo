@@ -22,6 +22,11 @@ export const GARMENT_COLORS: readonly string[] = [
   '#d94040', '#2f8f8a', '#f2b134', '#3a3434', '#4a78ab', '#8a5a34', '#f6e7c8', '#6a4a8a',
 ];
 
+/** ¿Es un color de prenda permitido? (el valor puede venir del cliente). */
+export function isGarmentColor(color: unknown): color is string {
+  return typeof color === 'string' && GARMENT_COLORS.includes(color);
+}
+
 /** Aspecto con el que empieza un jugador nuevo. */
 export const DEFAULT_LOOK: AvatarLook = {
   hair: '#5a3a1e',
@@ -62,7 +67,7 @@ function normalizeOutfit(outfit: unknown): Outfit | null {
     // La ranura tiene que ser la de esa prenda: así 'toString' o unas botas en
     // la cabeza no pasan.
     if (!isGarmentId(type) || GARMENTS[type].slot !== slot) return null;
-    if (typeof color !== 'string' || !GARMENT_COLORS.includes(color)) return null;
+    if (!isGarmentColor(color)) return null;
     clean[GARMENTS[type].slot] = { type, color };
   }
   return clean;

@@ -4,6 +4,7 @@ import type { FurniId } from '@juego/shared';
 import { barTap } from '../structures/barTap';
 import { barberChair } from '../structures/barberChair';
 import { car } from '../structures/car';
+import { clothesRack } from '../structures/clothesRack';
 import { cottonBed } from '../structures/cottonBed';
 import { dinerGrill } from '../structures/dinerGrill';
 import { fruitPlanter } from '../structures/fruitPlanter';
@@ -11,6 +12,7 @@ import { fruitStand } from '../structures/fruitStand';
 import { gasStation } from '../structures/gasStation';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
+import { sewingMachine } from '../structures/sewingMachine';
 import { shop } from '../structures/shop';
 import { shopCounter } from '../structures/shopCounter';
 import { streetLamp } from '../structures/streetLamp';
@@ -70,5 +72,8 @@ export const MODELS: Record<FurniId, ModelSource> = {
   cotton_bed: cottonBed,
   bar_tap: barTap,
   token_machine: tokenMachine,
+  sewing_machine: sewingMachine,
+  // Expositor de la tienda de ropa
+  clothes_rack: clothesRack,
   car,
 };

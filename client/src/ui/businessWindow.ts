@@ -18,6 +18,7 @@ import {
   hasMaterials,
   isGarmentItem,
   MOVE_TICK_MS,
+  productName,
   secondsToTicks,
   totalMaterials,
   type DecorId,
@@ -162,7 +163,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       const info = document.createElement('div');
       info.className = 'recipe-info';
       const name = document.createElement('div');
-      name.textContent = CATALOG[item.defId].name;
+      name.textContent = productName(item);
       const input = priceInput(item.price!, inside);
       const controls = document.createElement('div');
       controls.className = 'row';

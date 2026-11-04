@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { testPlayer } from './testHelpers';
+import { testPlayer, withBusiness } from './testHelpers';
 import {
   ECONOMY,
   FACADES,
@@ -12,32 +12,7 @@ import {
   stationId,
   tick,
 } from './index';
-import type { BusinessType, GameState, Materials } from './index';
-
-/** Jugador p1 dentro de lot1, que es suyo y tiene ese negocio con ese almacén. */
-function withBusiness(business: BusinessType, storage: Materials = {}, price = 0): GameState {
-  const state = createInitialState();
-  const config = ECONOMY.businesses[business];
-  return {
-    ...state,
-    avatars: { p1: testPlayer() },
-    lots: {
-      ...state.lots,
-      lot1: {
-        ...state.lots.lot1,
-        ownerId: 'p1',
-        ownerName: 'P1',
-        business,
-        facade: config.defaultFacade,
-        storage,
-        price,
-        nextRentAt: state.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
-        nextProductionAt: state.tick + secondsToTicks(config.production?.seconds ?? 0),
-      },
-    },
-    money: { p1: 0 },
-  };
-}
+import type { GameState } from './index';
 
 test('cotton field produces fabric', () => {
   let state = withBusiness('cotton_field');

@@ -15,7 +15,7 @@
 // economía.
 // =============================================================================
 import { isOwnKey } from './economy.config';
-import type { GameState, GarmentInventoryItem, InventoryItem } from './types';
+import type { FurniItem, GameState, GarmentInventoryItem, InventoryItem } from './types';
 
 /** Partes del cuerpo donde se lleva una prenda (una prenda por ranura). */
 export type GarmentSlot = 'head' | 'torso' | 'feet';
@@ -50,6 +50,14 @@ export function isGarmentId(id: unknown): id is GarmentId {
 /** ¿Este objeto del inventario es una prenda (y no un mueble)? */
 export function isGarmentItem(item: InventoryItem): item is GarmentInventoryItem {
   return 'garment' in item;
+}
+
+/**
+ * ¿Este mueble es un burro de ropa con una prenda a la venta? La prenda va en
+ * `garment` y su color en `variant`.
+ */
+export function isGarmentDisplay(item: FurniItem): item is FurniItem & { garment: GarmentId; variant: string } {
+  return item.garment !== undefined && item.variant !== undefined;
 }
 
 /** ¿El avatar tiene en su inventario alguna prenda de ese tipo y color? */
