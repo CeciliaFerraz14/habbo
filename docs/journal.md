@@ -2,6 +2,19 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Las prendas se ven en el avatar
+
+**Qué se hizo**
+- `client/src/sprites/avatar.ts`: cada fotograma lleva `HEADROOM` (3) filas vacías encima de la cabeza para los sombreros. `HIP_ROW` se calcula (`TORSO_ROW + TORSO.length`) y sube esas 3 filas. Capas de prenda con dos letras nuevas de la leyenda (`G` y su sombra `g`): sombrero de cowboy (simétrico, una sola matriz), gorra (copa compartida; visera hacia la cara de frente y cierre de espaldas), chaqueta vaquera y chaleco (frente y espalda) y botas, que se sacan de las piernas de cada fotograma (`bootsFor`). Se apilan en orden torso, cabeza, pies encima del cuerpo. La clave de caché incluye tipo y color de cada ranura.
+- `client/src/sprites/canvas.ts`: `stackSprites` apila capas sobre un sprite; `createSprite` y ella comparten `offscreen`.
+- Comentarios en `renderer.ts` (`avatarHeadPosition`) y `avatarEditor.ts` (`PREVIEW_H`).
+
+**Decisiones**
+- Hueco fijo en vez de altura variable: de pie el sprite se apoya por abajo y sentado por `HIP_ROW`, así que los pies y el asiento no se mueven, con sombrero o sin él.
+- Cada capa se hornea con su propia paleta y se apila con `drawImage`: así cada prenda puede tener su color sin inventar letras por ranura.
+- Las botas no se dibujan a mano por fotograma: se derivan de las piernas (zapatos y el píxel de pantalón de encima), y siguen la animación y la postura de sentado.
+- Los bocadillos se anclan al borde de arriba del sprite (3 px más arriba que antes sin sombrero) para no tapar nunca un sombrero. La vista previa del editor (28 px de alto) ya cabe el sprite de 27 px.
+
 ## 2026-11-04 · Tienda de ropa: coser, exponer y vender prendas
 
 **Qué se hizo**

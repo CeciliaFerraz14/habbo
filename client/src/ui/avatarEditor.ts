@@ -18,7 +18,10 @@ const PART_NAMES: Record<LookPart, string> = {
 const TURN: Direction[] = ['SE', 'SW', 'NW', 'NE'];
 const FRAME_MS = 130;
 const TURN_MS = 1500;
-/** Tamaño del lienzo de la vista previa en píxeles del juego (se amplía con CSS). */
+/**
+ * Tamaño del lienzo de la vista previa en píxeles del juego (se amplía con CSS).
+ * Cabe el avatar de pie entero, con el hueco del sombrero, y 1 px por debajo.
+ */
 const PREVIEW_W = 20;
 const PREVIEW_H = 28;
 

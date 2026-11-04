@@ -7,23 +7,35 @@
 //   T camiseta      t camiseta (sombra)
 //   P pantalón      p pantalón (sombra)
 //   B zapatos       . transparente
+//   G prenda        g prenda (sombra)
 //
 // Los colores de pelo, piel, camiseta y pantalón salen del AvatarLook, así que
 // el mismo dibujo sirve para cualquier combinación del editor de avatar.
+//
+// Las prendas (look.outfit) son CAPAS: matrices más pequeñas que se hornean
+// aparte con su propio color (G y g) y se apilan encima del cuerpo en este
+// orden: cuerpo, torso, cabeza, pies. Donde la capa es transparente se ve lo
+// de debajo.
 //
 // Solo dibujamos 2 vistas: de FRENTE (mirando a SE ↘) y de ESPALDAS (mirando a
 // NE ↗). Las otras dos (SW ↙ y NW ↖) se obtienen reflejándolas en espejo.
 //
 // Cada fotograma = parte de arriba (cabeza y torso) + piernas. Así las
 // piernas de la animación de caminar se dibujan una sola vez para las 2 vistas.
+// Encima de la cabeza siempre hay HEADROOM filas vacías para los sombreros:
+// así todos los fotogramas miden lo mismo con sombrero o sin él, y los pies y
+// las caderas quedan en la misma fila del sprite.
 
-import type { AvatarLook, Direction } from '@juego/shared';
-import type { Sprite } from './canvas';
+import type { AvatarLook, Direction, GarmentId, GarmentSlot } from '@juego/shared';
+import { stackSprites, type Sprite } from './canvas';
 import { shade } from './color';
 import { PALETTE } from './palette';
 import { bakePixelArt, type Palette } from './pixelArt';
 
 export const AVATAR_WIDTH = 16;
+
+/** Filas vacías encima de la cabeza: las que necesita el sombrero más alto. */
+const HEADROOM = 3;
 
 // Cabeza de frente: los ojos están desplazados a la derecha para que se note
 // que mira hacia la derecha (SE).
@@ -110,17 +122,142 @@ const LEGS = [LEGS_STAND, LEGS_STEP_A, LEGS_STEP_B, LEGS_SIT];
 /** Índices de fotograma. */
 export const FRAME_STAND = 0;
 export const FRAME_SIT = 3;
+/** Fila del sprite donde empieza el torso (las dos cabezas miden lo mismo). */
+const TORSO_ROW = HEADROOM + HEAD_FRONT.length;
 /** Fila del sprite donde están las caderas: es la que se apoya en el asiento. */
-export const HIP_ROW = 18;
+export const HIP_ROW = TORSO_ROW + TORSO.length;
 /** Secuencia de la animación de caminar: paso A, de pie, paso B, de pie... */
 export const WALK_CYCLE = [1, 0, 2, 0];
 
-/** Para cada dirección: qué cabeza usar y si hay que reflejar en espejo. */
-const VIEWS: Record<Direction, { head: string[]; flip: boolean }> = {
-  SE: { head: HEAD_FRONT, flip: false },
-  SW: { head: HEAD_FRONT, flip: true },
-  NE: { head: HEAD_BACK, flip: false },
-  NW: { head: HEAD_BACK, flip: true },
+// --- Prendas de la cabeza ---
+// Empiezan en la fila 0 del sprite, es decir, en el hueco de HEADROOM.
+
+// Sombrero de cowboy: copa con la hendidura arriba, cinta (g) y ala ancha con
+// las puntas levantadas. Es simétrico, así que sirve de frente y de espaldas.
+const COWBOY_HAT = [
+  '.....OO..OO.....',
+  '....OGGOOGGO....',
+  '....OGGGGGGO....',
+  '....OggggggO....',
+  'OO..OGGGGGGO..OO',
+  'OGOOGGGGGGGGOOGO',
+  '.OgGGGGGGGGGGgO.',
+  '..OOOOOOOOOOOO..',
+];
+
+// Gorra: la copa es igual de frente y de espaldas; solo cambia la última parte.
+const CAP_CROWN = [
+  '................',
+  '................',
+  '.....OOOOOO.....',
+  '....OGGGGGGO....',
+  '...OGGGGGGGGO...',
+  '..OGGGGGGGGGGO..',
+];
+
+// De frente, la visera sale hacia la cara (a la derecha, como los ojos) y
+// deja una raya de sombra sobre la frente.
+const CAP_FRONT = [
+  ...CAP_CROWN,
+  '..OggggggggggOO.',
+  '.........OGGGGGO',
+  '..........OOOOO.',
+];
+
+// De espaldas, la cinta tiene la abertura del cierre, por la que asoma el pelo.
+const CAP_BACK = [...CAP_CROWN, '..OgggO..OgggO..'];
+
+// --- Prendas del torso ---
+// Empiezan en TORSO_ROW. La última fila del torso (la cintura) no se tapa, y
+// las manos (fila de 'SS' a los lados) tampoco.
+
+// Chaqueta vaquera: mangas hasta las muñecas y, de frente, abierta con las
+// solapas (g) a los lados de la camiseta.
+const JACKET_FRONT = [
+  '...OOGGTTGGOO...',
+  '..OGGGgTTgGGGO..',
+  '.OGGOGgTTgGOGGO.',
+  '.OGGOGGTTGGOGGO.',
+  '.OGgOGGTTGGOGgO.',
+  '....OgGTTGgO....',
+];
+
+// De espaldas: entera, con la costura del canesú (g) a la altura de los hombros.
+const JACKET_BACK = [
+  '...OOGGGGGGOO...',
+  '..OGGGGGGGGGGO..',
+  '.OGGOggggggOGGO.',
+  '.OGGOGGGGGGOGGO.',
+  '.OGgOGGGGGGOGgO.',
+  '....OgGGGGgO....',
+];
+
+// Chaleco: sin mangas (los brazos siguen con la camiseta) y, de frente,
+// abierto: dos paneles con el borde de dentro en sombra.
+const VEST_FRONT = [
+  '................',
+  '....GG....GG....',
+  '.....Gg..gG.....',
+  '.....Gg..gG.....',
+  '.....Gg..gG.....',
+  '.....GG..GG.....',
+];
+
+const VEST_BACK = [
+  '................',
+  '....GGGGGGGG....',
+  '.....GGGGGG.....',
+  '.....GGGGGG.....',
+  '.....GGGGGG.....',
+  '.....gGGGGg.....',
+];
+
+// --- Prendas de los pies ---
+
+/**
+ * Botas para unas piernas concretas (empiezan en HIP_ROW). En vez de dibujar
+ * unas botas por cada fotograma, se sacan de las piernas: los zapatos (B) se
+ * pintan del color de la bota y el píxel de pantalón justo encima de cada
+ * zapato también (la caña), con su misma luz o sombra. Así las botas siguen
+ * cualquier paso de la animación y la postura de sentado.
+ */
+function bootsFor(legs: readonly string[]): string[] {
+  const shaft: Record<string, string> = { P: 'G', p: 'g' };
+  return legs.map((row, y) =>
+    [...row]
+      .map((ch, x) => {
+        if (ch === 'B') return 'G';
+        if (legs[y + 1]?.[x] === 'B') return shaft[ch] ?? '.';
+        return '.';
+      })
+      .join(''),
+  );
+}
+
+type Facing = 'front' | 'back';
+
+/** La capa de cada prenda según hacia dónde mira el avatar y qué piernas lleva. */
+const GARMENT_LAYERS: Record<GarmentId, (facing: Facing, legs: readonly string[]) => readonly string[]> = {
+  cowboy_hat: () => COWBOY_HAT,
+  cap: (facing) => (facing === 'front' ? CAP_FRONT : CAP_BACK),
+  denim_jacket: (facing) => (facing === 'front' ? JACKET_FRONT : JACKET_BACK),
+  vest: (facing) => (facing === 'front' ? VEST_FRONT : VEST_BACK),
+  boots: (_facing, legs) => bootsFor(legs),
+};
+
+/** Orden en que se apilan las prendas y fila del sprite donde empieza cada una. */
+const SLOT_ORDER: GarmentSlot[] = ['torso', 'head', 'feet'];
+const SLOT_ROW: Record<GarmentSlot, number> = { head: 0, torso: TORSO_ROW, feet: HIP_ROW };
+
+const HEADS: Record<Facing, string[]> = { front: HEAD_FRONT, back: HEAD_BACK };
+const EMPTY_HEADROOM = Array<string>(HEADROOM).fill('.'.repeat(AVATAR_WIDTH));
+
+/** Para cada dirección: si se ve de frente o de espaldas y si hay que reflejar en espejo. */
+const VIEWS: Record<Direction, { facing: Facing; flip: boolean }> = {
+  SE: { facing: 'front', flip: false },
+  SW: { facing: 'front', flip: true },
+  NE: { facing: 'back', flip: false },
+  NW: { facing: 'back', flip: true },
 };
 
 /** Fotogramas ya horneados de un look: frames[direccion][indice]. */
@@ -142,19 +279,37 @@ function lookPalette(look: AvatarLook): Palette {
   };
 }
 
-// Caché: cada combinación de colores se hornea una sola vez.
+/** Paleta de una capa de prenda: su color, su sombra y el contorno común. */
+function garmentPalette(color: string): Palette {
+  return { O: PALETTE.outline, G: color, g: shade(color, 0.72) };
+}
+
+// Caché: cada combinación de colores y prendas se hornea una sola vez.
 const cache = new Map<string, AvatarFrames>();
 
 export function getAvatarFrames(look: AvatarLook): AvatarFrames {
-  const cacheKey = `${look.hair}|${look.skin}|${look.shirt}|${look.pants}`;
+  const outfitKey = SLOT_ORDER.map((slot) => {
+    const garment = look.outfit?.[slot];
+    return garment ? `${garment.type}:${garment.color}` : '';
+  }).join('|');
+  const cacheKey = `${look.hair}|${look.skin}|${look.shirt}|${look.pants}|${outfitKey}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   const palette = lookPalette(look);
   const frames = {} as AvatarFrames;
   for (const dir of Object.keys(VIEWS) as Direction[]) {
-    const { head, flip } = VIEWS[dir];
-    frames[dir] = LEGS.map((legs) => bakePixelArt([...head, ...TORSO, ...legs], palette, flip));
+    const { facing, flip } = VIEWS[dir];
+    frames[dir] = LEGS.map((legs) => {
+      const body = bakePixelArt([...EMPTY_HEADROOM, ...HEADS[facing], ...TORSO, ...legs], palette, flip);
+      const layers = SLOT_ORDER.flatMap((slot) => {
+        const garment = look.outfit?.[slot];
+        if (!garment) return [];
+        const rows = GARMENT_LAYERS[garment.type](facing, legs);
+        return [{ sprite: bakePixelArt(rows, garmentPalette(garment.color), flip), y: SLOT_ROW[slot] }];
+      });
+      return layers.length > 0 ? stackSprites(body, layers) : body;
+    });
   }
   cache.set(cacheKey, frames);
   return frames;

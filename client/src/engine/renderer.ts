@@ -185,6 +185,8 @@ export class Renderer {
    * Punto del canvas justo encima de la cabeza de un avatar (para los bocadillos).
    * Usa las mismas cuentas que drawAvatar(): de pie, los pies están 2 px por
    * debajo del centro de la baldosa; sentado, las caderas están a la altura del asiento.
+   * El punto es el borde de arriba del sprite, que incluye el hueco del sombrero:
+   * así el bocadillo nunca tapa un sombrero.
    */
   avatarHeadPosition(state: GameState, avatar: Avatar, view: AvatarView, camera: Camera): Point {
     const p = tileToScreen(view.x, view.y);
