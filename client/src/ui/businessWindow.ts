@@ -31,6 +31,7 @@ import {
   totalMaterials,
   type FacadeId,
   type GameState,
+  type GarmentId,
   type Lot,
   type MaterialId,
   type MaterialRecipe,
@@ -76,8 +77,6 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   });
   let lotId: string | null = null;
   let signature = '';
-  /** Último estado recibido, para reconstruir la ventana al elegir otro color. */
-  let latest: { state: GameState; playerId: string } | null = null;
   /** Tienda de ropa: color en el que se cosen las prendas. Se recuerda entre locales. */
   let garmentColor = GARMENT_COLORS[0];
   /** Funciones que actualizan las partes que dependen del tiempo. */
@@ -391,31 +390,42 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const canCraft = inside && lot.jobs.length < ECONOMY.workshop.queueSize;
     buildCraftQueue(lot, inside, state);
 
-    // Muestras de color: elegir una vuelve a dibujar las recetas en ese color.
+    // Muestras de color: elegir una solo repinta la muestra elegida y los
+    // iconos de las recetas, en su sitio (el resto de la ventana no se toca).
     const colors = document.createElement('div');
     colors.className = 'swatches';
+    const swatches = new Map<string, HTMLElement>();
+    const icons = new Map<GarmentId, HTMLElement>();
+    const recolor = (color: string) => {
+      garmentColor = color;
+      for (const [c, b] of swatches) b.classList.toggle('selected', c === color);
+      for (const [garment, old] of icons) {
+        const icon = garmentIcon({ type: garment, color });
+        old.replaceWith(icon);
+        icons.set(garment, icon);
+      }
+    };
     for (const color of GARMENT_COLORS) {
       const b = document.createElement('button');
       b.className = 'swatch';
       b.classList.toggle('selected', color === garmentColor);
       b.style.background = color;
       b.title = color;
-      b.addEventListener('click', () => {
-        garmentColor = color;
-        if (latest) update(latest.state, latest.playerId);
-      });
+      b.addEventListener('click', () => recolor(color));
+      swatches.set(color, b);
       colors.append(b);
     }
 
     const recipes = document.createElement('div');
     recipes.className = 'recipes';
-    const color = garmentColor;
     for (const garment of GARMENT_IDS) {
       const recipe = ECONOMY.garmentRecipes[garment];
       const label = `${GARMENTS[garment].name} · ${recipe.seconds} s`;
+      const icon = garmentIcon({ type: garment, color: garmentColor });
+      icons.set(garment, icon);
       recipes.append(
-        recipeRow(garmentIcon({ type: garment, color }), label, recipe.materials, mine, canCraft, () =>
-          actions.craft(lot.id, garment, color),
+        recipeRow(icon, label, recipe.materials, mine, canCraft, () =>
+          actions.craft(lot.id, garment, garmentColor),
         ),
       );
     }
@@ -424,7 +434,6 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   const update = (state: GameState, playerId: string) => {
-    latest = { state, playerId };
     if (!win.isOpen || !lotId) return;
     const lot = state.lots[lotId];
     if (!lot || !lot.business) {
@@ -443,7 +452,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
     const listings = getListings(state, lot.id);
     const inventory = state.inventories[playerId] ?? [];
-    const next = JSON.stringify([lot, mine, inside, done, listings, inventory, garmentColor]);
+    const next = JSON.stringify([lot, mine, inside, done, listings, inventory]);
     if (next !== signature) {
       signature = next;
       timers = [];
