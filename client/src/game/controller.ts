@@ -17,6 +17,7 @@ import {
   isGarmentItem,
   isInsideScene,
   lotOfStation,
+  plotOfSign,
   sellsProducts,
   type Door,
   type FurniId,
@@ -46,6 +47,8 @@ export interface ControllerEvents {
   notify: (message: string) => void;
   /** Abre la ventana para alquilar un local libre. */
   openRent: (lotId: string) => void;
+  /** Abre la ventana de un solar: construir en uno libre o gestionarlo como casero. */
+  openPlot: (lotId: string) => void;
   /** Abre la ventana de gestión de un negocio. */
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
@@ -240,6 +243,12 @@ export class GameController {
       // Las estructuras fijas (edificios, farolas...) no se seleccionan.
       if (CATALOG[item.defId].fixed) {
         this.select(null);
+        // Cartel de un solar libre: ventana para construir en él.
+        const plotId = plotOfSign(item.id);
+        if (plotId) {
+          this.events.openPlot(plotId);
+          return;
+        }
         // Puesto de trabajo de un negocio: abre su ventana si es tuyo y, si es
         // una tienda ajena (mostrador o máquina de coser), la tienda para comprar.
         const lotId = lotOfStation(item.id);
@@ -293,12 +302,16 @@ export class GameController {
 
   /**
    * Camina hasta una puerta. Si es la de un local en alquiler, se queda
-   * delante y abre la ventana para alquilarlo.
+   * delante y abre la ventana para alquilarlo; si es la de un solar libre del
+   * propio jugador, la de su solar (el casero no se lo alquila a sí mismo).
    */
   private goToDoor(door: Door): void {
-    if (isDoorLocked(this.getState(), door)) {
+    const state = this.getState();
+    if (isDoorLocked(state, door)) {
       this.moveTo(door.spawn);
-      if (door.lotId) this.events.openRent(door.lotId);
+      if (!door.lotId) return;
+      if (state.lots[door.lotId]?.landlordId === this.playerId) this.events.openPlot(door.lotId);
+      else this.events.openRent(door.lotId);
       return;
     }
     this.moveTo(door);

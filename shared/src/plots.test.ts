@@ -5,7 +5,9 @@ import {
   createInitialState,
   ECONOMY,
   isPlotId,
+  lotTerms,
   planPath,
+  plotOfSign,
   PLOT_SITES,
   restorePlot,
   restoreSavedPlots,
@@ -76,7 +78,9 @@ test('the street has six free plot sites with a sign and no lot', () => {
       (f) => f.defId === 'plot_sign' && f.x === site.x + 3 && f.y === 14,
     );
     assert.ok(sign, `cartel de ${site.label}`);
+    assert.equal(plotOfSign(sign.id), site.lotId);
   }
+  assert.equal(plotOfSign('lot1-building'), null);
   assert.ok(!isPlotId('lot1'));
   assert.ok(!isPlotId('toString'));
   // Aceras: la sur junto a la carretera (y 10) y la trasera de los solares (y 15).
@@ -184,6 +188,13 @@ test('landlord sets terms within limits only while vacant', () => {
 
   const rented = rentedPlot();
   assert.equal(set(rented, 50, 50), rented);
+});
+
+test('lotTerms: landlord terms on a plot, business deposit and rent on a city lot', () => {
+  const state = builtPlot();
+  assert.deepEqual(lotTerms(state.lots[SITE.lotId], 'store'), plots.initialTerms);
+  const { deposit, rent } = ECONOMY.businesses.store;
+  assert.deepEqual(lotTerms(state.lots.lot1, 'store'), { deposit, rent });
 });
 
 test('a tenant rents a plot paying the landlord deposit minus commission; the landlord cannot rent it', () => {

@@ -66,6 +66,10 @@ export const isPlotId = (id: string) => plotSite(id) !== undefined;
 /** Id del cartel de un solar sin construir. */
 const plotSignId = (id: string) => `${id}-sign`;
 
+/** Si el mueble es el cartel de un solar, devuelve el id del solar. */
+export const plotOfSign = (itemId: string) =>
+  PLOT_SITES.find((site) => plotSignId(site.lotId) === itemId)?.lotId ?? null;
+
 /** Genera el mapa de suelo de la calle, fila a fila. */
 function streetGround(): string[] {
   const rows: string[] = [];

@@ -1,5 +1,6 @@
 // Ventana para alquilar un local libre y elegir qué negocio abrir en él.
-import { BUSINESS_TYPES, ECONOMY, type BusinessType, type GameState } from '@juego/shared';
+// En un solar, la fianza y el alquiler son los del casero.
+import { BUSINESS_TYPES, ECONOMY, lotTerms, type BusinessType, type GameState } from '@juego/shared';
 import { formatMoney } from './economyUi';
 import { PixelWindow } from './window';
 
@@ -28,7 +29,15 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
 
     const intro = document.createElement('p');
     intro.className = 'hint';
-    intro.textContent = 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+    if (!lot.terms) {
+      intro.textContent = 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+    } else if (lot.suspended) {
+      intro.textContent = `Solar de ${lot.landlordName}. Suspendido: no admite inquilinos hasta que el casero pague el mantenimiento.`;
+    } else {
+      intro.textContent =
+        `Solar de ${lot.landlordName}. Elige qué negocio abrir: fianza de ${formatMoney(lot.terms.deposit)} ` +
+        `y alquiler de ${formatMoney(lot.terms.rent)} al día, los fija el casero.`;
+    }
 
     const list = document.createElement('div');
     list.className = 'option-list';
@@ -51,9 +60,11 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
 
       const button = document.createElement('button');
       button.className = 'btn btn-small';
-      button.textContent = `Alquilar · ${formatMoney(config.deposit)}`;
-      button.disabled = money < config.deposit;
-      if (button.disabled) button.title = 'No tienes dinero suficiente';
+      const { deposit } = lotTerms(lot, type);
+      button.textContent = `Alquilar · ${formatMoney(deposit)}`;
+      button.disabled = lot.suspended || money < deposit;
+      if (lot.suspended) button.title = 'El solar está suspendido';
+      else if (button.disabled) button.title = 'No tienes dinero suficiente';
       button.addEventListener('click', () => onRent(lotId, type));
 
       card.append(title, desc, button);

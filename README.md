@@ -55,10 +55,21 @@ Abre http://localhost:5173
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
-6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
+6. **Solares**: al otro lado de la carretera hay solares con un cartel de "Se vende".
+   Haz clic en el cartel para **construir** un local (cuesta dinero, chapa, madera
+   vieja y neumáticos). Quien lo construye es su **casero**: no lo usa él, lo
+   alquila a otros jugadores. Haciendo clic en su edificio o en su puerta (en la
+   acera de detrás) mientras está libre, el casero fija la **fianza** y el
+   **alquiler** diario, y ve quién lo tiene alquilado y el **mantenimiento** que
+   paga cada día, esté alquilado o no. Cobra la fianza y el alquiler aunque no
+   esté, menos una comisión para el pueblo. Si no puede pagar el mantenimiento, el
+   solar queda **suspendido**: el inquilino que hay se queda, pero no entran nuevos
+   hasta que pague. Para los demás, alquilar un solar es como alquilar un local,
+   con las condiciones del casero.
+7. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
    las tiendas de otros jugadores.
-7. Decora tu caravana con lo que compres o fabriques.
-8. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
+8. Decora tu caravana con lo que compres o fabriques.
+9. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
    te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
    última prenda de un tipo y color que llevas puesta, se te quita.
 
@@ -77,6 +88,8 @@ Abre http://localhost:5173
 | Chatear | `Enter`, escribir y `Enter` (prueba a saludar a los vecinos) |
 | Cambiar tu aspecto y ponerte prendas | Botón "Avatar" |
 | Comprar en una tienda ajena | Clic en su mostrador, su máquina de coser o en un producto |
+| Construir en un solar | Clic en su cartel de "Se vende" |
+| Gestionar tu solar (casero) | Clic en su edificio o su puerta mientras está libre |
 | Forzar día / atardecer / noche / amanecer (depuración) | `N` (otra vez para volver a la hora real) |
 
 En desarrollo, el estado del juego está disponible en la consola del navegador:
@@ -97,6 +110,7 @@ escriben en segundos.
 | Cuánto cabe en el almacén de un servicio y límites de precio | `services` |
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
+| Coste de construir un solar, límites de fianza y alquiler del casero, mantenimiento y comisión | `plots` |
 | Recetas del taller (materiales y tiempo): muebles y fichas | `recipes`, `materialRecipes` |
 | Recetas de la tienda de ropa (tela y tiempo de cada prenda) | `garmentRecipes` |
 | Valor de referencia de cada mueble y de cada prenda | `baseValue`, `garmentValue` (precio sugerido y referencia de los viajeros) |
@@ -108,8 +122,10 @@ Cómo fluye el dinero:
 
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
 - **Sale** con el **alquiler** de los locales, la **comisión** de cada venta y las
-  compras al **proveedor** de materiales.
-- **Circula** entre jugadores cuando unos compran a otros.
+  compras al **proveedor** de materiales; también con lo que cuesta **construir** un
+  solar, su **mantenimiento** y la comisión de cada fianza y alquiler de un solar.
+- **Circula** entre jugadores cuando unos compran a otros y cuando un inquilino le
+  paga la fianza y el alquiler a su casero.
 
 Pistas para equilibrar:
 

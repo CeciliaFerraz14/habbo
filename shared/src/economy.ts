@@ -150,6 +150,15 @@ export function isIntegerBetween(value: number, min: number, max: number): boole
   return Number.isInteger(value) && value >= min && value <= max;
 }
 
+/**
+ * Fianza y alquiler de un negocio en un local: en un solar, los que fija el
+ * casero; en un local del ayuntamiento, los del tipo de negocio.
+ */
+export function lotTerms(lot: Lot, business: BusinessType): PlotTerms {
+  const config = ECONOMY.businesses[business];
+  return lot.terms ?? { deposit: config.deposit, rent: config.rent };
+}
+
 /** Configuración del negocio de un local (o null si está en alquiler). */
 export function businessOf(lot: Lot | undefined): BusinessConfig | null {
   return lot?.business ? ECONOMY.businesses[lot.business] : null;
@@ -287,12 +296,11 @@ export function rentLot(
 ): GameState {
   const lot = state.lots[lotId];
   if (!isOwnKey(ECONOMY.businesses, business)) return state;
-  const config = ECONOMY.businesses[business];
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
   if (!lot || !avatar || lot.ownerId !== null) return state;
   if (lot.landlordId === avatarId || lot.suspended) return state;
-  const deposit = lot.terms?.deposit ?? config.deposit;
+  const { deposit } = lotTerms(lot, business);
   if (money < deposit) return state;
 
   let paid: GameState = { ...state, money: { ...state.money, [avatarId]: money - deposit } };
@@ -738,7 +746,7 @@ function chargeRent(state: GameState): GameState {
   let next = state;
   for (const lot of Object.values(state.lots)) {
     if (!lot.ownerId || !lot.business || next.tick < lot.nextRentAt) continue;
-    const rent = lot.terms?.rent ?? ECONOMY.businesses[lot.business].rent;
+    const { rent } = lotTerms(lot, lot.business);
     const money = next.money[lot.ownerId] ?? 0;
 
     if (money < rent) {

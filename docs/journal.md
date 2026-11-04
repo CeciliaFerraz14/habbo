@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Interfaz para construir y gestionar solares
+
+**Qué se hizo**
+- `client/src/ui/plotWindow.ts`: ventana del solar con dos modos. "Construir" (solar libre): coste en dinero y materiales (en rojo lo que no alcanza), botón deshabilitado si no alcanza, y aviso del mantenimiento y la comisión. "Tu solar" (casero): inquilino o "Libre", campos de fianza y alquiler con los límites de `ECONOMY.plots`, "Guardar" deshabilitado con inquilino o con valores fuera de límites, mantenimiento con la cuenta atrás del próximo cobro y aviso si está suspendido. Se cierra al salir de la calle o si el solar lo construye otro.
+- `client/src/ui/rentWindow.ts`: en un solar enseña el casero, su fianza y su alquiler; si está suspendido lo dice y deshabilita los botones.
+- `client/src/game/controller.ts`: clic en un cartel de solar → ventana de construir; clic en el edificio o la puerta de tu propio solar libre → ventana del casero (en `goToDoor`, que ya decidía la ventana de alquiler, así cubre edificio, puerta y suelo de la puerta). El resto, igual que los locales.
+- `client/src/main.ts`: cableado de `BUILD_PLOT` y `SET_PLOT_TERMS` y actualización de la ventana con cada estado.
+- Compartido: `plotOfSign(itemId)` (world.ts) da el solar de un cartel, como `lotOfStation`; `lotTerms(lot, business)` (economy.ts) es la única regla de "en un solar, las condiciones del casero": la usan `rentLot`, `chargeRent` y la ventana de alquiler. Tests de las dos.
+- `client/src/ui/economyUi.ts`: `formatTicks` (ahora con horas para el mantenimiento diario), `numberInput` y `readNumber` salen de la ventana de negocio para usarlos también en la del solar.
+- README: los solares y el papel de casero.
+
+**Decisiones**
+- La ventana del casero solo se abre con el solar libre, como pide el plan: con inquilino, el clic lleva a la puerta y se entra en el negocio del inquilino.
+- El cliente valida los límites solo para deshabilitar "Guardar"; quien decide sigue siendo el reducer.
+
 ## 2026-11-04 · Los solares se guardan en Supabase
 
 **Qué se hizo**

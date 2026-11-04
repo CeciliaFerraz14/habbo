@@ -24,7 +24,6 @@ import {
   isGarmentDisplay,
   isKind,
   listingValue,
-  MOVE_TICK_MS,
   productName,
   secondsToTicks,
   sellsItem,
@@ -41,7 +40,7 @@ import {
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
-import { formatMoney, materialChips, materialSwatch } from './economyUi';
+import { formatMoney, formatTicks, materialChips, materialSwatch, numberInput, readNumber } from './economyUi';
 import { furniIcon, garmentIcon, productIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -61,11 +60,6 @@ export interface BusinessActions {
 export interface BusinessWindow {
   open: (lotId: string) => void;
   update: (state: GameState, playerId: string) => void;
-}
-
-/** Ticks → texto "12 s". */
-function formatTicks(ticks: number): string {
-  return `${Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000))} s`;
 }
 
 export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
@@ -148,18 +142,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     value: number,
     enabled: boolean,
     limits: { minPrice: number; maxPrice: number } = ECONOMY.store,
-  ) => {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = 'price-input';
-    input.min = String(limits.minPrice);
-    input.max = String(limits.maxPrice);
-    input.step = '1';
-    input.value = String(value);
-    input.disabled = !enabled;
-    return input;
-  };
-  const readPrice = (input: HTMLInputElement) => Math.round(Number(input.value));
+  ) => numberInput(value, limits.minPrice, limits.maxPrice, enabled);
 
   // --- Tienda ----------------------------------------------------------------
   const buildStore = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
@@ -182,7 +165,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       controls.className = 'row';
       controls.append(
         input,
-        button('Cambiar', inside, () => actions.setPrice(item.id, readPrice(input))),
+        button('Cambiar', inside, () => actions.setPrice(item.id, readNumber(input))),
         button('Retirar', inside, () => actions.unlist(item.id)),
       );
       info.append(name, controls);
@@ -226,7 +209,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       controls.className = 'row';
       controls.append(
         input,
-        button('Vender', inside && !full, () => actions.listItem(lot.id, ids[0], readPrice(input))),
+        button('Vender', inside && !full, () => actions.listItem(lot.id, ids[0], readNumber(input))),
       );
       info.append(name, controls);
       row.append(productIcon(product), info, document.createElement('span'));
@@ -266,7 +249,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     priceRow.className = 'row';
     priceRow.append(
       input,
-      button('Cambiar', inside, () => actions.setServicePrice(lot.id, readPrice(input))),
+      button('Cambiar', inside, () => actions.setServicePrice(lot.id, readNumber(input))),
     );
 
     const maxPrice = Math.floor(service.baseValue * ECONOMY.travelers.maxPriceRatio);

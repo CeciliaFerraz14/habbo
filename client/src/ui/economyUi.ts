@@ -1,5 +1,5 @@
 // Piezas de interfaz reutilizables para la economía: dinero y materiales.
-import { ECONOMY, MATERIAL_IDS, type MaterialId, type Materials } from '@juego/shared';
+import { ECONOMY, MATERIAL_IDS, MOVE_TICK_MS, type MaterialId, type Materials } from '@juego/shared';
 
 /** Color del cuadradito que representa cada material. */
 const MATERIAL_COLORS: Record<MaterialId, string> = {
@@ -22,6 +22,31 @@ export function materialSwatch(id: MaterialId): HTMLElement {
 /** "$ 120" */
 export function formatMoney(amount: number): string {
   return `${ECONOMY.currency} ${amount}`;
+}
+
+/** Ticks → texto: "12 s" si falta menos de una hora; si no, "23 h 5 min". */
+export function formatTicks(ticks: number): string {
+  const seconds = Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000));
+  if (seconds < 3600) return `${seconds} s`;
+  return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
+}
+
+/** Campo para escribir una cantidad entera (un precio, una fianza...) entre `min` y `max`. */
+export function numberInput(value: number, min: number, max: number, enabled = true): HTMLInputElement {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.className = 'price-input';
+  input.min = String(min);
+  input.max = String(max);
+  input.step = '1';
+  input.value = String(value);
+  input.disabled = !enabled;
+  return input;
+}
+
+/** Lo escrito en un numberInput, redondeado a entero (el reducer valida los límites). */
+export function readNumber(input: HTMLInputElement): number {
+  return Math.round(Number(input.value));
 }
 
 /**

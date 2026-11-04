@@ -29,6 +29,7 @@ import { createHud } from './ui/hud';
 import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
 import { PriceTags } from './ui/priceTags';
+import { createPlotWindow } from './ui/plotWindow';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
 import { createSupplierWindow } from './ui/supplierWindow';
@@ -144,6 +145,10 @@ const controller = new GameController(
   {
     notify: showToast,
     openRent: (lotId) => rentWindow.open(lotId, state, PLAYER_ID),
+    openPlot: (lotId) => {
+      plotWindow.open(lotId);
+      plotWindow.update(state, PLAYER_ID);
+    },
     openBusiness: (lotId) => {
       businessWindow.open(lotId);
       businessWindow.update(state, PLAYER_ID);
@@ -187,6 +192,16 @@ const wallet = createWallet();
 const rentWindow = createRentWindow((lotId, business) => {
   transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
   showToast('¡Local alquilado! Ya puedes entrar.');
+});
+const plotWindow = createPlotWindow({
+  build: (lotId) => {
+    transport.dispatch({ type: 'BUILD_PLOT', avatarId: PLAYER_ID, lotId });
+    showToast('¡Solar construido! Ahora eres su casero.');
+  },
+  setTerms: (lotId, deposit, rent) => {
+    transport.dispatch({ type: 'SET_PLOT_TERMS', avatarId: PLAYER_ID, lotId, deposit, rent });
+    showToast('Condiciones guardadas.');
+  },
 });
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>
@@ -278,6 +293,7 @@ function refreshUi(): void {
   inventory.update(state.inventories[PLAYER_ID] ?? []);
   wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
   rentWindow.update(state);
+  plotWindow.update(state, PLAYER_ID);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
   supplierWindow.update(state, PLAYER_ID);
