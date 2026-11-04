@@ -108,6 +108,12 @@ export interface FurniItem {
   garment?: GarmentId;
 }
 
+/**
+ * Cómo se ve un producto a la venta, sin su sitio ni su precio: lo que hace
+ * falta para su nombre, su valor y su icono (ver displayOf en economy.ts).
+ */
+export type Product = Pick<FurniItem, 'id' | 'defId' | 'variant' | 'garment'>;
+
 /** Todo el estado del mundo. Es lo que en la fase 2 tendrá el servidor. */
 export interface GameState {
   /** Todas las escenas (calle, caravana, locales...) por id. */

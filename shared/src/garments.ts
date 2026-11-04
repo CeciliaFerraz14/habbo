@@ -54,10 +54,13 @@ export function isGarmentItem(item: InventoryItem): item is GarmentInventoryItem
 
 /**
  * ¿Este mueble es un burro de ropa con una prenda a la venta? La prenda va en
- * `garment` y su color en `variant`.
+ * `garment` y su color en `variant`. Se comprueba que la prenda existe por si
+ * una fila guardada viene mal.
  */
-export function isGarmentDisplay(item: FurniItem): item is FurniItem & { garment: GarmentId; variant: string } {
-  return item.garment !== undefined && item.variant !== undefined;
+export function isGarmentDisplay<T extends Pick<FurniItem, 'garment' | 'variant'>>(
+  item: T,
+): item is T & { garment: GarmentId; variant: string } {
+  return isGarmentId(item.garment) && item.variant !== undefined;
 }
 
 /** ¿El avatar tiene en su inventario alguna prenda de ese tipo y color? */

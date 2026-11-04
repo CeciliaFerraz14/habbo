@@ -1,5 +1,5 @@
 // Ventana de una tienda vista como CLIENTE: sus productos y el botón de comprar.
-import { CATALOG, getListings, type GameState } from '@juego/shared';
+import { getListings, productName, type GameState } from '@juego/shared';
 import { formatMoney } from './economyUi';
 import { furniIcon } from './icons';
 import { PixelWindow } from './window';
@@ -53,14 +53,14 @@ export function createShopWindow(onBuy: (itemId: string) => void): ShopWindow {
       const row = document.createElement('div');
       row.className = 'recipe';
       const name = document.createElement('div');
-      name.textContent = `${CATALOG[item.defId].name} · ${formatMoney(item.price!)}`;
+      name.textContent = `${productName(item)} · ${formatMoney(item.price!)}`;
       const buy = document.createElement('button');
       buy.className = 'btn btn-small';
       buy.textContent = 'Comprar';
       buy.disabled = !inside || money < item.price!;
       if (money < item.price!) buy.title = 'No tienes dinero suficiente';
       buy.addEventListener('click', () => onBuy(item.id));
-      row.append(furniIcon(item.defId), name, buy);
+      row.append(furniIcon(item.defId, item.variant), name, buy);
       list.append(row);
     }
     const note = document.createElement('p');

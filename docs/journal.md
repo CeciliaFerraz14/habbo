@@ -18,6 +18,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - El burro es una estructura fija: no se mueve como un mueble, pero sí se recoge (`isPickable`), y entonces vuelve la prenda.
 - Un color que no es de `GARMENT_COLORS` (o que falta) rechaza el `CRAFT` de una prenda; en el taller el color se ignora.
 - La variedad de los viajeros cuenta tipos de prenda: si no, una tienda de ropa siempre tendría variedad 1.
+- Tras la revisión: `sellsItem(lot, item)` es la única regla de qué vende cada tienda (la usan `listItem` y la ventana del negocio, que en la tienda de ropa ya ofrece solo prendas); `craftsGoods(lot)` dice qué negocios tienen cola; `isGarmentDisplay` comprueba que la prenda existe; `furniIcon` acepta la variante (el burro sale de su color) y la ventana de compra usa `productName`.
 
 ## 2026-11-04 · Prendas: catálogo, inventario y aspecto
 

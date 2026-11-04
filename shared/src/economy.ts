@@ -37,7 +37,7 @@ import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
 import { dropUnownedOutfit, GARMENTS, isGarmentDisplay, isGarmentId, isGarmentItem, type GarmentId } from './garments';
 import { isGarmentColor } from './looks';
 import { trailerSceneId } from './world.ids';
-import type { FurniItem, GameState, InventoryItem } from './types';
+import type { FurniItem, GameState, InventoryItem, Product } from './types';
 
 /**
  * Un trabajo en la cola del taller: un mueble (`defId`) o un material
@@ -135,6 +135,19 @@ export function isKind(lot: Lot | undefined, kind: BusinessKind): boolean {
 /** ¿Vende productos expuestos en el local? (tienda de decoración y tienda de ropa) */
 export function sellsProducts(lot: Lot | undefined): boolean {
   return isKind(lot, 'store') || isKind(lot, 'clothing');
+}
+
+/** ¿Fabrica cosas en una cola? (el taller, muebles y materiales; la tienda de ropa, prendas) */
+export function craftsGoods(lot: Lot | undefined): boolean {
+  return isKind(lot, 'workshop') || isKind(lot, 'clothing');
+}
+
+/**
+ * ¿Esta tienda puede vender este objeto del inventario? Cada una vende lo
+ * suyo: la de decoración, muebles; la de ropa, prendas.
+ */
+export function sellsItem(lot: Lot | undefined, item: InventoryItem): boolean {
+  return sellsProducts(lot) && isGarmentItem(item) === isKind(lot, 'clothing');
 }
 
 /** ¿Pueden entrar clientes a comprar? (tiendas y servicios) */
@@ -383,9 +396,7 @@ export function startCraft(
  */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !(isKind(lot, 'workshop') || isKind(lot, 'clothing'))) {
-    return state;
-  }
+  if (!isOwnerInside(state, avatarId, lot) || !craftsGoods(lot)) return state;
 
   const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
   if (done.length === 0) return state;
@@ -461,7 +472,7 @@ function isValidPrice(price: number): boolean {
 }
 
 /** Nombre de un producto a la venta: la prenda de un burro o el mueble. */
-export function productName(item: FurniItem): string {
+export function productName(item: Product): string {
   return isGarmentDisplay(item) ? GARMENTS[item.garment].name : CATALOG[item.defId].name;
 }
 
@@ -469,7 +480,7 @@ export function productName(item: FurniItem): string {
  * Valor de referencia de un producto: el de la prenda de un burro o el del
  * mueble. Es el precio sugerido y lo que los viajeros consideran justo.
  */
-export function listingValue(item: FurniItem): number {
+export function listingValue(item: Product): number {
   return isGarmentDisplay(item)
     ? ECONOMY.garmentValue[item.garment]
     : ECONOMY.baseValue[item.defId as DecorId];
@@ -479,7 +490,7 @@ export function listingValue(item: FurniItem): number {
  * Cómo se expone un objeto del inventario: un mueble tal cual y una prenda en
  * un burro de ropa con su color (inventoryItemOf hace el camino contrario).
  */
-function displayOf(item: InventoryItem): Pick<FurniItem, 'id' | 'defId' | 'variant' | 'garment'> {
+export function displayOf(item: InventoryItem): Product {
   return isGarmentItem(item)
     ? { id: item.id, defId: 'clothes_rack', variant: item.color, garment: item.garment }
     : { id: item.id, defId: item.defId };
@@ -492,7 +503,7 @@ function displayOf(item: InventoryItem): Pick<FurniItem, 'id' | 'defId' | 'varia
 function placeOnDisplay(
   state: GameState,
   lotId: string,
-  product: Pick<FurniItem, 'id' | 'defId' | 'variant' | 'garment'>,
+  product: Product,
   price: number,
 ): FurniItem | null {
   if (getListings(state, lotId).length >= ECONOMY.store.maxListings) return null;
@@ -515,13 +526,10 @@ export function listItem(
   price: number,
 ): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !sellsProducts(lot) || !isValidPrice(price)) {
-    return state;
-  }
+  if (!isOwnerInside(state, avatarId, lot) || !isValidPrice(price)) return state;
   const inventory = state.inventories[avatarId] ?? [];
   const item = inventory.find((i) => i.id === itemId);
-  // Cada tienda vende lo suyo: la de decoración, muebles; la de ropa, prendas.
-  if (!item || isGarmentItem(item) !== isKind(lot, 'clothing')) return state;
+  if (!item || !sellsItem(lot, item)) return state;
 
   const product = placeOnDisplay(state, lotId, displayOf(item), price);
   if (!product) return state;

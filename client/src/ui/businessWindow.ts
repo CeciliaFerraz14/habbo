@@ -11,22 +11,25 @@ import {
   CATALOG,
   craftJobInfo,
   DECOR_IDS,
+  displayOf,
   ECONOMY,
   FACADE_IDS,
   FACADES,
   getListings,
   hasMaterials,
-  isGarmentItem,
+  isKind,
+  listingValue,
   MOVE_TICK_MS,
   productName,
   secondsToTicks,
+  sellsItem,
   totalMaterials,
-  type DecorId,
   type FacadeId,
   type GameState,
   type Lot,
   type MaterialId,
   type MaterialRecipe,
+  type Product,
   type RecipeId,
   type ProductionConfig,
   type ServiceConfig,
@@ -173,31 +176,42 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         button('Retirar', inside, () => actions.unlist(item.id)),
       );
       info.append(name, controls);
-      row.append(furniIcon(item.defId), info, document.createElement('span'));
+      row.append(furniIcon(item.defId, item.variant), info, document.createElement('span'));
       onSale.append(row);
     }
 
-    // Lo que hay en tu inventario y se puede poner a la venta (agrupado por tipo).
+    // Lo que hay en tu inventario y esta tienda puede vender (muebles en la de
+    // decoración, prendas en la de ropa), agrupado por tipo y color.
     const forSale = document.createElement('div');
     forSale.className = 'recipes';
     const inventory = state.inventories[playerId] ?? [];
-    const groups = new Map<DecorId, string[]>();
+    const groups = new Map<string, { product: Product; ids: string[] }>();
     for (const item of inventory) {
-      // Las prendas no se venden en la tienda de decoración.
-      if (isGarmentItem(item)) continue;
-      const defId = item.defId as DecorId;
-      groups.set(defId, [...(groups.get(defId) ?? []), item.id]);
+      if (!sellsItem(lot, item)) continue;
+      const product = displayOf(item);
+      const key = `${product.defId}|${product.garment ?? ''}|${product.variant ?? ''}`;
+      const group = groups.get(key) ?? { product, ids: [] };
+      group.ids.push(item.id);
+      groups.set(key, group);
     }
-    if (groups.size === 0) forSale.append(text('No tienes muebles en el inventario. Fabrícalos en un taller.'));
-    for (const [defId, ids] of groups) {
+    if (groups.size === 0) {
+      forSale.append(
+        text(
+          isKind(lot, 'clothing')
+            ? 'No tienes prendas en el inventario.'
+            : 'No tienes muebles en el inventario. Fabrícalos en un taller.',
+        ),
+      );
+    }
+    for (const { product, ids } of groups.values()) {
       const row = document.createElement('div');
       row.className = 'recipe';
       const info = document.createElement('div');
       info.className = 'recipe-info';
       const name = document.createElement('div');
-      name.textContent = `${CATALOG[defId].name} (x${ids.length})`;
-      // Precio sugerido: el valor de referencia del mueble.
-      const input = priceInput(ECONOMY.baseValue[defId], inside);
+      name.textContent = `${productName(product)} (x${ids.length})`;
+      // Precio sugerido: el valor de referencia del producto.
+      const input = priceInput(listingValue(product), inside);
       const controls = document.createElement('div');
       controls.className = 'row';
       controls.append(
@@ -205,7 +219,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         button('Vender', inside && !full, () => actions.listItem(lot.id, ids[0], readPrice(input))),
       );
       info.append(name, controls);
-      row.append(furniIcon(defId), info, document.createElement('span'));
+      row.append(furniIcon(product.defId, product.variant), info, document.createElement('span'));
       forSale.append(row);
     }
 

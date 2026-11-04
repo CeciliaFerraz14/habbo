@@ -6,7 +6,11 @@ import {
   ECONOMY,
   GARMENT_COLORS,
   applyAction,
+  craftsGoods,
+  isGarmentDisplay,
   listingValue,
+  productName,
+  sellsItem,
   stationId,
   tick,
   travelerTick,
@@ -15,6 +19,7 @@ import type {
   Action,
   BusinessType,
   Garment,
+  GarmentId,
   GameState,
   InventoryItem,
   Materials,
@@ -174,4 +179,23 @@ test('a traveler buys a garment and wears it', () => {
   assert.equal(next.furniture.g1, undefined);
   assert.deepEqual(next.avatars[brain.id].look.outfit, { head: HAT });
   assert.equal(next.money.p1, PRICE - Math.round(PRICE * ECONOMY.store.commissionRate));
+});
+
+test('each store sells only its own kind of item', () => {
+  const tire: InventoryItem = { id: 'f1', defId: 'tire' };
+  const { lot1: store } = owner('store').lots;
+  const { lot1: clothing } = owner('clothing').lots;
+  const { lot1: workshop } = owner('workshop').lots;
+  assert.deepEqual([sellsItem(store, tire), sellsItem(store, hatItem)], [true, false]);
+  assert.deepEqual([sellsItem(clothing, tire), sellsItem(clothing, hatItem)], [false, true]);
+  assert.deepEqual([sellsItem(workshop, tire), sellsItem(workshop, hatItem)], [false, false]);
+  assert.deepEqual([craftsGoods(workshop), craftsGoods(clothing), craftsGoods(store)], [true, true, false]);
+});
+
+test('a rack with an unknown garment is not a garment display', () => {
+  const rack = { id: 'r1', defId: 'clothes_rack' as const, variant: HAT.color, garment: 'toString' as GarmentId };
+  assert.equal(isGarmentDisplay(rack), false);
+  assert.equal(productName(rack), 'Burro de ropa');
+  assert.equal(isGarmentDisplay({ ...rack, garment: HAT.type }), true);
+  assert.equal(productName({ ...rack, garment: HAT.type }), 'Sombrero de cowboy');
 });
