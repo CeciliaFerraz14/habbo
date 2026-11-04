@@ -2,6 +2,20 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Los solares se guardan en Supabase
+
+**Qué se hizo**
+- `supabase/migrations/006_plots.sql`: columnas `landlord_id`, `landlord_name`, `terms` (jsonb), `next_upkeep_at` y `suspended` en `lots`, todas nulas o con valor por defecto. Se aplica ANTES de desplegar el servidor nuevo; con el servidor antiguo es segura, pero una vez guardados solares no se puede volver a él.
+- `server/src/persistence.ts`: `rowToLot` y `lotToRow` leen y escriben las columnas nuevas. Al cargar, `restoreSavedPlots` pone en la calle cada solar guardado.
+- `shared/src/plots.ts`: `restoreSavedPlots(state)` llama a `restorePlot` por cada solar con casero y descarta (lot y muebles) los guardados sin casero: son filas de antes de la 006 y, restauradas, bloquearían el sitio para siempre; el solar vuelve a tener su cartel.
+- `plotSite(id)` (world.ts) sustituye los tres recorridos de `PLOT_SITES`; `isPlotId` se apoya en él. `lotBuildingId` pasa a `world.ids.ts` y lo usan `closeLot`, `restorePlot`, el cambio de fachada y el cargador.
+- `shared/src/npcs.ts`: los vecinos también pasean por la acera sur (y 10) y la trasera de los solares (y 15). Las filas son una lista fija y el azar sigue saliendo de la semilla.
+- Tests: carga de un solar guardado (mismas escenas, puertas y edificio que al construir) y descarte de uno sin casero.
+
+**Decisiones**
+- La limpieza de solares sin casero va después de fijar `saved`, igual que `releaseNpcLots`: el primer guardado borra de Supabase sus muebles huérfanos. La fila de `lots` se queda y se sobrescribe al volver a construir.
+- No se redefine `lots_business_check`: los solares usan los mismos negocios.
+
 ## 2026-11-04 · Solares: construir, alquilar como casero y mantenimiento
 
 **Qué se hizo**

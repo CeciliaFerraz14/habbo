@@ -20,8 +20,10 @@ import {
   createLot,
   createTrailer,
   isGarmentItem,
+  lotBuildingId,
   lotSceneName,
   releaseNpcLots,
+  restoreSavedPlots,
   type AvatarLook,
   type FurniItem,
   type GameState,
@@ -47,8 +49,6 @@ interface ProfileInfo {
 /** Fila de la tabla lots → objeto Lot del juego. */
 function rowToLot(row: Record<string, any>): Lot {
   return {
-    // Los campos de casero de los solares aún no tienen columnas: un local
-    // leído se carga como uno del ayuntamiento (los de createLot).
     ...createLot(row.id, row.label),
     ownerId: row.owner_id,
     ownerName: row.owner_name,
@@ -59,6 +59,12 @@ function rowToLot(row: Record<string, any>): Lot {
     jobs: row.jobs ?? [],
     nextProductionAt: Number(row.next_production_at),
     nextRentAt: Number(row.next_rent_at),
+    // Solo los solares tienen casero; en un local del ayuntamiento son null.
+    landlordId: row.landlord_id,
+    landlordName: row.landlord_name,
+    terms: row.terms,
+    nextUpkeepAt: Number(row.next_upkeep_at),
+    suspended: row.suspended,
   };
 }
 
@@ -75,6 +81,11 @@ function lotToRow(lot: Lot) {
     jobs: lot.jobs,
     next_production_at: lot.nextProductionAt,
     next_rent_at: lot.nextRentAt,
+    landlord_id: lot.landlordId,
+    landlord_name: lot.landlordName,
+    terms: lot.terms,
+    next_upkeep_at: lot.nextUpkeepAt,
+    suspended: lot.suspended,
   };
 }
 
@@ -179,7 +190,7 @@ export class Persistence {
         const lot = rowToLot(row);
         lotMap[lot.id] = lot;
         // El edificio y el nombre del local se deducen del propio local.
-        const building = furniMap[`${lot.id}-building`];
+        const building = furniMap[lotBuildingId(lot.id)];
         if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot) };
         if (scenes[lot.id]) scenes[lot.id] = { ...scenes[lot.id], name: lotSceneName(lot) };
       }
@@ -222,8 +233,9 @@ export class Persistence {
     persistence.saved = state;
     // Mundos guardados de antes de quitar las tiendas NPC: se liberan después de
     // fijar `saved`, así el primer guardado escribe los locales ya reseteados y
-    // borra de Supabase los muebles que desaparecen.
-    state = releaseNpcLots(state);
+    // borra de Supabase los muebles que desaparecen. Lo mismo con los solares:
+    // se ponen en la calle los construidos y se descartan los guardados sin casero.
+    state = restoreSavedPlots(releaseNpcLots(state));
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
     );

@@ -8,10 +8,11 @@ import {
   planPath,
   PLOT_SITES,
   restorePlot,
+  restoreSavedPlots,
   secondsToTicks,
   tick,
 } from './index';
-import type { GameState } from './index';
+import type { FurniItem, GameState } from './index';
 import { testPlayer } from './testHelpers';
 
 const { plots } = ECONOMY;
@@ -134,6 +135,38 @@ test('restorePlot is idempotent', () => {
   const lot = state.lots[SITE.lotId];
   assert.deepEqual(restorePlot(state, lot), state);
   assert.deepEqual(restorePlot(restorePlot(state, lot), lot), state);
+});
+
+/** Lo que carga el servidor: mundo inicial con el local y sus muebles guardados encima. */
+function loadedWith(saved: GameState, lotId: string): GameState {
+  const fresh = createInitialState();
+  const furniture = { ...fresh.furniture };
+  for (const f of Object.values(saved.furniture)) if (f.sceneId === lotId) furniture[f.id] = f;
+  return { ...fresh, lots: { ...fresh.lots, [lotId]: saved.lots[lotId] }, furniture };
+}
+
+test('loading a saved plot reproduces the scene, door and building of building it', () => {
+  const built = builtPlot();
+  const loaded = restoreSavedPlots(loadedWith(built, SITE.lotId));
+  assert.deepEqual(loaded.scenes, built.scenes);
+  assert.deepEqual(loaded.furniture, built.furniture);
+  assert.deepEqual(loaded.lots, built.lots);
+});
+
+test('loading a plot saved without landlord drops it, its furniture and keeps its sign', () => {
+  const lot = { ...builtPlot().lots[SITE.lotId], landlordId: null, landlordName: null, terms: null };
+  const fresh = createInitialState();
+  const stray: FurniItem = { id: 'old-f', sceneId: SITE.lotId, defId: 'saguaro', x: 1, y: 1, rotation: 0 };
+  const loaded = restoreSavedPlots({
+    ...fresh,
+    lots: { ...fresh.lots, [SITE.lotId]: lot },
+    furniture: { ...fresh.furniture, [stray.id]: stray },
+  });
+  assert.equal(loaded.lots[SITE.lotId], undefined);
+  assert.equal(loaded.scenes[SITE.lotId], undefined);
+  assert.equal(loaded.furniture[stray.id], undefined);
+  assert.deepEqual(loaded.scenes.street, fresh.scenes.street);
+  assert.deepEqual(loaded.furniture, fresh.furniture);
 });
 
 test('landlord sets terms within limits only while vacant', () => {

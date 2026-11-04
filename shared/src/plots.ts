@@ -19,7 +19,7 @@
 import { addMaterials, createLot, hasMaterials, isIntegerBetween, secondsToTicks, type Lot } from './economy';
 import { ECONOMY } from './economy.config';
 import type { GameState } from './types';
-import { isPlotId, PLOT_SITES, restorePlot } from './world';
+import { isPlotId, plotSite, restorePlot } from './world';
 import { SCENES } from './world.ids';
 
 /**
@@ -28,7 +28,7 @@ import { SCENES } from './world.ids';
  */
 export function buildPlot(state: GameState, avatarId: string, lotId: string): GameState {
   const avatar = state.avatars[avatarId];
-  const site = PLOT_SITES.find((p) => p.lotId === lotId);
+  const site = plotSite(lotId);
   if (!avatar || avatar.sceneId !== SCENES.street || !site || state.lots[lotId]) return state;
 
   const cost = ECONOMY.plots.buildCost;
@@ -70,4 +70,26 @@ export function setPlotTerms(
   if (!isIntegerBetween(deposit, limits.deposit.min, limits.deposit.max)) return state;
   if (!isIntegerBetween(rent, limits.rent.min, limits.rent.max)) return state;
   return { ...state, lots: { ...state.lots, [lotId]: { ...lot, terms: { deposit, rent } } } };
+}
+
+/**
+ * El servidor la llama al cargar el mundo guardado: pone en la calle las piezas
+ * de cada solar construido (restorePlot). Un solar guardado SIN casero (filas
+ * de antes de que los solares tuvieran dueño) se descarta con sus muebles: el
+ * sitio vuelve a estar libre, con su cartel, en vez de quedar bloqueado para
+ * siempre sin nadie que pueda alquilarlo.
+ */
+export function restoreSavedPlots(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    if (!isPlotId(lot.id)) continue;
+    if (lot.landlordId !== null) {
+      next = restorePlot(next, lot);
+      continue;
+    }
+    const { [lot.id]: _lot, ...lots } = next.lots;
+    const furniture = Object.fromEntries(Object.entries(next.furniture).filter(([, f]) => f.sceneId !== lot.id));
+    next = { ...next, lots, furniture };
+  }
+  return next;
 }

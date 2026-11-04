@@ -19,7 +19,7 @@ import { setupNeighbors } from './npcs';
 import type { Door, Scene } from './scene';
 import type { FurniItem, GameState } from './types';
 
-import { SCENES, trailerSceneId } from './world.ids';
+import { lotBuildingId, SCENES, trailerSceneId } from './world.ids';
 
 export { SCENES, trailerSceneId };
 
@@ -57,15 +57,14 @@ export const PLOT_SITES = LOT_XS.map((x, i) => ({
   x,
 }));
 
-/** ¿Es el id de un solar? (viene del cliente: solo valen los de PLOT_SITES) */
-export function isPlotId(id: string): boolean {
-  return PLOT_SITES.some((site) => site.lotId === id);
-}
+/** El sitio de un solar por su id, o undefined si no es un solar (el id viene del cliente). */
+export const plotSite = (id: string) => PLOT_SITES.find((site) => site.lotId === id);
+
+/** ¿Es el id de un solar? */
+export const isPlotId = (id: string) => plotSite(id) !== undefined;
 
 /** Id del cartel de un solar sin construir. */
 const plotSignId = (id: string) => `${id}-sign`;
-/** Id del edificio de un local en la calle. */
-const lotBuildingId = (id: string) => `${id}-building`;
 
 /** Genera el mapa de suelo de la calle, fila a fila. */
 function streetGround(): string[] {
@@ -206,7 +205,7 @@ function createStreetStructures(): FurniItem[] {
  * idempotente: si una pieza ya está, la deja como está.
  */
 export function restorePlot(state: GameState, lot: Lot): GameState {
-  const site = PLOT_SITES.find((p) => p.lotId === lot.id);
+  const site = plotSite(lot.id);
   if (!site) return state;
   const street = state.scenes[SCENES.street];
 

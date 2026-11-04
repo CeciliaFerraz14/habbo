@@ -36,7 +36,7 @@ import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
 import { dropUnownedOutfit, GARMENTS, isGarmentDisplay, isGarmentId, isGarmentItem, type GarmentId } from './garments';
 import { isGarmentColor } from './looks';
-import { trailerSceneId } from './world.ids';
+import { lotBuildingId, trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem, Product } from './types';
 
 /**
@@ -330,7 +330,7 @@ function openBusiness(
   };
 
   // El edificio de la calle pasa a mostrarse abierto, con el neón del negocio.
-  const buildingId = `${lotId}-building`;
+  const buildingId = lotBuildingId(lotId);
   const furniture = { ...state.furniture };
   const building = furniture[buildingId];
   if (building) furniture[buildingId] = { ...building, variant: buildingVariant(rented) };
@@ -821,7 +821,7 @@ function closeLot(state: GameState, lotId: string): GameState {
     delete furniture[item.id];
     if (isPickable(item)) returned.push(inventoryItemOf(item));
   }
-  const building = furniture[`${lotId}-building`];
+  const building = furniture[lotBuildingId(lotId)];
   if (building) furniture[building.id] = { ...building, variant: 'closed' };
 
   const { landlordId, landlordName, terms, nextUpkeepAt, suspended } = lot;
@@ -909,7 +909,7 @@ export function setFacade(
   const lot = state.lots[lotId];
   if (!lot || lot.ownerId !== avatarId || !lot.business || !isOwnKey(FACADES, facade)) return state;
   const updated: Lot = { ...lot, facade };
-  const buildingId = `${lotId}-building`;
+  const buildingId = lotBuildingId(lotId);
   const building = state.furniture[buildingId];
   return {
     ...state,

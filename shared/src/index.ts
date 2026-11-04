@@ -20,3 +20,4 @@ export * from './sync';
 export * from './travelers';
 export * from './types';
 export * from './world';
+export * from './world.ids';

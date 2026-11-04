@@ -15,3 +15,6 @@ export const SCENES = {
 export function trailerSceneId(ownerId: string): string {
   return `${SCENES.trailer}:${ownerId}`;
 }
+
+/** Id del edificio de un local en la calle. */
+export const lotBuildingId = (lotId: string) => `${lotId}-building`;
