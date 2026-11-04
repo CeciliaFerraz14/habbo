@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Cinco muebles nuevos: bar y recreativos
+
+**Qué se hizo**
+- `shared/src/catalog.ts` y `economy.config.ts`: `bar_counter`, `beer_barrel`, `dartboard`, `arcade_machine` y `pinball`, con receta, tiempo y valor de referencia.
+- Cliente: un modelo por mueble en `client/src/sprites/furniture/`, registrados en `MODELS`. Recreativa y pinball tienen pantalla/tablero emisivos y charco de luz de neón.
+- `shared/src/furniture.test.ts`: 2 tests (recetas y valores; la recreativa exige fichas).
+
+**Decisiones**
+- Recreativa y pinball piden 2 fichas: así las fichas del taller tienen salida más allá del servicio de los recreativos.
+- El taller y las tiendas los listan solos porque recorren `DECOR_IDS`.
+
 ## 2026-11-03 · Revisión final de la parte 2
 
 **Qué se hizo**

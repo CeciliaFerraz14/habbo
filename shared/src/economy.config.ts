@@ -360,6 +360,12 @@ export const ECONOMY = {
     diner_booth: { materials: { old_wood: 3, tires: 2 }, seconds: 40 },
     vintage_fridge: { materials: { sheet_metal: 4 }, seconds: 45 },
     jukebox: { materials: { sheet_metal: 2, old_wood: 3 }, seconds: 60 },
+    bar_counter: { materials: { old_wood: 3, sheet_metal: 1 }, seconds: 35 },
+    beer_barrel: { materials: { old_wood: 2, sheet_metal: 1 }, seconds: 20 },
+    dartboard: { materials: { old_wood: 1, sheet_metal: 1 }, seconds: 15 },
+    // Las recreativas se pagan también con fichas, que salen del taller.
+    arcade_machine: { materials: { sheet_metal: 3, old_wood: 1, tokens: 2 }, seconds: 50 },
+    pinball: { materials: { sheet_metal: 3, tires: 1, tokens: 2 }, seconds: 60 },
   } satisfies Record<DecorId, Recipe>,
 
   /** Recetas del taller que producen materiales (no se compran en el proveedor). */
@@ -381,6 +387,11 @@ export const ECONOMY = {
     diner_booth: 110,
     vintage_fridge: 120,
     jukebox: 160,
+    bar_counter: 90,
+    beer_barrel: 45,
+    dartboard: 40,
+    arcade_machine: 150,
+    pinball: 170,
   } satisfies Record<DecorId, number>,
 } as const;
 

@@ -19,12 +19,17 @@ import { trailer } from '../structures/trailer';
 import { waterWell } from '../structures/waterWell';
 import { welcomeSign } from '../structures/welcomeSign';
 import { workbench } from '../structures/workbench';
+import { arcadeMachine } from './arcadeMachine';
+import { barCounter } from './barCounter';
 import { barStool } from './barStool';
+import { beerBarrel } from './beerBarrel';
+import { dartboard } from './dartboard';
 import { dinerBooth } from './dinerBooth';
 import { formicaTable } from './formicaTable';
 import { jukebox } from './jukebox';
 import type { ModelSource } from './model';
 import { neonLamp } from './neonLamp';
+import { pinball } from './pinball';
 import { pottedCactus } from './pottedCactus';
 import { roadSign } from './roadSign';
 import { tire } from './tire';
@@ -41,6 +46,11 @@ export const MODELS: Record<FurniId, ModelSource> = {
   road_sign: roadSign,
   tire,
   vintage_fridge: vintageFridge,
+  bar_counter: barCounter,
+  beer_barrel: beerBarrel,
+  dartboard,
+  arcade_machine: arcadeMachine,
+  pinball,
   // Estructuras de la calle
   shop,
   trailer,
