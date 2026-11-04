@@ -130,3 +130,13 @@ test('RENT_LOT with a non-business key does nothing', () => {
   const next = applyAction(state, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: 'toString' as BusinessType });
   assert.equal(next, state);
 });
+
+test('arcade machine needs tokens', () => {
+  const noTokens = withWorkshop({ sheet_metal: 3, old_wood: 1 });
+  assert.equal(craft(noTokens, 'arcade_machine'), noTokens);
+  const next = craft(withWorkshop({ sheet_metal: 3, old_wood: 1, tokens: 2 }), 'arcade_machine');
+  assert.equal(next.lots.lot1.jobs.length, 1);
+  assert.equal(next.materials.p1.sheet_metal ?? 0, 0);
+  assert.equal(next.materials.p1.old_wood ?? 0, 0);
+  assert.equal(next.materials.p1.tokens ?? 0, 0);
+});

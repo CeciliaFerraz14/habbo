@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   createInitialState,
   createLot,
+  DECOR_IDS,
+  ECONOMY,
   getListings,
   LOT_IDS,
   releaseNpcLots,
@@ -76,4 +78,12 @@ test('releaseNpcLots leaves player lots untouched', () => {
 test('releaseNpcLots returns the same state when no NPC owns a lot', () => {
   const state = createInitialState();
   assert.equal(releaseNpcLots(state), state);
+});
+
+test('new furniture has recipe and value', () => {
+  for (const id of ['bar_counter', 'beer_barrel', 'dartboard', 'arcade_machine', 'pinball'] as const) {
+    assert.ok(DECOR_IDS.includes(id));
+    assert.ok(ECONOMY.recipes[id].seconds > 0);
+    assert.ok(ECONOMY.baseValue[id] > 0);
+  }
 });

@@ -7,7 +7,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 **Qué se hizo**
 - `shared/src/catalog.ts` y `economy.config.ts`: `bar_counter`, `beer_barrel`, `dartboard`, `arcade_machine` y `pinball`, con receta, tiempo y valor de referencia.
 - Cliente: un modelo por mueble en `client/src/sprites/furniture/`, registrados en `MODELS`. Recreativa y pinball tienen pantalla/tablero emisivos y charco de luz de neón.
-- `shared/src/furniture.test.ts`: 2 tests (recetas y valores; la recreativa exige fichas).
+- 2 tests: recetas y valores en `economy.test.ts`; la recreativa exige fichas en `workshop.test.ts`.
 
 **Decisiones**
 - Recreativa y pinball piden 2 fichas: así las fichas del taller tienen salida más allá del servicio de los recreativos.

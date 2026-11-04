@@ -5,14 +5,15 @@ import { PALETTE } from '../palette';
 
 const POLE = '#5a3020';
 const RED = '#c8384a';
+const RIM = '#3a2a2a';
 
 export const dartboard: FurniModel = {
   boxes: [
-    box(5, 5, 0, 11, 11, 2, POLE), // base
-    box(7, 7, 2, 9, 9, 18, POLE), // poste
+    box(6, 5, 0, 12, 11, 2, POLE), // base
+    box(9, 7, 2, 11, 9, 24, POLE), // poste: llega hasta el disco
     // Disco escalonado: un octógono aproximado con tres cajas
-    box(11, 4, 20, 12, 12, 28, '#3a2a2a'), // aro exterior (borde oscuro)
-    box(11, 3, 21, 12, 13, 27, '#3a2a2a'),
+    box(11, 4, 20, 12, 12, 28, RIM), // aro exterior (borde oscuro)
+    box(11, 3, 21, 12, 13, 27, RIM),
     box(12, 5, 21, 13, 11, 27, PALETTE.cream), // anillo crema
     box(12, 4, 22, 13, 12, 26, PALETTE.cream),
     box(13, 6, 22, 14, 10, 26, RED), // anillo rojo
