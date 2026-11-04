@@ -17,6 +17,7 @@ import {
   isGarmentItem,
   isInsideScene,
   lotOfStation,
+  sellsProducts,
   type Door,
   type FurniId,
   type GameState,
@@ -230,16 +231,23 @@ export class GameController {
     if (picked?.kind === 'furni') {
       const item = state.furniture[picked.item.id];
       if (!item) return;
+      // Un producto de una tienda ajena (un mueble o un burro de ropa): abrimos
+      // la tienda para comprarlo.
+      if (item.price !== undefined && !this.canDecorateHere()) {
+        this.events.openShop(item.sceneId);
+        return;
+      }
       // Las estructuras fijas (edificios, farolas...) no se seleccionan.
       if (CATALOG[item.defId].fixed) {
         this.select(null);
-        // Puesto de trabajo de un negocio: abre su ventana (si es tuyo).
+        // Puesto de trabajo de un negocio: abre su ventana si es tuyo y, si es
+        // una tienda ajena (mostrador o máquina de coser), la tienda para comprar.
         const lotId = lotOfStation(item.id);
         if (lotId) {
           const lot = state.lots[lotId];
           const service = lot?.business ? ECONOMY.businesses[lot.business].service : undefined;
           if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
-          else if (lot?.business === 'store') this.events.openShop(lotId);
+          else if (sellsProducts(lot)) this.events.openShop(lotId);
           else if (service) this.events.notify(`${service.name}: ${ECONOMY.currency}${lot!.price}. Solo para viajeros.`);
           else this.events.notify('Este negocio no es tuyo.');
           return;
@@ -252,11 +260,6 @@ export class GameController {
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
         if (door) this.goToDoor(door);
-        return;
-      }
-      // Un producto de una tienda ajena: abrimos la tienda para comprarlo.
-      if (item.price !== undefined && !this.canDecorateHere()) {
-        this.events.openShop(item.sceneId);
         return;
       }
       // Solo se seleccionan (para mover, girar o recoger) los muebles de un

@@ -26,7 +26,7 @@
 // así todos los fotogramas miden lo mismo con sombrero o sin él, y los pies y
 // las caderas quedan en la misma fila del sprite.
 
-import type { AvatarLook, Direction, GarmentId, GarmentSlot } from '@juego/shared';
+import type { AvatarLook, Direction, Garment, GarmentId, GarmentSlot } from '@juego/shared';
 import { stackSprites, type Sprite } from './canvas';
 import { shade } from './color';
 import { PALETTE } from './palette';
@@ -313,6 +313,55 @@ export function getAvatarFrames(look: AvatarLook): AvatarFrames {
   }
   cache.set(cacheKey, frames);
   return frames;
+}
+
+// Iconos de prendas sueltas (inventario, tiendas, editor de avatar), también
+// horneados una sola vez por tipo y color.
+const garmentCache = new Map<string, Sprite>();
+
+/**
+ * Icono de una prenda suelta: su capa vista de frente (las botas, sobre las
+ * piernas de pie), recortada a lo que ocupa y con contorno. Sobre el avatar
+ * el contorno lo pone el cuerpo; suelta, sin él, el chaleco o las botas
+ * serían manchas de color.
+ */
+export function getGarmentSprite(garment: Garment): Sprite {
+  const key = `${garment.type}:${garment.color}`;
+  const cached = garmentCache.get(key);
+  if (cached) return cached;
+  const rows = outlined(trimmed(GARMENT_LAYERS[garment.type]('front', LEGS_STAND)));
+  const sprite = bakePixelArt(rows, garmentPalette(garment.color));
+  garmentCache.set(key, sprite);
+  return sprite;
+}
+
+/** Recorta las filas y columnas transparentes de los bordes de una matriz. */
+function trimmed(rows: readonly string[]): string[] {
+  const used = rows.flatMap((row, y) => [...row].flatMap((ch, x) => (ch === '.' ? [] : [{ x, y }])));
+  const xs = used.map((p) => p.x);
+  const ys = used.map((p) => p.y);
+  const [left, right] = [Math.min(...xs), Math.max(...xs)];
+  return rows.slice(Math.min(...ys), Math.max(...ys) + 1).map((row) => row.slice(left, right + 1));
+}
+
+/**
+ * Añade 1 px de margen alrededor y pinta de contorno (O) cada píxel
+ * transparente que toca (arriba, abajo o a un lado) un píxel de la prenda.
+ * Donde la prenda ya tiene contorno propio no cambia nada.
+ */
+function outlined(rows: readonly string[]): string[] {
+  const empty = '.'.repeat(rows[0].length + 2);
+  const padded = [empty, ...rows.map((row) => `.${row}.`), empty];
+  const isGarment = (x: number, y: number) => /[Gg]/.test(padded[y]?.[x] ?? '');
+  return padded.map((row, y) =>
+    [...row]
+      .map((ch, x) =>
+        ch === '.' && (isGarment(x - 1, y) || isGarment(x + 1, y) || isGarment(x, y - 1) || isGarment(x, y + 1))
+          ? 'O'
+          : ch,
+      )
+      .join(''),
+  );
 }
 
 /** Sombra ovalada bajo los pies. */

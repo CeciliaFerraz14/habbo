@@ -2,6 +2,21 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Interfaz de la tienda de ropa y del vestuario
+
+**Qué se hizo**
+- `client/src/ui/avatarEditor.ts`: sección "Prendas": por ranura (cabeza, torso, pies), las prendas que tienes (cada tipo y color una vez, con su icono); clic para ponértela y "Quitar" para dejar la ranura vacía. Cada cambio manda `SET_LOOK` con colores y prendas. "Al azar" solo cambia los colores. `update(look, items)` compara el aspecto entero (prendas incluidas) y el inventario.
+- `client/src/ui/businessWindow.ts`: la tienda de ropa tiene cola de costura, muestras de `GARMENT_COLORS`, recetas de prendas en el color elegido y, debajo, el escaparate de la tienda. La cola (`buildCraftQueue`) y la fila de receta (`recipeRow`) salen del taller y las usan los dos. `craft` lleva el color.
+- `client/src/ui/shopWindow.ts`: sirve para las dos tiendas (`sellsProducts`); los burros se ven con el icono de su prenda.
+- `client/src/game/controller.ts`: el producto de una tienda ajena (mueble o burro, que es una estructura fija) se mira antes que las estructuras fijas, y el puesto de una tienda ajena (mostrador o máquina de coser) abre la tienda con `sellsProducts`.
+- `client/src/sprites/avatar.ts`: `getGarmentSprite`, la capa de una prenda de frente, recortada y con contorno. `client/src/ui/icons.ts`: `garmentIcon` (ampliado x2) y `productIcon`; `furniIcon` ya no recibe variante.
+- `client/src/ui/inventoryWindow.ts`: las prendas con su icono en vez del cuadro de color. `client/src/main.ts`: cableado del color y del inventario del editor. README: tienda de ropa y prendas.
+
+**Decisiones**
+- Icono de prenda dibujado con la misma capa que lleva el avatar, en vez de una muestra de color: así se distingue un sombrero de una gorra. Suelta le falta el contorno que pone el cuerpo (chaleco, botas), por eso se le añade uno al hornear el icono.
+- Los botones de prenda del editor reutilizan `.facade-option` (botón con icono, nombre y marca de elegido) en lugar de crear un componente nuevo.
+- `saveLook` ya guardaba el aspecto completo; ahora el editor siempre manda las prendas. Al entrar, `JOIN` quita las que ya no tengas.
+
 ## 2026-11-04 · Las prendas se ven en el avatar
 
 **Qué se hizo**

@@ -73,9 +73,10 @@ uiRoot.append(logo, locationSign);
 // --- Estado inicial ----------------------------------------------------------
 
 /**
- * El aspecto se recuerda en este navegador (localStorage) para no perderlo al
- * recargar. Es solo una comodidad de la fase 1: en la fase 2 lo guardará el
- * servidor. localStorage puede fallar (modo privado...), por eso el try/catch.
+ * El aspecto (colores y prendas puestas) se recuerda en este navegador
+ * (localStorage) para no perderlo al recargar. Al conectar se envía al servidor
+ * o a la simulación local, que quita las prendas que ya no tengas.
+ * localStorage puede fallar (modo privado...), por eso el try/catch.
  */
 const LOOK_STORAGE_KEY = 'pixel-springs:look';
 
@@ -190,7 +191,8 @@ const rentWindow = createRentWindow((lotId, business) => {
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>
     transport.dispatch({ type: 'COLLECT_MATERIALS', avatarId: PLAYER_ID, lotId }),
-  craft: (lotId, recipe) => transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, recipe }),
+  craft: (lotId, recipe, color) =>
+    transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, recipe, color }),
   collectCrafted: (lotId) =>
     transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
   listItem: (lotId, itemId, price) =>
@@ -281,7 +283,7 @@ function refreshUi(): void {
   supplierWindow.update(state, PLAYER_ID);
   showNewNotices();
   const me = state.avatars[PLAYER_ID];
-  if (me) avatarEditor.update(me.look);
+  if (me) avatarEditor.update(me.look, state.inventories[PLAYER_ID] ?? []);
   chatHistory.update(state.messages, sceneId);
   bubbles?.sync(state.messages, sceneId, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);

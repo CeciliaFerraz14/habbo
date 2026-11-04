@@ -15,6 +15,9 @@ import {
   ECONOMY,
   FACADE_IDS,
   FACADES,
+  GARMENT_COLORS,
+  GARMENT_IDS,
+  GARMENTS,
   getListings,
   hasMaterials,
   isKind,
@@ -29,18 +32,20 @@ import {
   type Lot,
   type MaterialId,
   type MaterialRecipe,
+  type Materials,
   type Product,
   type RecipeId,
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
 import { formatMoney, materialChips, materialSwatch } from './economyUi';
-import { furniIcon } from './icons';
+import { furniIcon, garmentIcon, productIcon } from './icons';
 import { PixelWindow } from './window';
 
 export interface BusinessActions {
   collectMaterials: (lotId: string) => void;
-  craft: (lotId: string, recipe: RecipeId) => void;
+  /** En la tienda de ropa, `color` es el de la prenda. */
+  craft: (lotId: string, recipe: RecipeId, color?: string) => void;
   collectCrafted: (lotId: string) => void;
   listItem: (lotId: string, itemId: string, price: number) => void;
   setPrice: (itemId: string, price: number) => void;
@@ -69,6 +74,10 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   });
   let lotId: string | null = null;
   let signature = '';
+  /** Último estado recibido, para reconstruir la ventana al elegir otro color. */
+  let latest: { state: GameState; playerId: string } | null = null;
+  /** Tienda de ropa: color en el que se cosen las prendas. Se recuerda entre locales. */
+  let garmentColor = GARMENT_COLORS[0];
   /** Funciones que actualizan las partes que dependen del tiempo. */
   let timers: ((tick: number) => void)[] = [];
 
@@ -176,7 +185,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         button('Retirar', inside, () => actions.unlist(item.id)),
       );
       info.append(name, controls);
-      row.append(furniIcon(item.defId, item.variant), info, document.createElement('span'));
+      row.append(productIcon(item), info, document.createElement('span'));
       onSale.append(row);
     }
 
@@ -219,7 +228,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         button('Vender', inside && !full, () => actions.listItem(lot.id, ids[0], readPrice(input))),
       );
       info.append(name, controls);
-      row.append(furniIcon(product.defId, product.variant), info, document.createElement('span'));
+      row.append(productIcon(product), info, document.createElement('span'));
       forSale.append(row);
     }
 
@@ -281,12 +290,9 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     );
   };
 
-  // --- Taller ----------------------------------------------------------------
-  const buildWorkshop = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
-    const mine = state.materials[playerId] ?? {};
-    const queueFull = lot.jobs.length >= ECONOMY.workshop.queueSize;
-
-    // Cola de fabricación con barras de progreso.
+  // --- Fabricación (taller y tienda de ropa) ---------------------------------
+  /** Cola de fabricación con barras de progreso y el botón para recoger lo terminado. */
+  const buildCraftQueue = (lot: Lot, inside: boolean, state: GameState) => {
     const queue = document.createElement('div');
     queue.className = 'queue';
     if (lot.jobs.length === 0) queue.append(text('Nada en fabricación.'));
@@ -316,46 +322,108 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       });
     }
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
-
-    // Recetas.
-    const recipes = document.createElement('div');
-    recipes.className = 'recipes';
-    for (const defId of DECOR_IDS) {
-      const recipe = ECONOMY.recipes[defId];
-      const row = document.createElement('div');
-      row.className = 'recipe';
-      const info = document.createElement('div');
-      info.className = 'recipe-info';
-      const name = document.createElement('div');
-      name.textContent = `${CATALOG[defId].name} · ${recipe.seconds} s`;
-      info.append(name, materialChips(recipe.materials, { have: mine }));
-      const canCraft = inside && !queueFull && hasMaterials(mine, recipe.materials);
-      row.append(furniIcon(defId), info, button('Fabricar', canCraft, () => actions.craft(lot.id, defId)));
-      recipes.append(row);
-    }
-    for (const [material, recipe] of Object.entries(ECONOMY.materialRecipes) as [MaterialId, MaterialRecipe][]) {
-      const row = document.createElement('div');
-      row.className = 'recipe';
-      const info = document.createElement('div');
-      info.className = 'recipe-info';
-      const name = document.createElement('div');
-      name.textContent = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
-      info.append(name, materialChips(recipe.materials, { have: mine }));
-      const canCraft = inside && !queueFull && hasMaterials(mine, recipe.materials);
-      row.append(materialSwatch(material), info, button('Fabricar', canCraft, () => actions.craft(lot.id, material)));
-      recipes.append(row);
-    }
-
     win.body.append(
       text(`En fabricación (${lot.jobs.length}/${ECONOMY.workshop.queueSize}):`, 'section-title'),
       queue,
       button(`Recoger (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
-      text('Recetas:', 'section-title'),
-      recipes,
     );
   };
 
+  /**
+   * Una receta: icono, nombre con su tiempo, materiales que pide (marcando los
+   * que te faltan) y el botón "Fabricar", que solo se activa dentro del local,
+   * con hueco en la cola y con los materiales.
+   */
+  const recipeRow = (
+    icon: HTMLElement,
+    label: string,
+    materials: Materials,
+    have: Materials,
+    canCraft: boolean,
+    onCraft: () => void,
+  ) => {
+    const row = document.createElement('div');
+    row.className = 'recipe';
+    const info = document.createElement('div');
+    info.className = 'recipe-info';
+    const name = document.createElement('div');
+    name.textContent = label;
+    info.append(name, materialChips(materials, { have }));
+    row.append(icon, info, button('Fabricar', canCraft && hasMaterials(have, materials), onCraft));
+    return row;
+  };
+
+  // --- Taller ----------------------------------------------------------------
+  const buildWorkshop = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
+    const mine = state.materials[playerId] ?? {};
+    const canCraft = inside && lot.jobs.length < ECONOMY.workshop.queueSize;
+    buildCraftQueue(lot, inside, state);
+
+    const recipes = document.createElement('div');
+    recipes.className = 'recipes';
+    for (const defId of DECOR_IDS) {
+      const recipe = ECONOMY.recipes[defId];
+      const label = `${CATALOG[defId].name} · ${recipe.seconds} s`;
+      recipes.append(
+        recipeRow(furniIcon(defId), label, recipe.materials, mine, canCraft, () => actions.craft(lot.id, defId)),
+      );
+    }
+    for (const [material, recipe] of Object.entries(ECONOMY.materialRecipes) as [MaterialId, MaterialRecipe][]) {
+      const label = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
+      recipes.append(
+        recipeRow(materialSwatch(material), label, recipe.materials, mine, canCraft, () =>
+          actions.craft(lot.id, material),
+        ),
+      );
+    }
+    win.body.append(text('Recetas:', 'section-title'), recipes);
+  };
+
+  // --- Tienda de ropa ----------------------------------------------------------
+  /**
+   * Cola y recetas de prendas, con el color en que se cosen, y debajo el
+   * escaparate, igual que en la tienda de decoración pero con prendas.
+   */
+  const buildClothing = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
+    const mine = state.materials[playerId] ?? {};
+    const canCraft = inside && lot.jobs.length < ECONOMY.workshop.queueSize;
+    buildCraftQueue(lot, inside, state);
+
+    // Muestras de color: elegir una vuelve a dibujar las recetas en ese color.
+    const colors = document.createElement('div');
+    colors.className = 'swatches';
+    for (const color of GARMENT_COLORS) {
+      const b = document.createElement('button');
+      b.className = 'swatch';
+      b.classList.toggle('selected', color === garmentColor);
+      b.style.background = color;
+      b.title = color;
+      b.addEventListener('click', () => {
+        garmentColor = color;
+        signature = '';
+        if (latest) update(latest.state, latest.playerId);
+      });
+      colors.append(b);
+    }
+
+    const recipes = document.createElement('div');
+    recipes.className = 'recipes';
+    const color = garmentColor;
+    for (const garment of GARMENT_IDS) {
+      const recipe = ECONOMY.garmentRecipes[garment];
+      const label = `${GARMENTS[garment].name} · ${recipe.seconds} s`;
+      recipes.append(
+        recipeRow(garmentIcon({ type: garment, color }), label, recipe.materials, mine, canCraft, () =>
+          actions.craft(lot.id, garment, color),
+        ),
+      );
+    }
+    win.body.append(text('Color:', 'section-title'), colors, text('Recetas:', 'section-title'), recipes);
+    buildStore(lot, inside, state, playerId);
+  };
+
   const update = (state: GameState, playerId: string) => {
+    latest = { state, playerId };
     if (!win.isOpen || !lotId) return;
     const lot = state.lots[lotId];
     if (!lot || !lot.business) {
@@ -385,6 +453,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       if (config.production) buildProducer(lot, inside, config.production);
       else if (config.service) buildService(lot, inside, state, playerId, config.service);
       else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
+      else if (config.kind === 'clothing') buildClothing(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
     }

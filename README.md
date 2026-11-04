@@ -37,13 +37,17 @@ Abre http://localhost:5173
    - **Taller de muebles**: convierte materiales en muebles según recetas y fabrica
      fichas (con chapa) para los recreativos.
    - **Tienda de decoración**: pones muebles a la venta con el precio que quieras.
+   - **Tienda de ropa**: coses prendas con tela (sombrero de cowboy, gorra, chaqueta
+     vaquera, chaleco y botas) en el color que elijas, y las pones a la venta en
+     burros de ropa. Los viajeros que compran una prenda se van con ella puesta.
    - **Diner**, **Bar**, **Recreativos**, **Peluquería** y **Frutería**: los viajeros
      pagan por el servicio (menú del día, ronda, partida, corte de pelo, bolsa de
      fruta). Gastan agua, fruta o fichas (las fichas se fabrican en el taller), que
      dejas en el almacén del local con "Reponer", y tú pones el precio.
 3. Dentro de cada local, haz clic en su **puesto de trabajo** (montón de chatarra,
-   pozo, bancal, algodonal, banco de trabajo, mostrador, plancha, barra con grifo,
-   cambio de fichas, sillón de barbero o puesto de fruta) para gestionarlo. Desde ahí
+   pozo, bancal, algodonal, banco de trabajo, mostrador, máquina de coser, plancha,
+   barra con grifo, cambio de fichas, sillón de barbero o puesto de fruta) para
+   gestionarlo. Desde ahí
    también eliges la **plantilla de fachada** (Clásica, Diner, Garaje, Boutique,
    Saloon o Recreativos); el cartel de neón muestra el icono del negocio para que se
    sepa desde la calle qué es cada local.
@@ -54,6 +58,9 @@ Abre http://localhost:5173
 6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
    las tiendas de otros jugadores.
 7. Decora tu caravana con lo que compres o fabriques.
+8. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
+   te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
+   última prenda de un tipo y color que llevas puesta, se te quita.
 
 ## Controles
 
@@ -68,7 +75,8 @@ Abre http://localhost:5173
 | Girar mueble | `R` o clic derecho (mientras lo colocas), o botón "Girar" |
 | Cancelar | `Esc` |
 | Chatear | `Enter`, escribir y `Enter` (prueba a saludar a los vecinos) |
-| Cambiar tu aspecto | Botón "Avatar" |
+| Cambiar tu aspecto y ponerte prendas | Botón "Avatar" |
+| Comprar en una tienda ajena | Clic en su mostrador, su máquina de coser o en un producto |
 | Forzar día / atardecer / noche / amanecer (depuración) | `N` (otra vez para volver a la hora real) |
 
 En desarrollo, el estado del juego está disponible en la consola del navegador:
@@ -90,7 +98,8 @@ escriben en segundos.
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
 | Recetas del taller (materiales y tiempo): muebles y fichas | `recipes`, `materialRecipes` |
-| Valor de referencia de cada mueble | `baseValue` (precio sugerido y referencia de los viajeros) |
+| Recetas de la tienda de ropa (tela y tiempo de cada prenda) | `garmentRecipes` |
+| Valor de referencia de cada mueble y de cada prenda | `baseValue`, `garmentValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
 | Precios del proveedor de materiales | `supplier` |
 | Frecuencia de coches, probabilidad de parar y forma de comprar de los viajeros | `travelers` |
@@ -161,4 +170,5 @@ Renderer ◀──────────── nuevo estado ──────
 - Colores de la interfaz: variables CSS al principio de `client/src/ui/styles.css`.
 - Muebles: un archivo por mueble en `client/src/sprites/furniture/`.
 - Edificios y elementos de la calle: `client/src/sprites/structures/`.
-- Colores permitidos para los avatares: `shared/src/looks.ts`.
+- Colores permitidos para los avatares y para las prendas: `shared/src/looks.ts` (`GARMENT_COLORS`).
+- Prendas (nombre y ranura): `shared/src/garments.ts`; su dibujo, en `client/src/sprites/avatar.ts`.

@@ -7,7 +7,7 @@ import {
   type GarmentInventoryItem,
   type InventoryItem,
 } from '@juego/shared';
-import { furniIcon } from './icons';
+import { furniIcon, garmentIcon } from './icons';
 import { PixelWindow } from './window';
 
 export interface InventoryWindow {
@@ -69,10 +69,7 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
       const { garment, color } = group[0];
       const card = document.createElement('div');
       card.className = 'card';
-
-      const swatch = document.createElement('span');
-      swatch.className = 'facade-swatch';
-      swatch.style.background = color;
+      card.title = 'Póntela desde "Avatar"';
 
       const name = document.createElement('div');
       name.className = 'card-name';
@@ -82,12 +79,12 @@ export function createInventoryWindow(onPick: (itemId: string) => void): Invento
       count.className = 'badge';
       count.textContent = `x${group.length}`;
 
-      card.append(swatch, name, count);
+      card.append(garmentIcon({ type: garment, color }), name, count);
       grid.append(card);
     }
 
     if (items.length === 0) hint.textContent = 'Vacío. Consigue muebles en el catálogo.';
-    else if (groups.size === 0) hint.textContent = 'Las prendas se llevan puestas: no se colocan en la sala.';
+    else if (groups.size === 0) hint.textContent = 'Las prendas no se colocan en la sala: póntelas desde "Avatar".';
     else hint.textContent = 'Elige un mueble y haz clic en la sala. R o clic derecho: girar. Esc: cancelar.';
   };
 

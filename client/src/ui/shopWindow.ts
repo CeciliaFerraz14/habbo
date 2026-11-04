@@ -1,7 +1,8 @@
 // Ventana de una tienda vista como CLIENTE: sus productos y el botón de comprar.
-import { getListings, productName, type GameState } from '@juego/shared';
+// Sirve para las dos tiendas: la de decoración (muebles) y la de ropa (prendas).
+import { getListings, isKind, productName, sellsProducts, type GameState } from '@juego/shared';
 import { formatMoney } from './economyUi';
-import { furniIcon } from './icons';
+import { productIcon } from './icons';
 import { PixelWindow } from './window';
 
 export interface ShopWindow {
@@ -22,7 +23,7 @@ export function createShopWindow(onBuy: (itemId: string) => void): ShopWindow {
   const update = (state: GameState, playerId: string) => {
     if (!win.isOpen || !lotId) return;
     const lot = state.lots[lotId];
-    if (!lot || lot.business !== 'store') {
+    if (!lot || !sellsProducts(lot)) {
       win.close();
       return;
     }
@@ -60,14 +61,15 @@ export function createShopWindow(onBuy: (itemId: string) => void): ShopWindow {
       buy.disabled = !inside || money < item.price!;
       if (money < item.price!) buy.title = 'No tienes dinero suficiente';
       buy.addEventListener('click', () => onBuy(item.id));
-      row.append(furniIcon(item.defId, item.variant), name, buy);
+      row.append(productIcon(item), name, buy);
       list.append(row);
     }
     const note = document.createElement('p');
     note.className = 'hint';
-    note.textContent = inside
-      ? `Llevas ${formatMoney(money)}. Lo que compres va a tu inventario.`
-      : 'Entra en la tienda para comprar.';
+    const goesTo = isKind(lot, 'clothing')
+      ? 'Lo que compres va a tu inventario: póntelo desde "Avatar".'
+      : 'Lo que compres va a tu inventario.';
+    note.textContent = `Llevas ${formatMoney(money)}. ${goesTo}`;
     win.body.replaceChildren(list, note);
   };
 
