@@ -2,6 +2,13 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-04 · Diana, barril y neón del algodón más legibles
+
+**Qué se hizo**
+- `dartboard.ts`: tablero mayor con anillos escalonados que sobresalen 1 unidad cada uno, para que el contorno de `bake.ts` no se coma el color.
+- `beerBarrel.ts`: barril en pie de madera con panza escalonada, dos aros y grifo.
+- `shared/src/economy.config.ts`: el neón del campo de algodón pasa de `#f6e7c8` a `#9fe8ff`, que de día no se perdía en el cartel claro de la fachada.
+
 ## 2026-11-04 · Cinco muebles nuevos: bar y recreativos
 
 **Qué se hizo**

@@ -172,7 +172,7 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     kind: 'producer',
     defaultFacade: 'classic',
     description: 'Cultiva algodón y lo hila en tela. La necesita la tienda de ropa.',
-    neon: '#f6e7c8',
+    neon: '#9fe8ff',
     deposit: 70,
     rent: 22,
     production: { seconds: 20, output: { fabric: 2 }, storageCap: 30 },

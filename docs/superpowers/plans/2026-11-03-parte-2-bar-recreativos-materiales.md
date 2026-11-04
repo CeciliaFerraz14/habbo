@@ -27,7 +27,7 @@
 | material `fabric` | Tela | color de ficha `#e8e0d0` |
 | material `tokens` | Fichas | color de ficha `#f2b134` |
 | receta de material `tokens` | — | `{ materials: { sheet_metal: 1 }, seconds: 15, quantity: 5 }` |
-| negocio `cotton_field` | Campo de algodón | producer, fachada `classic`, neón `#f6e7c8`, fianza 70, alquiler 22, producción `{ seconds: 20, output: { fabric: 2 }, storageCap: 30 }`, descripción "Cultiva algodón y lo hila en tela. La necesita la tienda de ropa." |
+| negocio `cotton_field` | Campo de algodón | producer, fachada `classic`, neón `#9fe8ff`, fianza 70, alquiler 22, producción `{ seconds: 20, output: { fabric: 2 }, storageCap: 30 }`, descripción "Cultiva algodón y lo hila en tela. La necesita la tienda de ropa." |
 | negocio `bar` | Bar | service, fachada `saloon`, neón `#ffb347`, fianza 130, alquiler 32, servicio `{ name: 'Una ronda', consumes: { water: 1, fruit: 1 }, baseValue: 40 }`, descripción "Sirve rondas a los viajeros. Gasta agua y fruta." |
 | negocio `arcade` | Recreativos | service, fachada `arcade`, neón `#4fffe0`, fianza 150, alquiler 40, servicio `{ name: 'Una partida', consumes: { tokens: 2 }, baseValue: 50 }`, descripción "Los viajeros echan una partida. Gasta fichas del taller." |
 | fachada `saloon` | Saloon | "Madera oscura con puertas batientes.", wall `#a0703c`, trim `#5a3a24` |
