@@ -358,3 +358,188 @@ export const oldScale: FurniModel = {
     box(12, 5, 15, 14, 7, 17, '#ff8a2a'), // fruta en el plato
   ],
 };
+
+// --- Campo de algodón ----------------------------------------------------------
+
+/** Cesto de mimbre lleno de algodón recién cogido. */
+export const cottonBasket: FurniModel = {
+  boxes: [
+    box(3, 3, 0, 13, 13, 10, PALETTE.ochre), // cesto
+    box(2, 2, 8, 14, 14, 10, PALETTE.wood), // borde
+    box(3, 3, 3, 13, 13, 4, PALETTE.wood), // trenzado
+    box(4, 4, 10, 12, 12, 13, PALETTE.cream), // algodón
+    box(5, 6, 13, 10, 11, 16, PALETTE.cream),
+  ],
+};
+
+/** Dos balas de algodón prensado, una sobre otra, atadas con flejes. */
+export const cottonBales: FurniModel = {
+  boxes: [
+    box(1, 1, 0, 15, 15, 10, PALETTE.cream), // bala de abajo
+    box(15, 5, 0, 16, 6, 10, PALETTE.ochre), // flejes
+    box(15, 10, 0, 16, 11, 10, PALETTE.ochre),
+    box(5, 15, 0, 6, 16, 10, PALETTE.ochre),
+    box(10, 15, 0, 11, 16, 10, PALETTE.ochre),
+    box(3, 3, 10, 13, 13, 19, PALETTE.cream), // bala de arriba
+    box(13, 8, 10, 14, 9, 19, PALETTE.ochre),
+    box(8, 13, 10, 9, 14, 19, PALETTE.ochre),
+  ],
+};
+
+/** Rueca de madera: la rueda con sus radios, su pedal y un copo de algodón en el huso. */
+export const spinningWheel: FurniModel = {
+  boxes: [
+    box(3, 3, 0, 5, 5, 8, PALETTE.wood), // patas
+    box(3, 11, 0, 5, 13, 8, PALETTE.wood),
+    box(11, 7, 0, 13, 9, 8, PALETTE.wood),
+    box(9, 6, 1, 15, 10, 2, PALETTE.iron), // pedal
+    box(3, 3, 8, 13, 13, 10, PALETTE.wood), // banco
+    // Rueda en el plano y-z, mirando a +x: radios y aro de ocho tramos.
+    box(7, 7, 10, 9, 9, 32, PALETTE.wood),
+    box(7, 2, 21, 9, 14, 23, PALETTE.wood),
+    box(7, 5, 12, 9, 11, 14, PALETTE.ochre),
+    box(7, 3, 14, 9, 5, 17, PALETTE.ochre),
+    box(7, 11, 14, 9, 13, 17, PALETTE.ochre),
+    box(7, 1, 17, 9, 3, 27, PALETTE.ochre),
+    box(7, 13, 17, 9, 15, 27, PALETTE.ochre),
+    box(7, 3, 27, 9, 5, 30, PALETTE.ochre),
+    box(7, 11, 27, 9, 13, 30, PALETTE.ochre),
+    box(7, 5, 30, 9, 11, 32, PALETTE.ochre),
+    box(6, 7, 21, 10, 9, 23, PALETTE.iron), // buje
+    box(3, 12, 10, 5, 14, 16, PALETTE.wood), // huso
+    box(2, 11, 16, 6, 15, 20, PALETTE.cream), // copo
+  ],
+};
+
+// --- Tienda de ropa ------------------------------------------------------------
+
+/** Cuatro rollos de tela de pie, con su pliegue. */
+export const fabricRolls: FurniModel = {
+  boxes: [
+    box(2, 2, 0, 7, 7, 24, PALETTE.terracotta),
+    box(7, 2, 18, 8, 7, 19, PALETTE.terracottaDark),
+    box(8, 2, 0, 13, 7, 18, PALETTE.turquoise),
+    box(13, 3, 10, 14, 6, 11, PALETTE.turquoiseLight),
+    box(2, 8, 0, 7, 13, 16, PALETTE.ochre),
+    box(8, 8, 0, 13, 13, 21, PALETTE.neonPink),
+    box(13, 9, 12, 14, 12, 13, PALETTE.cream),
+  ],
+};
+
+/** Busto de costura sobre un pie de hierro, con la cinta métrica al cuello. */
+export const dressForm: FurniModel = {
+  boxes: [
+    box(5, 5, 0, 11, 11, 2, PALETTE.iron), // base
+    box(7, 7, 2, 9, 9, 14, PALETTE.iron), // pie
+    box(5, 4, 14, 11, 12, 21, PALETTE.cream), // caderas
+    box(6, 5, 21, 10, 11, 25, PALETTE.sand), // cintura
+    box(5, 4, 25, 11, 12, 32, PALETTE.cream), // pecho
+    box(7, 7, 32, 9, 9, 35, PALETTE.iron), // cuello
+    box(6, 6, 35, 10, 10, 36, PALETTE.wood), // remate
+    box(11, 6, 20, 12, 7, 32, PALETTE.neonYellow), // cinta métrica
+    box(11, 9, 24, 12, 10, 32, PALETTE.neonYellow),
+  ],
+};
+
+/** Letrero de neón con forma de percha. */
+export const neonHanger: FurniModel = {
+  light: { color: PALETTE.neonPink, radius: 18 },
+  boxes: [
+    box(5, 5, 0, 11, 11, 3, PALETTE.iron), // peana
+    box(7, 7, 3, 9, 9, 23, PALETTE.iron), // palo
+    glow(7, 1, 23, 9, 15, 25, PALETTE.neonPink), // barra
+    glow(7, 3, 25, 9, 13, 27, PALETTE.neonPink), // hombros
+    glow(7, 5, 27, 9, 11, 29, PALETTE.neonPink),
+    glow(7, 7, 29, 9, 9, 33, PALETTE.neonCyan), // gancho
+    glow(7, 7, 33, 9, 12, 35, PALETTE.neonCyan),
+    glow(7, 10, 31, 9, 12, 33, PALETTE.neonCyan),
+  ],
+};
+
+// --- Bar -----------------------------------------------------------------------
+
+/** Caja de madera con cuatro botellas de colores. */
+export const bottleCrate: FurniModel = {
+  boxes: [
+    box(2, 2, 0, 14, 14, 8, PALETTE.wood), // caja
+    box(2, 2, 3, 14, 14, 4, PALETTE.ochre), // listón
+    box(4, 4, 8, 7, 7, 14, PALETTE.turquoise), // botellas
+    box(5, 5, 14, 6, 6, 18, PALETTE.turquoise),
+    box(9, 4, 8, 12, 7, 14, PALETTE.terracotta),
+    box(10, 5, 14, 11, 6, 18, PALETTE.terracotta),
+    box(4, 9, 8, 7, 12, 14, PALETTE.ochre),
+    box(5, 10, 14, 6, 11, 18, PALETTE.ochre),
+    box(9, 9, 8, 12, 12, 14, PALETTE.turquoiseLight),
+    box(10, 10, 14, 11, 11, 18, PALETTE.turquoiseLight),
+  ],
+};
+
+/** Estante de pie con dos baldas de botellas. */
+export const bottleShelf: FurniModel = {
+  boxes: [
+    box(3, 1, 0, 8, 15, 2, PALETTE.wood), // pies
+    box(3, 1, 2, 5, 15, 36, PALETTE.wood), // tablero
+    box(5, 1, 10, 9, 15, 12, PALETTE.ochre), // baldas
+    box(5, 1, 23, 9, 15, 25, PALETTE.ochre),
+    box(6, 2, 12, 8, 4, 19, PALETTE.turquoise), // botellas de abajo
+    box(6, 5, 12, 8, 7, 18, PALETTE.terracotta),
+    box(6, 9, 12, 8, 11, 20, PALETTE.neonYellow),
+    box(6, 12, 12, 8, 14, 18, PALETTE.turquoiseLight),
+    box(6, 2, 25, 8, 4, 31, PALETTE.terracotta), // botellas de arriba
+    box(6, 6, 25, 8, 8, 33, PALETTE.cream),
+    box(6, 11, 25, 8, 13, 32, PALETTE.turquoise),
+  ],
+};
+
+/** Letrero de neón con forma de copa de cóctel y su aceituna. */
+export const neonCocktail: FurniModel = {
+  light: { color: PALETTE.neonCyan, radius: 18 },
+  boxes: [
+    box(5, 5, 0, 11, 11, 3, PALETTE.iron), // peana
+    box(7, 7, 3, 9, 9, 12, PALETTE.iron), // palo
+    glow(7, 5, 12, 9, 11, 14, PALETTE.neonCyan), // pie de la copa
+    glow(7, 7, 14, 9, 9, 22, PALETTE.neonCyan), // tallo
+    glow(7, 6, 22, 9, 10, 24, PALETTE.neonCyan), // copa, más ancha cuanto más arriba
+    glow(7, 4, 24, 9, 12, 26, PALETTE.neonCyan),
+    glow(7, 2, 26, 9, 14, 28, PALETTE.neonCyan),
+    glow(7, 11, 28, 9, 13, 31, PALETTE.neonPink), // aceituna
+  ],
+};
+
+// --- Recreativos ---------------------------------------------------------------
+
+/** Bote de cristal medio lleno de fichas doradas. */
+export const tokenJar: FurniModel = {
+  boxes: [
+    box(4, 4, 0, 12, 12, 9, PALETTE.neonYellow), // fichas
+    box(4, 4, 9, 12, 12, 16, PALETTE.turquoiseLight), // cristal
+    box(12, 6, 3, 13, 8, 5, PALETTE.ochre), // fichas de canto
+    box(12, 9, 6, 13, 11, 8, PALETTE.ochre),
+    box(5, 5, 16, 11, 11, 18, PALETTE.terracotta), // tapa
+  ],
+};
+
+/** Vitrina de premios: muñecos de colores tras el cristal y una tira de luz. */
+export const prizeCase: FurniModel = {
+  boxes: [
+    box(3, 2, 0, 13, 14, 10, PALETTE.iron), // mueble
+    box(4, 3, 10, 12, 13, 26, PALETTE.turquoiseLight), // cristal
+    box(12, 4, 11, 13, 7, 16, PALETTE.neonPink), // premios
+    box(12, 9, 11, 13, 12, 15, PALETTE.neonYellow),
+    box(12, 6, 18, 13, 10, 23, PALETTE.terracotta),
+    box(3, 2, 26, 13, 14, 28, PALETTE.iron), // techo
+    glow(13, 3, 7, 14, 13, 8, PALETTE.neonCyan), // tira de luz
+  ],
+};
+
+/** Joystick gigante de neón sobre su base, con dos botones. */
+export const neonJoystick: FurniModel = {
+  light: { color: PALETTE.neonPink, radius: 18 },
+  boxes: [
+    box(3, 3, 0, 13, 13, 5, PALETTE.iron), // base
+    glow(11, 4, 5, 12, 7, 6, PALETTE.neonYellow), // botones
+    glow(11, 9, 5, 12, 12, 6, PALETTE.neonCyan),
+    box(7, 7, 5, 9, 9, 20, PALETTE.chrome), // palanca
+    glow(5, 5, 20, 11, 11, 27, PALETTE.neonPink), // bola
+  ],
+};

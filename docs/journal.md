@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Los negocios nuevos con logo, decoración y niveles
+
+**Qué se hizo**
+- Bar, recreativos, campo de algodón y tienda de ropa: logos de neón redibujados y tres muebles de decoración cada uno (40, 90 y 160 $, niveles 1, 2 y 3, como los demás negocios).
+- Las máquinas de más de la tienda de ropa pasan a la pared de la puerta, (0,3) y (0,6): en (1,3) le quitaban un hueco de exposición.
+- Tests del plano de todos los negocios a cada nivel: puestos sin pisar puerta, huecos ni otros puestos, y todo accesible con la tienda llena.
+
+**Decisiones**
+- Los costes de mejora y la XP de abrir son comunes a todos los negocios, así que los nuevos usan los mismos y `levels.ts` no cambia.
+- La decoración no tiene sitio fijo: la coloca el dueño, y `canPlaceFurni` impide ponerla sobre la puerta o un puesto.
+
 ## 2026-11-05 · Migraciones de la fusión
 
 **Qué se hizo**

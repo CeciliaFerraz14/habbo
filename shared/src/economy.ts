@@ -277,7 +277,8 @@ const EXTRA_STATIONS: Record<BusinessType, { x: number; y: number }[]> = {
   diner: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
   bar: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
   arcade: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
-  clothing: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  // Las máquinas de más, contra la pared de la puerta: fuera de DISPLAY_SLOTS.
+  clothing: [{ x: 0, y: 3 }, { x: 0, y: 6 }],
   greengrocer: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
   store: [],
 };
@@ -288,7 +289,7 @@ const EXTRA_STATIONS: Record<BusinessType, { x: number; y: number }[]> = {
  * pasillos entre los productos. Los últimos solo se usan con el rango de
  * Empresario o con la tienda mejorada (ver storeListingsMax en levels.ts).
  */
-const DISPLAY_SLOTS = [
+export const DISPLAY_SLOTS = [
   { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 3, y: 3 }, { x: 5, y: 3 },
   { x: 7, y: 1 }, { x: 7, y: 3 }, { x: 5, y: 6 }, { x: 7, y: 6 },
   { x: 3, y: 6 }, { x: 1, y: 7 },

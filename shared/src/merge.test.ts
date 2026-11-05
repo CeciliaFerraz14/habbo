@@ -166,23 +166,40 @@ test('the supplier only deals in what it stocks', () => {
   assert.notEqual(applyAction(state, { type: 'BUY_MATERIAL', avatarId: 'p1', material: 'water', quantity: 1 }), state);
 });
 
-for (const business of ['cotton_field', 'clothing', 'bar', 'arcade'] as const) {
-  test(`${business} can be upgraded and gets a new station`, () => {
-    const start = withBusiness(business);
-    const opened: GameState = {
-      ...start,
-      lots: { ...start.lots, lot1: { ...start.lots.lot1, ownerId: null, ownerName: null, business: null } },
+for (const business of ['bar', 'arcade', 'cotton_field', 'clothing'] as const) {
+  test(`${business} opens at level 3 and upgrades from level 1`, () => {
+    // Un local construido conserva el nivel: al abrir, un puesto por nivel y la XP de abrir.
+    const base = withBusiness(business);
+    const built: GameState = {
+      ...base,
+      avatars: { p1: testPlayer('street') },
+      lots: {
+        ...base.lots,
+        lot1: { ...base.lots.lot1, ownerId: null, ownerName: null, business: null, builtBy: 'p1', level: 3 },
+      },
+    };
+    const atLevel3 = applyAction(built, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business });
+    assert.equal(atLevel3.lots.lot1.business, business);
+    for (const n of [1, 2, 3]) assert.ok(atLevel3.furniture[stationId('lot1', n)], `station ${n}`);
+    assert.equal(atLevel3.progress.p1.xp, ECONOMY.levels.xp.openBusiness);
+
+    const start: GameState = {
+      ...base,
+      lots: { ...base.lots, lot1: { ...base.lots.lot1, ownerId: null, ownerName: null, business: null } },
       money: { p1: 10000 },
       materials: { p1: { sheet_metal: 50, old_wood: 50 } },
     };
-    const rented = applyAction(opened, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business });
+    const rented = applyAction(start, { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business });
     assert.ok(rented.furniture[stationId('lot1')]);
+    const moneyBefore = rented.money.p1;
     const upgrading = applyAction(rented, { type: 'UPGRADE_LOT', avatarId: 'p1', lotId: 'lot1' });
     assert.ok(upgrading.lots.lot1.upgradeReadyAt);
+    const cost = ECONOMY.lotLevels.upgrades[0];
+    assert.equal(upgrading.money.p1, moneyBefore - cost.price);
+    assert.equal(upgrading.materials.p1?.sheet_metal, 50 - (cost.materials.sheet_metal ?? 0));
     // Fuera del local para no estorbar, y con la obra a punto de acabar.
     const done = tick({ ...upgrading, avatars: {}, tick: upgrading.lots.lot1.upgradeReadyAt! - 1 });
     assert.equal(done.lots.lot1.level, 2);
     assert.ok(done.furniture[stationId('lot1', 2)]);
   });
 }
-

@@ -113,7 +113,23 @@ export type BusinessDecorId =
   // Frutería
   | 'orange_crate'
   | 'watermelons'
-  | 'old_scale';
+  | 'old_scale'
+  // Campo de algodón
+  | 'cotton_basket'
+  | 'cotton_bales'
+  | 'spinning_wheel'
+  // Tienda de ropa
+  | 'fabric_rolls'
+  | 'dress_form'
+  | 'neon_hanger'
+  // Bar
+  | 'bottle_crate'
+  | 'bottle_shelf'
+  | 'neon_cocktail'
+  // Recreativos
+  | 'token_jar'
+  | 'prize_case'
+  | 'neon_joystick';
 
 /** Exclusivos que venden los vecinos (ver ECONOMY.vendors). */
 export type VendorItemId =
@@ -269,6 +285,18 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   orange_crate: businessDecor('orange_crate', 'Caja de naranjas'),
   watermelons: businessDecor('watermelons', 'Montón de sandías'),
   old_scale: businessDecor('old_scale', 'Báscula antigua'),
+  cotton_basket: businessDecor('cotton_basket', 'Cesto de algodón'),
+  cotton_bales: businessDecor('cotton_bales', 'Balas de algodón'),
+  spinning_wheel: businessDecor('spinning_wheel', 'Rueca'),
+  fabric_rolls: businessDecor('fabric_rolls', 'Rollos de tela'),
+  dress_form: businessDecor('dress_form', 'Busto de costura'),
+  neon_hanger: businessDecor('neon_hanger', 'Percha de neón'),
+  bottle_crate: businessDecor('bottle_crate', 'Caja de botellas'),
+  bottle_shelf: businessDecor('bottle_shelf', 'Estante de botellas'),
+  neon_cocktail: businessDecor('neon_cocktail', 'Cóctel de neón'),
+  token_jar: businessDecor('token_jar', 'Bote de fichas'),
+  prize_case: businessDecor('prize_case', 'Vitrina de premios'),
+  neon_joystick: businessDecor('neon_joystick', 'Joystick de neón'),
   mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
   fountain: structure('fountain', 'Fuente', 2, 2),
   // Banco de la plaza: fijo, pero se puede uno sentar.

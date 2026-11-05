@@ -136,8 +136,9 @@ export interface BusinessConfig {
 
 /**
  * Los negocios que se pueden abrir, en el orden en que aparecen al alquilar.
- * Para añadir uno nuevo: añádelo a BusinessType y aquí, y dale un puesto de
- * trabajo (STATIONS en economy.ts) y un icono de neón (shop.ts en el cliente).
+ * Para añadir uno nuevo: añádelo a BusinessType y aquí, y dale sus puestos de
+ * trabajo (STATIONS y EXTRA_STATIONS en economy.ts), su decoración (businessDecor)
+ * y su logo de neón (shopLogos.ts en el cliente).
  */
 const BUSINESSES: Record<BusinessType, BusinessConfig> = {
   scrapyard: {
@@ -154,7 +155,7 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     name: 'Pozo',
     kind: 'producer',
     defaultFacade: 'garage',
-    description: 'Saca agua del subsuelo. La necesitan el diner y la peluquería.',
+    description: 'Saca agua del subsuelo. La necesitan el diner, el bar y la peluquería.',
     neon: '#4fa3ff',
     deposit: 60,
     rent: 20,
@@ -164,7 +165,7 @@ const BUSINESSES: Record<BusinessType, BusinessConfig> = {
     name: 'Invernadero',
     kind: 'producer',
     defaultFacade: 'classic',
-    description: 'Cultiva fruta a la sombra. La necesitan el diner y la frutería.',
+    description: 'Cultiva fruta a la sombra. La necesitan el diner, el bar y la frutería.',
     neon: '#a8ff4f',
     deposit: 70,
     rent: 22,
@@ -361,11 +362,12 @@ export const ECONOMY = {
   /**
    * Niveles de los locales (1 a 3). Mejorar cuesta dinero y materiales y lleva
    * unos minutos de obras (el negocio sigue abierto mientras tanto). Cada nivel:
-   * - Servicios (diner, peluquería, frutería): un puesto más, así que se
-   *   atiende a un cliente más a la vez (ver services.serveSeconds).
-   * - Productores: otro montón, pozo o bancal: producen el doble, el triple...
+   * - Servicios (diner, bar, recreativos, peluquería, frutería): un puesto más,
+   *   así que se atiende a un cliente más a la vez (ver services.serveSeconds).
+   * - Productores: otro montón, pozo, bancal o algodonal: producen el doble, el triple...
    * - Taller: otro banco: se fabrican más muebles a la vez, y cabe uno más en la cola.
    * - Tienda: más huecos de venta.
+   * - Tienda de ropa: otra máquina de coser (como el taller) y más huecos de venta.
    * Además, cuanto más nivel, más coches paran y más viajeros eligen el local.
    * El nivel se pierde al cerrar el negocio, salvo en los locales construidos.
    */
@@ -405,7 +407,7 @@ export const ECONOMY = {
       saleDollarsPerXp: 10,
       /** Recoger del taller cada mueble fabricado. */
       craft: 5,
-      /** Recoger lo producido por una chatarrería, pozo o invernadero. */
+      /** Recoger lo producido por una chatarrería, pozo, invernadero o campo de algodón. */
       collect: 2,
       /** Entregar un encargo de Hank. */
       order: 25,
@@ -687,11 +689,26 @@ export const ECONOMY = {
       { defId: 'watermelons', price: 90, minLevel: 2 },
       { defId: 'old_scale', price: 160, minLevel: 3 },
     ],
-    // Estos negocios aún no tienen decoración propia que vender.
-    cotton_field: [],
-    clothing: [],
-    bar: [],
-    arcade: [],
+    cotton_field: [
+      { defId: 'cotton_basket', price: 40, minLevel: 1 },
+      { defId: 'cotton_bales', price: 90, minLevel: 2 },
+      { defId: 'spinning_wheel', price: 160, minLevel: 3 },
+    ],
+    clothing: [
+      { defId: 'fabric_rolls', price: 40, minLevel: 1 },
+      { defId: 'dress_form', price: 90, minLevel: 2 },
+      { defId: 'neon_hanger', price: 160, minLevel: 3 },
+    ],
+    bar: [
+      { defId: 'bottle_crate', price: 40, minLevel: 1 },
+      { defId: 'bottle_shelf', price: 90, minLevel: 2 },
+      { defId: 'neon_cocktail', price: 160, minLevel: 3 },
+    ],
+    arcade: [
+      { defId: 'token_jar', price: 40, minLevel: 1 },
+      { defId: 'prize_case', price: 90, minLevel: 2 },
+      { defId: 'neon_joystick', price: 160, minLevel: 3 },
+    ],
   } as Record<BusinessType, BusinessDecorOffer[]>,
 
   /** Recetas del taller: qué cuesta fabricar cada mueble. */
