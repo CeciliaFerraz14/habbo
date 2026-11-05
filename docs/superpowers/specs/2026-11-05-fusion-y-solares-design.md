@@ -146,8 +146,10 @@ Las dos son nuevas y no se edita ninguna ya aplicada.
 
 - **`010`, antes de desplegar, solo amplía:** `lots_business_check` con los
   negocios nuevos; `inventory_items` y `furniture` con prendas, como la `005`
-  local; `terms`, `next_upkeep_at` y `suspended` en `lots`. Es segura con el
-  servidor actual.
+  local. No añade `terms`, `next_upkeep_at` ni `suspended`: esas columnas van en la
+  `012`, en la fase 2. Es segura con el servidor actual. Sin ella, todos los
+  guardados de inventario o de muebles del servidor nuevo fallan, así que ese
+  servidor se niega a arrancar.
 - **`011`, después de desplegar y comprobar el guardado, limpia:** elimina
   `next_restock_at` y limpia lo que quede de los locales de NPC. No debe ejecutarse
   antes de que el servidor nuevo esté funcionando.
@@ -158,16 +160,40 @@ de producción.
 
 ## Despliegue
 
-1. Copia de seguridad de los datos de producción.
-2. Probar `010` con `begin; ... rollback;` en producción.
+Las migraciones se aplican siempre con `begin; set local lock_timeout = '5s'; set
+local statement_timeout = '30s'; ...; commit;`, y se ensayan igual con `rollback`:
+`alter table` puede bloquear los guardados mientras espera su bloqueo.
+
+1. Copia de seguridad de los datos de producción. Anotar el dinero total de los
+   jugadores y los tipos de negocio abiertos, para compararlos en el paso 5.
+2. Probar `010` con `rollback` en producción.
 3. Aplicar `010`.
-4. Desactivar el despliegue automático de Render y Vercel, si está activo, antes
-   del `push`. Elegir un momento sin jugadores conectados y desplegar a mano: primero
-   el servidor y, cuando esté en marcha, el cliente. Así no hay un cliente nuevo
-   hablando con el servidor antiguo ni dos servidores guardando en la misma base.
+4. Desplegar, a mano y en un momento sin jugadores conectados:
+   1. Desactivar el despliegue automático de Render y Vercel, si está activo, antes
+      del `push`.
+   2. Suspender el servicio del servidor antes de desplegar, o confirmar que la
+      instancia antigua ha terminado. Dos instancias a la vez pueden guardar las dos,
+      y la reposición de NPC de la antigua puede reescribir `lot4` y `lot6`.
+   3. Desplegar el servidor y, cuando esté en marcha, el cliente. Así no hay un
+      cliente nuevo hablando con el servidor antiguo.
+   4. Con el cliente nuevo publicado, reiniciar el servidor una vez más, con nadie
+      conectado. Una pestaña que se reconecte en el intervalo recarga el cliente
+      antiguo y se queda en él, y ese cliente falla con los negocios y las prendas
+      nuevos.
 5. Comprobar en el log que el mundo se carga y se guarda sin errores, y que los
-   jugadores conservan lo suyo.
-6. Probar y aplicar `011`.
+   jugadores conservan lo suyo: el dinero y los negocios anotados, salvo las tiendas
+   de NPC, que ya no existen. Después, probar con una cuenta real: recoger y colocar
+   un mueble, comprar algo, reiniciar el servidor y comprobar que todo sigue igual.
+6. Solo después de lo anterior y con nadie conectado: volver a comprobar `lots` y que
+   el servidor anterior está parado, probar `011` con `rollback` y aplicarla.
+
+### Vuelta atrás
+
+Se puede volver al servidor `5539996`, y a su cliente, mientras no se haya guardado
+ninguna prenda ni negocio nuevo, ni ningún mueble o material que ese servidor no
+conoce, y `011` no esté aplicada. Las tiendas de NPC no vuelven: `lot4` y `lot6` se
+quedan libres desde el primer guardado del servidor nuevo. Pasado ese punto, la única
+vuelta atrás es restaurar la copia de seguridad.
 
 **Autorización:** el `CLAUDE.md` del proyecto prohíbe tocar la base de producción y
 el MCP está en solo lectura. Las migraciones se aplican a mano por la usuaria o, si
@@ -195,8 +221,10 @@ guardado.
   poner en alquiler, alquilar desde una segunda sesión, mejorar, y los negocios
   nuevos con sus logos. También en ancho de móvil.
 - Guardar y cargar de verdad, en una base de pruebas que no sea producción: aplicar
-  todas las migraciones desde 001, cargar datos con la forma de producción, arrancar
-  el servidor fusionado y comprobar que un reinicio conserva todo.
+  todas las migraciones desde 001, cargar datos con la forma de producción, con filas
+  que tengan `progress`, `gas_station` y `last_position` no vacíos, arrancar el
+  servidor fusionado y comprobar que un reinicio conserva todo. Es obligatorio antes
+  de producción: sin esto no se despliega.
 
 ## Lo que queda a quien construya
 

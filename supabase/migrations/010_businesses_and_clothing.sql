@@ -11,8 +11,9 @@
 --   ninguna.
 -- - furniture.garment: la prenda que se expone a la venta en un burro de ropa.
 --
--- Aplicarla ANTES de desplegar el servidor nuevo. Sin ella, ese servidor no
--- puede guardar prendas ni los negocios nuevos.
+-- Aplicarla ANTES de desplegar el servidor nuevo. Sin ella, todos los guardados
+-- de inventario o de muebles de ese servidor fallan (escribe garment y color),
+-- así que se niega a arrancar (Persistence.load).
 --
 -- Es segura con el servidor anterior: lee con select * (ignora las columnas
 -- nuevas) y sus filas de inventario llevan def_id, así que cumplen el check.
@@ -20,11 +21,15 @@
 -- seguro: no arranca con un negocio que no conoce, y las filas de prendas tienen
 -- def_id null.
 --
--- Para probarla antes de aplicarla (SQL Editor de Supabase):
+-- Para aplicarla (SQL Editor de Supabase). Sin lock_timeout, alter table puede
+-- bloquear los guardados mientras espera su bloqueo:
 --   begin;
+--   set local lock_timeout = '5s';
 --   set local statement_timeout = '30s';
 --   (pegar el contenido de este fichero)
---   rollback;
+--   commit;
+--
+-- Para probarla antes es lo mismo, terminando con rollback en vez de commit.
 
 alter table public.lots drop constraint if exists lots_business_check;
 alter table public.lots add constraint lots_business_check check (

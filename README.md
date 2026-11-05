@@ -79,13 +79,20 @@ Abre http://localhost:5173
    Alcalde de Pixel Springs) y cada rango da una recompensa: dinero, muebles, más
    huecos en el taller y la tienda, más subvención o descuento con Hank. El rango
    Cowboy del asfalto desbloquea el sombrero de vaquero y colores nuevos.
-   Cada local también tiene **nivel**: se mejora con dinero y da más huecos, y cada
-   negocio tiene decoración propia en tres niveles.
+   Cada local también tiene **nivel**, del 1 al 3: se mejora con dinero y materiales
+   (250 $, 10 de chapa y 10 de madera vieja al nivel 2; 600 $, 25 de chapa, 25 de
+   madera vieja y 10 neumáticos al nivel 3), tarda unos minutos en obras y da más
+   puestos o huecos, y cada negocio tiene decoración propia en tres niveles.
    En un **taller público** los demás solo pueden fabricar muebles; los materiales y
    la tienda de ropa son siempre solo del dueño.
 8. Algunos **vecinos venden muebles exclusivos**: tócalos estando cerca de ellos.
 9. Decora tu caravana con lo que compres o fabriques.
-10. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
+10. **El Ensanche**: pasada la gasolinera, al final de la Calle Mayor, hay **solares**
+   en venta. Haz clic en uno para construir tu propio local: 300 $, 20 de chapa y 20
+   de madera vieja, con 3 minutos de obra. Es tuyo para siempre: no paga alquiler y
+   abrir un negocio en él no cuesta fianza; si lo cierras, el local y su nivel siguen
+   siendo tuyos. Siempre quedan 2 solares libres: al construir en uno, se abre otro.
+11. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
    te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
    última prenda de un tipo y color que llevas puesta, se te quita.
 
@@ -129,7 +136,8 @@ escriben en segundos.
 | Recetas de la tienda de ropa (tela y tiempo de cada prenda) | `garmentRecipes` |
 | Valor de referencia de cada mueble y de cada prenda | `baseValue`, `garmentValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
-| XP, rangos y recompensas, y mejoras de local | `levels`, `upgrades` |
+| XP, rangos y recompensas, y mejoras de local | `levels`, `lotLevels.upgrades` |
+| Precio, materiales y obra de los locales construidos, y solares libres | `building` |
 | Vecinos que venden muebles exclusivos | `vendors` |
 | Precios del proveedor, lo que paga al comprarte y la oferta del día | `supplier` |
 | Encargos de Hank, turnos, rasca y gana, máquinas, coches que repostan y autobús | `gasStation` |
@@ -140,9 +148,12 @@ Cómo fluye el dinero:
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
   También con la **subvención** diaria, los **encargos** y **turnos** de la
   gasolinera y lo que paga el proveedor por tus materiales.
-- **Sale** con el **alquiler** de los locales, la **comisión** de cada venta, las
-  compras al **proveedor** de materiales, el **rasca y gana** (de media devuelve
-  menos de lo que cuesta) y las máquinas de la gasolinera.
+- **Sale** con el **alquiler** de los locales, la **fianza** (al cerrar el negocio
+  solo se devuelve la mitad), la **comisión** de cada venta, las compras al
+  **proveedor** de materiales, la **construcción** y las **mejoras** de los locales,
+  la **decoración** propia de cada negocio, los muebles **exclusivos** de los vecinos,
+  el **rasca y gana** (de media devuelve menos de lo que cuesta) y las máquinas de la
+  gasolinera.
 - **Circula** entre jugadores cuando unos compran a otros.
 
 Pistas para equilibrar:

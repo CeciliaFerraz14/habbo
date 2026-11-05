@@ -2,6 +2,34 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Revisión final antes de desplegar la fusión
+
+**Qué se hizo**
+- `Persistence.load` comprueba primero las columnas de la `010` y, si faltan, el servidor no arranca.
+- La carga lee `lots`, `furniture`, `profiles` e `inventory_items` por páginas, con `fetchAllRows`, ordenadas por `id`, la clave primaria de las cuatro.
+- Cabeceras de `010` y `011`: qué pasa sin la `010`, cómo aplicarlas con `lock_timeout` y `statement_timeout`, y qué comprobar antes de la `011`. Sin cambios en el SQL.
+- Spec: la `010` no lleva las columnas de la fase 2, nuevo orden de despliegue, sección de vuelta atrás y "Guardar y cargar de verdad" como requisito.
+- README: las mejoras de local piden materiales, el Ensanche y los solares, `lotLevels.upgrades`, `building` y todas las salidas de dinero, con las cifras de `economy.config.ts`.
+
+**Decisiones**
+- Un orden de migraciones equivocado tiene que ser un despliegue fallido: sin la `010`, el primer cambio de inventario borraba las filas del jugador y luego no podía insertarlas.
+- Sin páginas, Supabase corta en `max_rows` (1000 por defecto) sin avisar, y el siguiente guardado reescribiría un inventario a partir de la lista cortada.
+- Páginas de 500, no de 1000: si `max_rows` recortara una página, parecería la última y la carga se quedaría corta sin avisar.
+- `load` recibe el cliente de Supabase con el real por defecto, para probar la negativa a arrancar con uno falso.
+- Ordenar por `id` puede cambiar el orden del inventario tras reiniciar. Es solo visual: antes tampoco había un orden garantizado.
+- La vuelta atrás también se cierra con muebles o materiales nuevos guardados, porque `5539996` no los conoce.
+
+**Pendiente**
+- "Guardar y cargar de verdad" en una base de pruebas, con `progress`, `gas_station` y `last_position` no vacíos. Es obligatorio antes de producción.
+- Despliegue, en este orden:
+  1. Copia de seguridad; anotar el dinero total y los tipos de negocio abiertos.
+  2. Probar `010` con `rollback`, con `lock_timeout` y `statement_timeout`.
+  3. Aplicar `010`.
+  4. Con nadie conectado: desactivar el despliegue automático de Render y Vercel; suspender el servidor o confirmar que la instancia antigua ha terminado; desplegar el servidor y después el cliente; con el cliente publicado, reiniciar el servidor una vez más.
+  5. Revisar el log y lo anotado; probar con una cuenta real recoger y colocar un mueble, comprar algo, reiniciar y comprobar.
+  6. Con nadie conectado: volver a comprobar `lots` y que el servidor anterior está parado; probar y aplicar `011`.
+- Vuelta atrás: al servidor `5539996` solo mientras no se hayan guardado prendas, negocios nuevos, ni muebles o materiales que no conoce, y sin la `011`. Después, solo restaurando la copia de seguridad.
+
 ## 2026-11-05 · Documentación de la fusión y plan de la fase 1
 
 **Qué se hizo**
@@ -15,8 +43,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 
 **Pendiente**
 - Fase 2: rehacer los solares de casero sobre el Ensanche.
-- Despliegue, en este orden y con nadie conectado: copia de seguridad; probar `010` con `begin; ... rollback;`; aplicar `010`; desactivar el despliegue automático de Render y Vercel; desplegar a mano el servidor y después el cliente; revisar el log (carga y guardado sin errores, jugadores con lo suyo); probar y aplicar `011`.
-- No hay vuelta al servidor anterior tras guardar negocios nuevos ni tras la `011`.
+- Despliegue: el orden y la vuelta atrás están en la entrada de la revisión final, arriba.
 - Antes de cualquier `npm run dev`, confirmar que `server/.env` no apunta a producción.
 - Las migraciones y el `push` los confirma la usuaria; nada de esto se ha tocado.
 
