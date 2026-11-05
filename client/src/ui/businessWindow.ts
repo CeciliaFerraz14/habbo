@@ -40,7 +40,7 @@ import {
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
-import { formatMoney, formatTicks, materialChips, materialSwatch, numberInput, readNumber } from './economyUi';
+import { formatMoney, formatTicks, materialChips, materialSwatch, numberInput, readNumber, text } from './economyUi';
 import { furniIcon, garmentIcon, productIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -83,13 +83,6 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     b.disabled = !enabled;
     b.addEventListener('click', onClick);
     return b;
-  };
-
-  const text = (content: string, className = 'hint') => {
-    const p = document.createElement('p');
-    p.className = className;
-    p.textContent = content;
-    return p;
   };
 
   // --- Fachada (todos los negocios) -------------------------------------------

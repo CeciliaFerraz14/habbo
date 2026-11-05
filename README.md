@@ -58,10 +58,11 @@ Abre http://localhost:5173
 6. **Solares**: al otro lado de la carretera hay dos filas de solares vallados con un
    cartel de "Se vende". Haz clic en uno para **construir** un local (cuesta dinero, chapa, madera
    vieja y neumáticos). Quien lo construye es su **casero**: no lo usa él, lo
-   alquila a otros jugadores. Haciendo clic en su edificio o en su puerta (en la
-   acera de delante) mientras está libre, el casero fija la **fianza** y el
-   **alquiler** diario, y ve quién lo tiene alquilado y el **mantenimiento** que
-   paga cada día, esté alquilado o no. Cobra la fianza y el alquiler aunque no
+   alquila a otros jugadores. Haciendo clic en su edificio, el casero fija la
+   **fianza** y el **alquiler** diario (solo si no tiene inquilino), y ve quién lo
+   tiene alquilado y el **mantenimiento** que paga cada día, esté alquilado o no.
+   Su puerta, en la acera de delante, lleva a la misma ventana si no hay inquilino;
+   si lo hay, entras como un cliente más. Cobra la fianza y el alquiler aunque no
    esté, menos una comisión para el pueblo. Si no puede pagar el mantenimiento, el
    solar queda **suspendido**: el inquilino que hay se queda, pero no entran nuevos
    hasta que pague. Para los demás, alquilar un solar es como alquilar un local,
@@ -89,7 +90,7 @@ Abre http://localhost:5173
 | Cambiar tu aspecto y ponerte prendas | Botón "Avatar" |
 | Comprar en una tienda ajena | Clic en su mostrador, su máquina de coser o en un producto |
 | Construir en un solar | Clic en el solar vallado |
-| Gestionar tu solar (casero) | Clic en su edificio o su puerta mientras está libre |
+| Gestionar tu solar (casero) | Clic en su edificio (o en su puerta, si no tiene inquilino) |
 | Forzar día / atardecer / noche / amanecer (depuración) | `N` (otra vez para volver a la hora real) |
 
 En desarrollo, el estado del juego está disponible en la consola del navegador:

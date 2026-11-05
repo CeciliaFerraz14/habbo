@@ -369,3 +369,58 @@ test('travelers can reach a shop on a plot', () => {
   }
   assert.ok(state.tick < until, 'ningún viajero llegó a la tienda del solar');
 });
+
+/** Avisos de un jugador. */
+const noticesOf = (state: GameState, avatarId: string) =>
+  state.notices.filter((n) => n.avatarId === avatarId).map((n) => n.text);
+
+test('building a plot, saving its terms and renting a lot leave a notice for whoever did it', () => {
+  const built = builtPlot();
+  assert.ok(noticesOf(built, 'p1').some((text) => text.includes(SITE.label) && text.includes('casero')));
+
+  const saved = applyAction(built, { type: 'SET_PLOT_TERMS', avatarId: 'p1', lotId: SITE.lotId, deposit: 50, rent: 50 });
+  assert.equal(noticesOf(saved, 'p1').length, noticesOf(built, 'p1').length + 1);
+  assert.ok(noticesOf(saved, 'p1').at(-1)?.includes(SITE.label));
+
+  const rented = rentedPlot();
+  assert.ok(noticesOf(rented, 'p2').some((text) => text.includes(SITE.label)));
+
+  const cityLot = applyAction(built, { type: 'RENT_LOT', avatarId: 'p2', lotId: 'lot1', business: 'store' });
+  assert.equal(cityLot.lots.lot1.ownerId, 'p2');
+  assert.equal(noticesOf(cityLot, 'p2').length, 1);
+  assert.ok(noticesOf(cityLot, 'p2')[0].includes('Local 1'));
+});
+
+test('rejected build, terms and rent actions leave no notice', () => {
+  const ready = readyToBuild();
+  const poor = { ...ready, money: { p1: 0 } };
+  assert.equal(applyAction(poor, { type: 'BUILD_PLOT', avatarId: 'p1', lotId: SITE.lotId }).notices.length, 0);
+
+  const rented = rentedPlot();
+  const terms = applyAction(rented, { type: 'SET_PLOT_TERMS', avatarId: 'p1', lotId: SITE.lotId, deposit: 50, rent: 50 });
+  assert.equal(terms.notices.length, rented.notices.length);
+
+  const again = applyAction(rented, { type: 'RENT_LOT', avatarId: 'p1', lotId: SITE.lotId, business: 'store' });
+  assert.equal(again.notices.length, rented.notices.length);
+});
+
+test('the landlord is told about a new tenant, also when the deposit is 0', () => {
+  const built = builtPlot();
+  const free = applyAction(built, { type: 'SET_PLOT_TERMS', avatarId: 'p1', lotId: SITE.lotId, deposit: 0, rent: 50 });
+  const rented = applyAction(free, { type: 'RENT_LOT', avatarId: 'p2', lotId: SITE.lotId, business: 'store' });
+  assert.equal(rented.lots[SITE.lotId].ownerId, 'p2');
+  assert.equal(rented.money.p1, free.money.p1);
+  assert.ok(noticesOf(rented, 'p1').some((text) => text.includes('P2') && text.includes(SITE.label)));
+
+  // Con fianza se le avisa igual, además de lo que ha cobrado.
+  const paying = rentedPlot();
+  assert.ok(noticesOf(paying, 'p1').some((text) => text.includes('P2') && text.includes(SITE.label)));
+});
+
+test('the landlord is told when the tenant loses the plot', () => {
+  const rented = rentedPlot(plots.initialTerms.deposit);
+  const next = runUntil(rented, rented.lots[SITE.lotId].nextRentAt);
+  assert.equal(next.lots[SITE.lotId].ownerId, null);
+  assert.ok(noticesOf(next, 'p1').some((text) => text.includes('P2') && text.includes(SITE.label) && text.includes('perdido')));
+  assert.ok(noticesOf(next, 'p2').some((text) => text.includes('perdido')));
+});

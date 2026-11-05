@@ -144,7 +144,10 @@ const controller = new GameController(
   (p) => renderer.pickAt(p.x, p.y),
   {
     notify: showToast,
-    openRent: (lotId) => rentWindow.open(lotId, state, PLAYER_ID),
+    openRent: (lotId) => {
+      rentWindow.open(lotId);
+      rentWindow.update(state, PLAYER_ID);
+    },
     openPlot: (lotId) => {
       plotWindow.open(lotId);
       plotWindow.update(state, PLAYER_ID);
@@ -189,19 +192,13 @@ function playerSceneId(): string {
 // --- Interfaz -----------------------------------------------------------------
 
 const wallet = createWallet();
-const rentWindow = createRentWindow((lotId, business) => {
-  transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
-  showToast('¡Local alquilado! Ya puedes entrar.');
-});
+const rentWindow = createRentWindow((lotId, business) =>
+  transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business }),
+);
 const plotWindow = createPlotWindow({
-  build: (lotId) => {
-    transport.dispatch({ type: 'BUILD_PLOT', avatarId: PLAYER_ID, lotId });
-    showToast('¡Solar construido! Ahora eres su casero.');
-  },
-  setTerms: (lotId, deposit, rent) => {
-    transport.dispatch({ type: 'SET_PLOT_TERMS', avatarId: PLAYER_ID, lotId, deposit, rent });
-    showToast('Condiciones guardadas.');
-  },
+  build: (lotId) => transport.dispatch({ type: 'BUILD_PLOT', avatarId: PLAYER_ID, lotId }),
+  setTerms: (lotId, deposit, rent) =>
+    transport.dispatch({ type: 'SET_PLOT_TERMS', avatarId: PLAYER_ID, lotId, deposit, rent }),
 });
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>
@@ -292,7 +289,7 @@ function refreshUi(): void {
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
   wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
-  rentWindow.update(state);
+  rentWindow.update(state, PLAYER_ID);
   plotWindow.update(state, PLAYER_ID);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);

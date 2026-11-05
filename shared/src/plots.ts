@@ -17,7 +17,7 @@
 //   alquiler, porque se cobra en el mismo tick de la economía.
 // =============================================================================
 
-import { addMaterials, createLot, hasMaterials, isIntegerBetween, secondsToTicks, type Lot } from './economy';
+import { addMaterials, addNotice, createLot, hasMaterials, isIntegerBetween, secondsToTicks, type Lot } from './economy';
 import { ECONOMY } from './economy.config';
 import type { GameState } from './types';
 import { isPlotId, plotSite, restorePlot } from './world';
@@ -50,7 +50,7 @@ export function buildPlot(state: GameState, avatarId: string, lotId: string): Ga
     materials: { ...state.materials, [avatarId]: addMaterials(mine, cost.materials, -1) },
     lots: { ...state.lots, [lotId]: lot },
   };
-  return restorePlot(paid, lot);
+  return addNotice(restorePlot(paid, lot), avatarId, `Has construido el ${site.label}. Ahora eres su casero.`);
 }
 
 /**
@@ -70,7 +70,8 @@ export function setPlotTerms(
   const limits = ECONOMY.plots;
   if (!isIntegerBetween(deposit, limits.deposit.min, limits.deposit.max)) return state;
   if (!isIntegerBetween(rent, limits.rent.min, limits.rent.max)) return state;
-  return { ...state, lots: { ...state.lots, [lotId]: { ...lot, terms: { deposit, rent } } } };
+  const saved = { ...state, lots: { ...state.lots, [lotId]: { ...lot, terms: { deposit, rent } } } };
+  return addNotice(saved, avatarId, `Condiciones del ${lot.label} guardadas.`);
 }
 
 /**

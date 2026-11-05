@@ -1,14 +1,29 @@
 // Ventana para alquilar un local libre y elegir qué negocio abrir en él.
 // En un solar, la fianza y el alquiler son los del casero.
-import { BUSINESS_TYPES, ECONOMY, lotTerms, type BusinessType, type GameState } from '@juego/shared';
-import { formatMoney } from './economyUi';
+//
+// Igual que la ventana del solar, se reconstruye cuando cambia algo que se ve
+// (una "firma" en JSON), para no enseñar una fianza distinta de la que se cobra.
+import { BUSINESS_TYPES, ECONOMY, lotTerms, type BusinessType, type GameState, type Lot } from '@juego/shared';
+import { formatMoney, text } from './economyUi';
 import { PixelWindow } from './window';
 
 export interface RentWindow {
-  /** Abre la ventana para un local. */
-  open: (lotId: string, state: GameState, playerId: string) => void;
-  /** Cierra la ventana si el local ya no está libre (por ejemplo, tras alquilarlo). */
-  update: (state: GameState) => void;
+  /** Abre la ventana para un local; update la rellena. */
+  open: (lotId: string) => void;
+  /** Refleja el estado y cierra la ventana si el local ya no está libre (por ejemplo, tras alquilarlo). */
+  update: (state: GameState, playerId: string) => void;
+}
+
+/** Texto de debajo de la lista: las condiciones del local. */
+function introText(lot: Lot): string {
+  if (!lot.terms) return 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+  if (lot.suspended) {
+    return `Solar de ${lot.landlordName}. Suspendido: no admite inquilinos hasta que el casero pague el mantenimiento.`;
+  }
+  return (
+    `Solar de ${lot.landlordName}. Elige qué negocio abrir: fianza de ${formatMoney(lot.terms.deposit)} ` +
+    `y alquiler de ${formatMoney(lot.terms.rent)} al día, los fija el casero.`
+  );
 }
 
 export function createRentWindow(onRent: (lotId: string, business: BusinessType) => void): RentWindow {
@@ -19,25 +34,10 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
     width: 400,
   });
   let currentLot: string | null = null;
+  let signature = '';
 
-  const open = (lotId: string, state: GameState, playerId: string) => {
-    const lot = state.lots[lotId];
-    if (!lot) return;
-    currentLot = lotId;
+  const build = (lot: Lot, money: number) => {
     win.setTitle(`En alquiler: ${lot.label}`);
-    const money = state.money[playerId] ?? 0;
-
-    const intro = document.createElement('p');
-    intro.className = 'hint';
-    if (!lot.terms) {
-      intro.textContent = 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
-    } else if (lot.suspended) {
-      intro.textContent = `Solar de ${lot.landlordName}. Suspendido: no admite inquilinos hasta que el casero pague el mantenimiento.`;
-    } else {
-      intro.textContent =
-        `Solar de ${lot.landlordName}. Elige qué negocio abrir: fianza de ${formatMoney(lot.terms.deposit)} ` +
-        `y alquiler de ${formatMoney(lot.terms.rent)} al día, los fija el casero.`;
-    }
 
     const list = document.createElement('div');
     list.className = 'option-list';
@@ -65,21 +65,35 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
       button.disabled = lot.suspended || money < deposit;
       if (lot.suspended) button.title = 'El solar está suspendido';
       else if (button.disabled) button.title = 'No tienes dinero suficiente';
-      button.addEventListener('click', () => onRent(lotId, type));
+      button.addEventListener('click', () => onRent(lot.id, type));
 
       card.append(title, desc, button);
       list.append(card);
     }
-    win.body.replaceChildren(list, intro);
-    win.open();
+    win.body.replaceChildren(list, text(introText(lot)));
   };
 
-  const update = (state: GameState) => {
-    if (win.isOpen && currentLot && state.lots[currentLot]?.ownerId !== null) {
+  const update = (state: GameState, playerId: string) => {
+    if (!win.isOpen || !currentLot) return;
+    const lot = state.lots[currentLot];
+    if (!lot || lot.ownerId !== null) {
       win.close();
       currentLot = null;
+      return;
     }
+    const money = state.money[playerId] ?? 0;
+    const next = JSON.stringify([lot.id, lot.terms, lot.suspended, lot.landlordName, money]);
+    if (next === signature) return;
+    signature = next;
+    build(lot, money);
   };
 
-  return { open, update };
+  return {
+    open(lotId) {
+      currentLot = lotId;
+      signature = '';
+      win.open();
+    },
+    update,
+  };
 }

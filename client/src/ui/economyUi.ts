@@ -44,6 +44,14 @@ export function numberInput(value: number, min: number, max: number, enabled = t
   return input;
 }
 
+/** Párrafo de texto; por defecto, con el estilo de las notas. */
+export function text(content: string, className = 'hint'): HTMLParagraphElement {
+  const p = document.createElement('p');
+  p.className = className;
+  p.textContent = content;
+  return p;
+}
+
 /** Lo escrito en un numberInput, redondeado a entero (el reducer valida los límites). */
 export function readNumber(input: HTMLInputElement): number {
   return Math.round(Number(input.value));

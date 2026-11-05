@@ -2,6 +2,23 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Solares en dos filas y correcciones de la revisión
+
+**Qué se hizo**
+- Plano: la calle pasa a 25 de fondo, con la fila A de solares en y 11-14 (puertas en y 15) y la fila B en y 17-20 (puertas en y 21). `PLOT_SITES` lleva x e y por sitio; la puerta está en `y + 4` y la salida en `y + 5`.
+- `plot_site` (`client/src/sprites/structures/plotSite.ts`) sustituye a `plot_sign`: estructura fija de 4x4 con losa, valla y cartel. Clic en cualquier parte abre la ventana de construir y `restorePlot` la quita.
+- Farolas también en las aceras y 15 e y 21, cactus redistribuidos y vecinos paseando por y 21.
+- El casero abre su ventana con clic en el edificio aunque el solar esté alquilado; por la puerta, si hay inquilino, entra como cliente.
+- La ventana de alquiler se reconstruye con una firma (condiciones, suspensión, casero y dinero) y se cierra si alquilan el local mientras está abierta.
+- Los toasts de éxito de `main.ts` pasan a avisos del reducer (`buildPlot`, `setPlotTerms`, `rentLot`), y el casero recibe aviso de un inquilino nuevo (también con fianza 0) y de cuando lo pierde.
+- Fianza o alquiler vacíos ya no se guardan como 0, la cuenta atrás del mantenimiento se oculta si está suspendido y `text()` vive en `economyUi.ts`. Limpieza en `rowToLot` y `landlordMode`.
+
+**Decisiones**
+- La fila B está desplazada 7 baldosas para que sus edificios no tapen las fachadas de la A. Como el solar sin construir no se puede pisar, nadie puede quedar dentro cuando aparece el edificio.
+- Las farolas de y 21 no usan las x de las otras aceras: en x 16 quedarían delante de una fachada y junto a su puerta. Los cactus evitan las líneas de vista de las fachadas y la columna x = 43, que es el paso de una baldosa junto a la fila B.
+- El aviso de un inquilino nuevo va aparte del de la fianza: con fianza 0 no hay cobro que avisar, y así el casero siempre sabe quién es.
+- La firma de `plotWindow` y `rentWindow` sigue el mismo patrón; los avisos son autoritativos, así que no hay toast de éxito si el servidor rechaza la acción.
+
 ## 2026-11-04 · Interfaz para construir y gestionar solares
 
 **Qué se hizo**

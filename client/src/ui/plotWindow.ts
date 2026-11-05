@@ -9,7 +9,7 @@
 // está escribiendo en cada tick; la cuenta atrás del mantenimiento se
 // actualiza en su sitio.
 import { ECONOMY, hasMaterials, isIntegerBetween, plotSite, SCENES, type GameState, type Lot } from '@juego/shared';
-import { formatMoney, formatTicks, materialChips, numberInput, readNumber } from './economyUi';
+import { formatMoney, formatTicks, materialChips, numberInput, readNumber, text } from './economyUi';
 import { PixelWindow } from './window';
 
 export interface PlotActions {
@@ -36,13 +36,6 @@ export function createPlotWindow(actions: PlotActions): PlotWindow {
   let signature = '';
   /** Texto con la cuenta atrás del mantenimiento (solo en el modo del casero). */
   let countdown: { el: HTMLElement; lot: Lot } | null = null;
-
-  const text = (content: string, className = 'hint') => {
-    const p = document.createElement('p');
-    p.className = className;
-    p.textContent = content;
-    return p;
-  };
 
   // --- Construir en un solar libre ---------------------------------------------
   const buildMode = (id: string, label: string, state: GameState, playerId: string) => {
@@ -75,7 +68,8 @@ export function createPlotWindow(actions: PlotActions): PlotWindow {
   const landlordMode = (lot: Lot) => {
     const rented = lot.ownerId !== null;
     const business = lot.business ? ECONOMY.businesses[lot.business].name : null;
-    const terms = lot.terms ?? plots.initialTerms;
+    // Un solar con casero siempre tiene condiciones.
+    const terms = lot.terms!;
     const deposit = numberInput(terms.deposit, plots.deposit.min, plots.deposit.max, !rented);
     const rent = numberInput(terms.rent, plots.rent.min, plots.rent.max, !rented);
 
@@ -83,19 +77,21 @@ export function createPlotWindow(actions: PlotActions): PlotWindow {
     save.className = 'btn btn-small';
     save.textContent = 'Guardar';
     // Solo se puede guardar sin inquilino y con valores dentro de los límites.
+    // valueAsNumber da NaN con el campo vacío, que no pasa la comprobación.
     const refresh = () => {
       save.disabled =
         rented ||
-        !isIntegerBetween(Number(deposit.value), plots.deposit.min, plots.deposit.max) ||
-        !isIntegerBetween(Number(rent.value), plots.rent.min, plots.rent.max);
+        !isIntegerBetween(deposit.valueAsNumber, plots.deposit.min, plots.deposit.max) ||
+        !isIntegerBetween(rent.valueAsNumber, plots.rent.min, plots.rent.max);
     };
     deposit.addEventListener('input', refresh);
     rent.addEventListener('input', refresh);
     refresh();
     save.addEventListener('click', () => actions.setTerms(lot.id, readNumber(deposit), readNumber(rent)));
 
+    // Mientras está suspendido no hay próximo cobro: se reintenta en cada tick.
     const next = text('');
-    countdown = { el: next, lot };
+    countdown = lot.suspended ? null : { el: next, lot };
 
     win.setTitle(`Tu solar: ${lot.label}`);
     win.body.replaceChildren(
@@ -115,10 +111,9 @@ export function createPlotWindow(actions: PlotActions): PlotWindow {
       ),
       text('Mantenimiento:', 'section-title'),
       text(`${formatMoney(plots.upkeep)} al día.`),
-      next,
-      ...(lot.suspended
-        ? [text('Suspendido: no pudiste pagar el mantenimiento. No admite inquilinos nuevos hasta que lo pagues.')]
-        : []),
+      lot.suspended
+        ? text('Suspendido: no pudiste pagar el mantenimiento. No admite inquilinos nuevos hasta que lo pagues.')
+        : next,
     );
   };
 

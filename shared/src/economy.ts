@@ -285,8 +285,9 @@ function isOwnerInside(state: GameState, avatarId: string, lot: Lot | undefined)
 /**
  * Alquilar un local libre y abrir en él un negocio: se paga la fianza y se
  * abre el negocio. En un solar la fianza es la del casero y se le paga a él
- * (menos la comisión); el casero no puede alquilar el suyo, y un solar
- * suspendido por no pagar el mantenimiento no admite inquilinos.
+ * (menos la comisión) y se le avisa de quién es su inquilino; el casero no
+ * puede alquilar el suyo, y un solar suspendido por no pagar el mantenimiento
+ * no admite inquilinos.
  */
 export function rentLot(
   state: GameState,
@@ -304,10 +305,14 @@ export function rentLot(
   if (money < deposit) return state;
 
   let paid: GameState = { ...state, money: { ...state.money, [avatarId]: money - deposit } };
-  if (lot.landlordId && deposit > 0) {
-    paid = payOwner(paid, lot.landlordId, deposit, `Fianza del ${lot.label}`, ECONOMY.plots.commissionRate);
+  if (lot.landlordId) {
+    if (deposit > 0) {
+      paid = payOwner(paid, lot.landlordId, deposit, `Fianza del ${lot.label}`, ECONOMY.plots.commissionRate);
+    }
+    paid = addNotice(paid, lot.landlordId, `${avatar.name} ha alquilado tu ${lot.label}.`);
   }
-  return openBusiness(paid, lotId, avatarId, avatar.name, business);
+  const opened = openBusiness(paid, lotId, avatarId, avatar.name, business);
+  return addNotice(opened, avatarId, `Has alquilado el ${lot.label}. Ya puedes entrar.`);
 }
 
 /**
@@ -751,6 +756,9 @@ function chargeRent(state: GameState): GameState {
 
     if (money < rent) {
       next = addNotice(next, lot.ownerId, `No has podido pagar el alquiler: has perdido el ${lot.label}.`);
+      if (lot.landlordId) {
+        next = addNotice(next, lot.landlordId, `${lot.ownerName} no ha pagado y ha perdido tu ${lot.label}: vuelve a estar libre.`);
+      }
       next = closeLot(next, lot.id);
       continue;
     }

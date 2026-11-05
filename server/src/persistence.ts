@@ -17,7 +17,6 @@
 import {
   buildingVariant,
   createInitialState,
-  createLot,
   createTrailer,
   isGarmentItem,
   lotBuildingId,
@@ -49,7 +48,8 @@ interface ProfileInfo {
 /** Fila de la tabla lots → objeto Lot del juego. */
 function rowToLot(row: Record<string, any>): Lot {
   return {
-    ...createLot(row.id, row.label),
+    id: row.id,
+    label: row.label,
     ownerId: row.owner_id,
     ownerName: row.owner_name,
     business: row.business,

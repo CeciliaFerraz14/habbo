@@ -268,7 +268,15 @@ export class GameController {
         }
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
-        if (door) this.goToDoor(door);
+        if (!door) return;
+        // El casero va a la ventana de su solar, tenga inquilino o no. Se queda
+        // fuera: entrar cerraría la ventana, que solo se usa desde la calle.
+        if (door.lotId && state.lots[door.lotId]?.landlordId === this.playerId) {
+          this.moveTo(door.spawn);
+          this.events.openPlot(door.lotId);
+        } else {
+          this.goToDoor(door);
+        }
         return;
       }
       // Solo se seleccionan (para mover, girar o recoger) los muebles de un
@@ -301,9 +309,10 @@ export class GameController {
   }
 
   /**
-   * Camina hasta una puerta. Si es la de un local en alquiler, se queda
-   * delante y abre la ventana para alquilarlo; si es la de un solar libre del
-   * propio jugador, la de su solar (el casero no se lo alquila a sí mismo).
+   * Camina hasta una puerta. Si está abierta, entra (el casero, como cliente
+   * de su inquilino). Si el local no tiene inquilino, se queda delante y abre
+   * la ventana para alquilarlo o, si es su propio solar, la del casero (no se
+   * lo alquila a sí mismo).
    */
   private goToDoor(door: Door): void {
     const state = this.getState();
