@@ -135,6 +135,143 @@ function check<T>(result: { data: T; error: { message: string } | null }, what: 
   return result.data;
 }
 
+/** Filas de las tablas con las que se reconstruye el mundo. */
+export interface WorldRows {
+  world: Record<string, any> | null;
+  lots: Record<string, any>[];
+  furniture: Record<string, any>[];
+  profiles: Record<string, any>[];
+  items: Record<string, any>[];
+}
+
+/**
+ * Pega lo guardado encima del mundo inicial. Es el mundo tal como está en
+ * Supabase: lo que haya que corregir al cargar (ver Persistence.load) se hace
+ * después, para que el primer guardado lo vea como un cambio.
+ */
+export function worldFromRows(state: GameState, rows: WorldRows): GameState {
+  const { world: worldRow, lots: lotRows, furniture: furniRows, profiles: profileRows, items: itemRows } = rows;
+
+  // 1. Reloj y semilla: la simulación continúa donde se quedó. También los
+  //    encargos de Hank y el récord de la máquina recreativa.
+  if (worldRow) {
+    state = {
+      ...state,
+      tick: Number(worldRow.tick),
+      seed: Number(worldRow.seed),
+      nextId: Math.max(state.nextId, Number(worldRow.next_id)),
+      orders: worldRow.gas?.orders ?? [],
+      pinballRecord: worldRow.gas?.pinballRecord ?? null,
+      mayors: worldRow.gas?.mayors ?? [],
+    };
+  }
+
+  // 2a. Parcelas: cada jugador tiene la suya en la calle (y, desde el segundo,
+  //     un local nuevo). Se ponen ANTES de cargar los locales, porque crean los
+  //     locales 7, 8... A quien aún no tenga (perfiles de antes de esto), se le
+  //     da la siguiente, por orden de antigüedad.
+  const bySlot = [...profileRows].sort(
+    (a, b) => (a.home_slot ?? Infinity) - (b.home_slot ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)),
+  );
+  for (const p of bySlot) {
+    state = addHome(state, p.id, p.home_slot ?? nextHomeSlot(state));
+  }
+
+  // 2b. Locales construidos en los solares del Ensanche: su edificio, su
+  //     puerta y su interior (el resto del local viene con los demás, abajo).
+  for (const row of lotRows) {
+    const k = solarOfLot(row.id);
+    if (k !== null && row.built_by) state = addBuiltLot(state, k, row.built_by, Number(row.ready_at ?? 0));
+  }
+
+  // 2. Locales. Si hay locales guardados, los muebles de los locales del
+  //    mundo inicial se sustituyen por los guardados.
+  const scenes = { ...state.scenes };
+  const furniMap = { ...state.furniture };
+  const lotMap = { ...state.lots };
+  if (lotRows.length > 0) {
+    for (const f of Object.values(furniMap)) {
+      if (f.sceneId.startsWith('lot')) delete furniMap[f.id];
+    }
+    for (const row of lotRows) {
+      const lot = rowToLot(row);
+      lotMap[lot.id] = lot;
+      // El edificio y el nombre del local se deducen del propio local.
+      const building = furniMap[lotBuildingId(lot.id)];
+      if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot, state.tick) };
+      if (scenes[lot.id]) scenes[lot.id] = { ...scenes[lot.id], name: lotSceneName(lot) };
+    }
+  }
+
+  // 3. Perfiles: dinero, materiales y la escena de su caravana (sin los
+  //    muebles iniciales: sus muebles reales vienen de la tabla furniture).
+  const money: Record<string, number> = { ...state.money };
+  const materials: Record<string, Materials> = { ...state.materials };
+  const subsidies: Record<string, number> = { ...state.subsidies };
+  const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
+  const lastPositions: Record<string, SavedPosition> = { ...state.lastPositions };
+  const progress: Record<string, PlayerProgress> = { ...state.progress };
+  const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
+  for (const p of profileRows) {
+    money[p.id] = p.money;
+    materials[p.id] = p.materials ?? {};
+    subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
+    if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
+    // Sin "visto por última vez" (perfiles de antes de esto): cuenta desde ahora.
+    if (p.progress?.xp !== undefined) progress[p.id] = { lastSeen: state.tick, ...p.progress, name: p.name };
+    // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
+    if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
+    inventories[p.id] = [];
+    const trailer = createTrailer(p.id, p.name).scene;
+    scenes[trailer.id] = trailer;
+  }
+  for (const row of itemRows) {
+    inventories[row.owner_id]?.push(rowToItem(row));
+  }
+
+  // 4. Muebles de caravanas y locales.
+  for (const row of furniRows) {
+    furniMap[row.id] = {
+      id: row.id,
+      sceneId: row.scene_id,
+      defId: row.def_id,
+      x: row.x,
+      y: row.y,
+      rotation: row.rotation,
+      ...(row.variant ? { variant: row.variant } : {}),
+      ...(row.price ? { price: row.price } : {}),
+      ...(row.garment ? { garment: row.garment } : {}),
+    };
+  }
+
+  // La estatua de la calle no se guarda: se pone si hay algún alcalde.
+  return withStatue({
+    ...state,
+    scenes,
+    furniture: furniMap,
+    lots: lotMap,
+    money,
+    materials,
+    subsidies,
+    gasPlayers,
+    lastPositions,
+    progress,
+    inventories,
+  });
+}
+
+/** Muebles que un guardado tiene que escribir y borrar para pasar de prev a next. */
+export function furnitureChanges(prev: GameState, next: GameState): { upserts: FurniItem[]; deletes: string[] } {
+  return {
+    upserts: Object.values(next.furniture).filter((f) => isPersistedScene(f.sceneId) && f !== prev.furniture[f.id]),
+    deletes: Object.keys(prev.furniture).filter(
+      (id) =>
+        isPersistedScene(prev.furniture[id].sceneId) &&
+        (!next.furniture[id] || !isPersistedScene(next.furniture[id].sceneId)),
+    ),
+  };
+}
+
 export class Persistence {
   /** Estado en el último guardado correcto. */
   private saved: GameState;
@@ -165,125 +302,22 @@ export class Persistence {
       supabase.from('profiles').select('*'),
       supabase.from('inventory_items').select('*'),
     ]);
-    const worldRow = check(world, 'world');
     const lotRows = check(lots, 'lots') ?? [];
     const furniRows = check(furniture, 'furniture') ?? [];
     const profileRows = check(profiles, 'profiles') ?? [];
-    const itemRows = check(items, 'inventory_items') ?? [];
-
-    // 1. Reloj y semilla: la simulación continúa donde se quedó. También los
-    //    encargos de Hank y el récord de la máquina recreativa.
-    if (worldRow) {
-      state = {
-        ...state,
-        tick: Number(worldRow.tick),
-        seed: Number(worldRow.seed),
-        nextId: Math.max(state.nextId, Number(worldRow.next_id)),
-        orders: worldRow.gas?.orders ?? [],
-        pinballRecord: worldRow.gas?.pinballRecord ?? null,
-        mayors: worldRow.gas?.mayors ?? [],
-      };
-    }
-
-    // 2a. Parcelas: cada jugador tiene la suya en la calle (y, desde el segundo,
-    //     un local nuevo). Se ponen ANTES de cargar los locales, porque crean los
-    //     locales 7, 8... A quien aún no tenga (perfiles de antes de esto), se le
-    //     da la siguiente, por orden de antigüedad.
-    const bySlot = [...profileRows].sort(
-      (a, b) => (a.home_slot ?? Infinity) - (b.home_slot ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)),
-    );
-    for (const p of bySlot) {
-      state = addHome(state, p.id, p.home_slot ?? nextHomeSlot(state));
-    }
-
-    // 2b. Locales construidos en los solares del Ensanche: su edificio, su
-    //     puerta y su interior (el resto del local viene con los demás, abajo).
-    for (const row of lotRows) {
-      const k = solarOfLot(row.id);
-      if (k !== null && row.built_by) state = addBuiltLot(state, k, row.built_by, Number(row.ready_at ?? 0));
-    }
-
-    // 2. Locales. Si hay locales guardados, los muebles de los locales del
-    //    mundo inicial se sustituyen por los guardados.
-    const scenes = { ...state.scenes };
-    const furniMap = { ...state.furniture };
-    const lotMap = { ...state.lots };
-    if (lotRows.length > 0) {
-      for (const f of Object.values(furniMap)) {
-        if (f.sceneId.startsWith('lot')) delete furniMap[f.id];
-      }
-      for (const row of lotRows) {
-        const lot = rowToLot(row);
-        lotMap[lot.id] = lot;
-        // El edificio y el nombre del local se deducen del propio local.
-        const building = furniMap[lotBuildingId(lot.id)];
-        if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot, state.tick) };
-        if (scenes[lot.id]) scenes[lot.id] = { ...scenes[lot.id], name: lotSceneName(lot) };
-      }
-    }
-
-    // 3. Perfiles: dinero, materiales y la escena de su caravana (sin los
-    //    muebles iniciales: sus muebles reales vienen de la tabla furniture).
-    const money: Record<string, number> = { ...state.money };
-    const materials: Record<string, Materials> = { ...state.materials };
-    const subsidies: Record<string, number> = { ...state.subsidies };
-    const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
-    const lastPositions: Record<string, SavedPosition> = { ...state.lastPositions };
-    const progress: Record<string, PlayerProgress> = { ...state.progress };
-    const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
-    const persistence = new Persistence(state);
-    for (const p of profileRows) {
-      persistence.profiles.set(p.id, { name: p.name, look: p.look });
-      money[p.id] = p.money;
-      materials[p.id] = p.materials ?? {};
-      subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
-      if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
-      // Sin "visto por última vez" (perfiles de antes de esto): cuenta desde ahora.
-      if (p.progress?.xp !== undefined) progress[p.id] = { lastSeen: state.tick, ...p.progress, name: p.name };
-      // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
-      if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
-      inventories[p.id] = [];
-      const trailer = createTrailer(p.id, p.name).scene;
-      scenes[trailer.id] = trailer;
-    }
-    for (const row of itemRows) {
-      inventories[row.owner_id]?.push(rowToItem(row));
-    }
-
-    // 4. Muebles de caravanas y locales.
-    for (const row of furniRows) {
-      furniMap[row.id] = {
-        id: row.id,
-        sceneId: row.scene_id,
-        defId: row.def_id,
-        x: row.x,
-        y: row.y,
-        rotation: row.rotation,
-        ...(row.variant ? { variant: row.variant } : {}),
-        ...(row.price ? { price: row.price } : {}),
-        ...(row.garment ? { garment: row.garment } : {}),
-      };
-    }
-
-    // La estatua de la calle no se guarda: se pone si hay algún alcalde.
-    state = withStatue({
-      ...state,
-      scenes,
-      furniture: furniMap,
-      lots: lotMap,
-      money,
-      materials,
-      subsidies,
-      gasPlayers,
-      lastPositions,
-      progress,
-      inventories,
+    const loaded = worldFromRows(state, {
+      world: check(world, 'world'),
+      lots: lotRows,
+      furniture: furniRows,
+      profiles: profileRows,
+      items: check(items, 'inventory_items') ?? [],
     });
-    persistence.saved = state;
+    const persistence = new Persistence(loaded);
+    for (const p of profileRows) persistence.profiles.set(p.id, { name: p.name, look: p.look });
     // Mundos guardados de antes de quitar las tiendas NPC: se liberan después de
     // fijar `saved`, así el primer guardado escribe los locales ya reseteados y
     // borra de Supabase los muebles que desaparecen.
-    state = releaseNpcLots(state);
+    state = releaseNpcLots(loaded);
     console.log(
       `Mundo cargado: ${profileRows.length} jugadores, ${lotRows.length} locales, ${furniRows.length} muebles`,
     );
@@ -358,14 +392,7 @@ export class Persistence {
 
       // Muebles de caravanas y locales: añadidos o cambiados, y borrados.
       if (state.furniture !== prev.furniture) {
-        const upserts = Object.values(state.furniture).filter(
-          (f) => isPersistedScene(f.sceneId) && f !== prev.furniture[f.id],
-        );
-        const deletes = Object.keys(prev.furniture).filter(
-          (id) =>
-            isPersistedScene(prev.furniture[id].sceneId) &&
-            (!state.furniture[id] || !isPersistedScene(state.furniture[id].sceneId)),
-        );
+        const { upserts, deletes } = furnitureChanges(prev, state);
         if (upserts.length) check(await supabase.from('furniture').upsert(upserts.map(furniToRow)), 'furniture');
         if (deletes.length) check(await supabase.from('furniture').delete().in('id', deletes), 'furniture');
       }

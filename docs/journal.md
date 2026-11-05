@@ -2,6 +2,22 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Migraciones de la fusión
+
+**Qué se hizo**
+- `010`: negocios nuevos, prendas en `inventory_items` y `furniture.garment`. Solo amplía.
+- `011`: limpieza de los locales NPC y fuera `next_restock_at`.
+- `worldFromRows` y `furnitureChanges`, extraídas de `Persistence`, y `server/src/persistence.test.ts`. `npm test` incluye ya los tests de `server`.
+- Comprobado con PGlite (fuera del repo) y filas inventadas con la forma de producción: la cadena 001 a 011 y el `Persistence` real del servidor en producción (`5539996`) y del nuevo.
+
+**Decisiones**
+- Orden de despliegue: `010`, servidor nuevo, comprobar el log, `011`. El servidor en producción carga y guarda con la `010`, pero no puede guardar locales tras la `011`, porque aún escribe `next_restock_at`.
+- Tras guardar un negocio nuevo no se puede volver a ese servidor: su carga falla con un negocio que no conoce.
+- `Persistence.load` fija `saved` antes de liberar los locales NPC: así el primer guardado borra sus muebles.
+
+**Pendiente**
+- Aplicar las migraciones en producción; aquí no se ha tocado ninguna base de datos real.
+
 ## 2026-11-05 · Fusión de los dos ordenadores
 
 **Qué se hizo**
