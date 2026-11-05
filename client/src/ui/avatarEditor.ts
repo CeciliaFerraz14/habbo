@@ -11,6 +11,7 @@ import {
   isGarmentItem,
   LOOK_COLORS,
   LOOK_PARTS,
+  PREMIUM_LOOK_COLORS,
   randomLook,
   type AvatarLook,
   type Direction,
@@ -19,6 +20,7 @@ import {
   type InventoryItem,
   type LookPart,
 } from '@juego/shared';
+import { HAT, HAT_RISE } from '../sprites/hat';
 import { getAvatarFrames, WALK_CYCLE } from '../sprites/avatar';
 import { garmentIcon } from './icons';
 import { PixelWindow } from './window';
@@ -47,12 +49,15 @@ const TURN_MS = 1500;
  * Cabe el avatar de pie entero, con el hueco del sombrero, y 1 px por debajo.
  */
 const PREVIEW_W = 20;
-const PREVIEW_H = 28;
+const PREVIEW_H = 31;
 
 export interface AvatarEditor {
   win: PixelWindow;
-  /** Refleja el aspecto actual del jugador y las prendas que tiene. */
-  update: (look: AvatarLook, items: readonly InventoryItem[]) => void;
+  /**
+   * Refleja el aspecto actual del jugador y las prendas que tiene. `premium`:
+   * si su rango ya permite los colores especiales y el sombrero (Cowboy del asfalto).
+   */
+  update: (look: AvatarLook, items: readonly InventoryItem[], premium: boolean) => void;
 }
 
 export function createAvatarEditor(onChange: (look: AvatarLook) => void): AvatarEditor {
@@ -61,6 +66,7 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
   /** Aspecto e inventario del último update(), para no reconstruir si no cambian. */
   let lastLook = '';
   let lastItems: readonly InventoryItem[] | null = null;
+  let premium = false;
 
   // --- Vista previa ---
   const preview = document.createElement('canvas');
@@ -82,9 +88,12 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
 
     const row = document.createElement('div');
     row.className = 'swatches';
-    swatchButtons[part] = LOOK_COLORS[part].map((color) => {
+    // Los colores normales y, al final, los especiales (con candado hasta el
+    // rango Cowboy del asfalto).
+    swatchButtons[part] = [...LOOK_COLORS[part], ...PREMIUM_LOOK_COLORS[part]].map((color, i) => {
       const b = document.createElement('button');
       b.className = 'swatch';
+      b.classList.toggle('premium', i >= LOOK_COLORS[part].length);
       b.style.background = color;
       b.title = color;
       b.addEventListener('click', () => {
@@ -96,10 +105,21 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
     parts.append(label, row);
   }
 
+  // Sombrero de vaquero: se pone y se quita (también con candado hasta el rango).
+  const hatLabel = document.createElement('div');
+  hatLabel.className = 'look-label';
+  hatLabel.textContent = 'Sombrero';
+  const hatButton = document.createElement('button');
+  hatButton.className = 'btn btn-small';
+  hatButton.addEventListener('click', () => {
+    if (current) onChange({ ...current, hat: !current.hat });
+  });
+  parts.append(hatLabel, hatButton);
+
   const random = document.createElement('button');
   random.className = 'btn btn-small';
   random.textContent = 'Al azar';
-  // Solo cambia los colores: las prendas puestas se quedan.
+  // Solo cambia los colores: las prendas puestas y el sombrero se quedan.
   random.addEventListener('click', () => {
     if (current) onChange({ ...current, ...randomLook(Math.random) });
   });
@@ -184,31 +204,38 @@ export function createAvatarEditor(onChange: (look: AvatarLook) => void): Avatar
       const sprite = getAvatarFrames(current)[direction][frame];
       pctx.clearRect(0, 0, PREVIEW_W, PREVIEW_H);
       // Centrado en horizontal y apoyado abajo.
-      pctx.drawImage(
-        sprite.canvas,
-        Math.floor((PREVIEW_W - sprite.width) / 2),
-        PREVIEW_H - sprite.height - 1,
-      );
+      const x = Math.floor((PREVIEW_W - sprite.width) / 2);
+      const y = PREVIEW_H - sprite.height - 1;
+      pctx.drawImage(sprite.canvas, x, y);
+      if (current.hat) pctx.drawImage(HAT.canvas, x, y - HAT_RISE);
     }
     requestAnimationFrame(draw);
   };
   requestAnimationFrame(draw);
 
-  const update = (look: AvatarLook, items: readonly InventoryItem[]) => {
+  const update = (look: AvatarLook, items: readonly InventoryItem[], canPremium: boolean) => {
     // Se compara el aspecto entero (también las prendas) y el inventario: el
     // estado es inmutable, así que si la lista es el mismo objeto no ha cambiado.
     const key = JSON.stringify(look);
-    if (key === lastLook && items === lastItems) return;
+    if (key === lastLook && items === lastItems && premium === canPremium) return;
     lastLook = key;
     lastItems = items;
     current = look;
+    premium = canPremium;
     buildGarments(look, items);
-    // Marcamos la muestra elegida de cada parte.
+    // Marcamos la muestra elegida de cada parte; las especiales, con candado si aún no se puede.
     for (const part of LOOK_PARTS) {
+      const colors = [...LOOK_COLORS[part], ...PREMIUM_LOOK_COLORS[part]];
       swatchButtons[part].forEach((b, i) => {
-        b.classList.toggle('selected', LOOK_COLORS[part][i] === look[part]);
+        b.classList.toggle('selected', colors[i] === look[part]);
+        const locked = i >= LOOK_COLORS[part].length && !premium;
+        b.disabled = locked;
+        b.title = locked ? 'Se desbloquea en el rango Cowboy del asfalto (nivel 7)' : colors[i];
       });
     }
+    hatButton.disabled = !premium;
+    hatButton.textContent = !premium ? 'Nivel 7' : look.hat ? 'Quitar' : 'Ponérselo';
+    hatButton.title = premium ? '' : 'Se desbloquea en el rango Cowboy del asfalto (nivel 7)';
   };
 
   return { win, update };

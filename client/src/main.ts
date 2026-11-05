@@ -1,9 +1,18 @@
 // Punto de entrada del cliente: crea las piezas y las conecta entre sí.
 import {
+  areaNameAt,
   DEFAULT_LOOK,
+  ECONOMY,
   GAME_NAME,
+  isUnderConstruction,
+  levelOf,
   normalizeLook,
+  perksOf,
+  progressOf,
+  secondsToTicks,
   SCENES,
+  subsidyAmount,
+  subsidyTicksLeft,
   trailerSceneId,
   type AvatarLook,
   type GameState,
@@ -21,17 +30,27 @@ import { DoorStates } from './game/doorStates';
 import { VehicleViews } from './game/vehicleViews';
 import { WALL_HEIGHT } from './sprites/room';
 import { createAvatarEditor } from './ui/avatarEditor';
+import { createBuildWindow } from './ui/buildWindow';
 import { createBusinessWindow } from './ui/businessWindow';
 import { ChatBubbles } from './ui/chatBubbles';
+import { LotSigns } from './ui/lotSigns';
+import { NameTags } from './ui/nameTags';
+import { WorkTags } from './ui/workTags';
+import { LevelUps } from './ui/levelUp';
+import { FurniLabels } from './ui/furniLabels';
+import { createRankWindow } from './ui/rankWindow';
 import { createChatHistory } from './ui/chatHistory';
 import { createFurniPanel } from './ui/furniPanel';
 import { createHud } from './ui/hud';
 import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
+import { createMapWindow } from './ui/mapWindow';
 import { PriceTags } from './ui/priceTags';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
-import { createSupplierWindow } from './ui/supplierWindow';
+import { createVendorWindow } from './ui/vendorWindow';
+import { createBoardWindow } from './ui/boardWindow';
+import { createGasWindow } from './ui/gasWindow';
 import { showToast } from './ui/toast';
 import logoUrl from './assets/pixel-springs-logo.png';
 
@@ -60,6 +79,44 @@ document.title = GAME_NAME;
 const splash = document.querySelector<HTMLDivElement>('#splash')!;
 const splashContent = splash.querySelector<HTMLDivElement>('.splash-content')!;
 const splashStatus = splash.querySelector<HTMLParagraphElement>('.splash-status')!;
+const splashHint = splash.querySelector<HTMLParagraphElement>('.splash-hint')!;
+
+/** Mensajes que van rotando mientras se conecta al servidor (si tarda). */
+const LOADING_MESSAGES = [
+  'Despertando el servidor…',
+  'Hank está abriendo la gasolinera…',
+  'Encendiendo los neones…',
+  'Barriendo la arena de la calle…',
+  'Llenando el depósito del autobús…',
+  'Afinando la máquina de discos…',
+];
+/** A partir de cuándo se nota que tarda (ms) y cada cuánto cambia el mensaje. */
+const SLOW_CONNECT_MS = 4000;
+const MESSAGE_EVERY_MS = 3000;
+
+/**
+ * Mientras se conecta: si tarda, el mensaje va cambiando y aparece una
+ * explicación (el servidor gratuito se duerme cuando no hay nadie y tarda en
+ * despertar). Devuelve una función para pararlo.
+ */
+function startLoadingMessages(): () => void {
+  let index = 0;
+  let rotate: ReturnType<typeof setInterval> | undefined;
+  const slow = setTimeout(() => {
+    splashHint.textContent =
+      'El servidor se echa la siesta cuando no hay nadie. Despertarlo puede tardar hasta un minuto.';
+    splashStatus.textContent = LOADING_MESSAGES[0];
+    rotate = setInterval(() => {
+      index = (index + 1) % LOADING_MESSAGES.length;
+      splashStatus.textContent = LOADING_MESSAGES[index];
+    }, MESSAGE_EVERY_MS);
+  }, SLOW_CONNECT_MS);
+  return () => {
+    clearTimeout(slow);
+    clearInterval(rotate);
+    splashHint.textContent = '';
+  };
+}
 
 // Logo del juego y, debajo, el nombre del sitio donde estás.
 const logo = document.createElement('img');
@@ -82,7 +139,8 @@ const LOOK_STORAGE_KEY = 'pixel-springs:look';
 
 function loadLook(): AvatarLook {
   try {
-    const saved = normalizeLook(JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null'));
+    // Con los especiales: si el rango aún no los permite, el juego los quita al entrar.
+    const saved = normalizeLook(JSON.parse(localStorage.getItem(LOOK_STORAGE_KEY) ?? 'null'), true);
     if (saved) return saved;
   } catch {
     // Sin acceso o datos corruptos: usamos el aspecto por defecto.
@@ -107,9 +165,13 @@ function saveLook(look: AvatarLook): void {
  */
 let connection: Connection;
 splashStatus.textContent = 'Conectando…';
+const stopLoadingMessages = startLoadingMessages();
 try {
   connection = await connect(loadLook(), splashContent);
+  stopLoadingMessages();
 } catch (error) {
+  stopLoadingMessages();
+  splash.classList.add('failed');
   // Si la sesión guardada ya no vale, la borramos para que salga el login.
   if ((error as Error).message === 'Sesión no válida') {
     await signOut();
@@ -144,9 +206,20 @@ const controller = new GameController(
   {
     notify: showToast,
     openRent: (lotId) => {
-      rentWindow.open(lotId);
-      rentWindow.update(state, PLAYER_ID);
+      // Un local construido: en obras no se puede entrar, y cerrado solo lo
+      // abre su dueño.
+      const lot = state.lots[lotId];
+      if (lot && isUnderConstruction(lot, state.tick)) {
+        const minutes = Math.max(1, Math.ceil(((lot.readyAt ?? 0) - state.tick) / secondsToTicks(60)));
+        showToast(`${lot.label} está en obras: faltan ${minutes} min.`);
+      } else if (lot?.builtBy && lot.builtBy !== PLAYER_ID) {
+        showToast(`${lot.label}: local de ${state.progress[lot.builtBy]?.name ?? 'otro vecino'}, ahora cerrado.`);
+      } else {
+        rentWindow.open(lotId);
+        rentWindow.update(state, PLAYER_ID);
+      }
     },
+    openBuild: (solar) => buildWindow.open(solar, state, PLAYER_ID),
     openBusiness: (lotId) => {
       businessWindow.open(lotId);
       businessWindow.update(state, PLAYER_ID);
@@ -155,9 +228,27 @@ const controller = new GameController(
       shopWindow.open(lotId);
       shopWindow.update(state, PLAYER_ID);
     },
-    openSupplier: () => {
-      supplierWindow.open();
-      supplierWindow.update(state, PLAYER_ID);
+    openVendor: (npcId) => {
+      vendorWindow.open(npcId);
+      vendorWindow.update(state, PLAYER_ID);
+    },
+    openGasCounter: () => {
+      gasWindow.open();
+      gasWindow.update(state, PLAYER_ID);
+    },
+    openBoard: () => {
+      boardWindow.open();
+      boardWindow.update(state, PLAYER_ID);
+    },
+    useMachine: (machine) => {
+      const { soda, pinball } = ECONOMY.gasStation;
+      const price = machine === 'soda' ? soda.price : pinball.price;
+      if ((state.money[PLAYER_ID] ?? 0) < price) {
+        showToast(`Necesitas ${ECONOMY.currency}${price}.`);
+        return;
+      }
+      transport.dispatch({ type: machine === 'soda' ? 'BUY_SODA' : 'PLAY_PINBALL', avatarId: PLAYER_ID });
+      if (machine === 'soda') showToast(`Refresco: -${ECONOMY.currency}${price}. ¡Glup!`);
     },
   },
 );
@@ -186,10 +277,21 @@ function playerSceneId(): string {
 
 // --- Interfaz -----------------------------------------------------------------
 
-const wallet = createWallet();
+const rankWindow = createRankWindow();
+const wallet = createWallet(
+  () => transport.dispatch({ type: 'CLAIM_SUBSIDY', avatarId: PLAYER_ID }),
+  () => {
+    rankWindow.open();
+    rankWindow.update(state, PLAYER_ID);
+  },
+);
 const rentWindow = createRentWindow((lotId, business) => {
+  const own = state.lots[lotId]?.builtBy === PLAYER_ID;
   transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
-  showToast('¡Local alquilado! Ya puedes entrar.');
+  showToast(own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.');
+});
+const buildWindow = createBuildWindow((solar) => {
+  transport.dispatch({ type: 'BUILD_LOT', avatarId: PLAYER_ID, solar });
 });
 const businessWindow = createBusinessWindow({
   collectMaterials: (lotId) =>
@@ -198,6 +300,8 @@ const businessWindow = createBusinessWindow({
     transport.dispatch({ type: 'CRAFT', avatarId: PLAYER_ID, lotId, recipe, color }),
   collectCrafted: (lotId) =>
     transport.dispatch({ type: 'COLLECT_CRAFTED', avatarId: PLAYER_ID, lotId }),
+  setWorkshopPublic: (lotId, open) =>
+    transport.dispatch({ type: 'SET_WORKSHOP_PUBLIC', avatarId: PLAYER_ID, lotId, open }),
   listItem: (lotId, itemId, price) =>
     transport.dispatch({ type: 'LIST_ITEM', avatarId: PLAYER_ID, lotId, itemId, price }),
   setPrice: (itemId, price) =>
@@ -209,16 +313,42 @@ const businessWindow = createBusinessWindow({
     transport.dispatch({ type: 'SET_SERVICE_PRICE', avatarId: PLAYER_ID, lotId, price }),
   // Retirar un producto es recogerlo: vuelve al inventario.
   unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
+  // Al cerrar, en cuanto el local quede libre se abre la ventana para alquilar
+  // otro negocio en él (ver refreshUi).
+  closeBusiness: (lotId) => {
+    transport.dispatch({ type: 'CLOSE_BUSINESS', avatarId: PLAYER_ID, lotId });
+    reopenRentFor = lotId;
+  },
+  upgradeLot: (lotId) => transport.dispatch({ type: 'UPGRADE_LOT', avatarId: PLAYER_ID, lotId }),
+  buyDecor: (lotId, defId) => transport.dispatch({ type: 'BUY_DECOR', avatarId: PLAYER_ID, lotId, defId }),
 });
+/** Local recién cerrado por el jugador: al quedar libre, abrimos su ventana de alquiler. */
+let reopenRentFor: string | null = null;
 const shopWindow = createShopWindow((itemId) => {
   const before = state.money[PLAYER_ID];
   transport.dispatch({ type: 'BUY_ITEM', avatarId: PLAYER_ID, itemId });
   if (state.money[PLAYER_ID] !== before) showToast('¡Comprado! Está en tu inventario.');
 });
-const supplierWindow = createSupplierWindow((material, quantity) =>
-  transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+// Lo que compras a un vecino llega con su aviso ("Has comprado..."): no hace falta otro.
+const vendorWindow = createVendorWindow((npcId, defId) =>
+  transport.dispatch({ type: 'BUY_FROM_VENDOR', avatarId: PLAYER_ID, npcId, defId }),
 );
+const gasWindow = createGasWindow({
+  buyMaterial: (material, quantity) =>
+    transport.dispatch({ type: 'BUY_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+  sellMaterial: (material, quantity) =>
+    transport.dispatch({ type: 'SELL_MATERIAL', avatarId: PLAYER_ID, material, quantity }),
+  deliverOrder: (orderId) => transport.dispatch({ type: 'DELIVER_ORDER', avatarId: PLAYER_ID, orderId }),
+  startShift: () => transport.dispatch({ type: 'START_SHIFT', avatarId: PLAYER_ID }),
+  buyScratch: () => transport.dispatch({ type: 'BUY_SCRATCH', avatarId: PLAYER_ID }),
+});
+const boardWindow = createBoardWindow();
 const priceTags = new PriceTags();
+const nameTags = new NameTags();
+const lotSigns = new LotSigns();
+const workTags = new WorkTags();
+const levelUps = new LevelUps();
+const furniLabels = new FurniLabels();
 
 /**
  * Avisos del juego para este jugador ("Has vendido...", "Alquiler...").
@@ -251,7 +381,16 @@ const avatarEditor = createAvatarEditor((look) => {
 const chatHistory = createChatHistory();
 let bubbles: ChatBubbles | null = null;
 
+const mapWindow = createMapWindow((x, y) => controller.walkTo(x, y));
 createHud((text) => transport.dispatch({ type: 'SAY', avatarId: PLAYER_ID, text }), [
+  {
+    label: 'Mapa',
+    onClick: () => {
+      mapWindow.win.toggle();
+      mapWindow.update(state, PLAYER_ID);
+    },
+    hint: 'Mapa del pueblo',
+  },
   { label: 'Inventario', onClick: () => inventory.win.toggle() },
   { label: 'Avatar', onClick: () => avatarEditor.win.toggle(), hint: 'Cambiar tu aspecto' },
   { label: 'Chat', onClick: () => chatHistory.win.toggle(), hint: 'Historial del chat' },
@@ -279,14 +418,29 @@ function refreshUi(): void {
   }
   updateLocationSign();
   inventory.update(state.inventories[PLAYER_ID] ?? []);
-  wallet.update(state.money[PLAYER_ID] ?? 0, state.materials[PLAYER_ID] ?? {});
+  wallet.update({
+    money: state.money[PLAYER_ID] ?? 0,
+    materials: state.materials[PLAYER_ID] ?? {},
+    subsidyTicksLeft: subsidyTicksLeft(state, PLAYER_ID),
+    subsidyAmount: subsidyAmount(state, PLAYER_ID),
+    level: levelOf(state, PLAYER_ID),
+    xp: progressOf(state, PLAYER_ID).xp,
+  });
+  rankWindow.update(state, PLAYER_ID);
+  if (reopenRentFor && state.lots[reopenRentFor]?.ownerId === null) {
+    rentWindow.open(reopenRentFor);
+    reopenRentFor = null;
+  }
   rentWindow.update(state, PLAYER_ID);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
-  supplierWindow.update(state, PLAYER_ID);
+  vendorWindow.update(state, PLAYER_ID);
+  gasWindow.update(state, PLAYER_ID);
+  boardWindow.update(state, PLAYER_ID);
+  mapWindow.update(state, PLAYER_ID);
   showNewNotices();
   const me = state.avatars[PLAYER_ID];
-  if (me) avatarEditor.update(me.look, state.inventories[PLAYER_ID] ?? []);
+  if (me) avatarEditor.update(me.look, state.inventories[PLAYER_ID] ?? [], perksOf(state, PLAYER_ID).premiumLook);
   chatHistory.update(state.messages, sceneId);
   bubbles?.sync(state.messages, sceneId, performance.now());
   furniPanel.show(controller.selected ? (state.furniture[controller.selected] ?? null) : null);
@@ -359,8 +513,18 @@ window.addEventListener('keydown', (e) => {
 
 /** Ajusta la resolución interna del canvas al tamaño de la ventana y al zoom. */
 function resize(): void {
-  canvas.width = Math.floor(window.innerWidth / scale);
-  canvas.height = Math.floor(window.innerHeight / scale);
+  // El canvas mide exactamente `scale` veces su resolución, en las dos
+  // direcciones: así cada píxel del juego es un cuadrado de scale x scale y la
+  // imagen nunca se estira. Redondeamos hacia arriba para cubrir toda la
+  // pantalla (lo que sobra, menos de un píxel del juego, queda fuera).
+  // En el móvil usamos la parte visible (visualViewport): sin la barra del
+  // navegador, la ventana "oficial" es más alta que lo que se ve.
+  const width = window.visualViewport?.width ?? window.innerWidth;
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  canvas.width = Math.ceil(width / scale);
+  canvas.height = Math.ceil(height / scale);
+  canvas.style.width = `${canvas.width * scale}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
   // Al cambiar el tamaño, el contexto se reinicia: hay que volver a desactivar el suavizado.
   ctx.imageSmoothingEnabled = false;
   updateCamera();
@@ -421,6 +585,11 @@ function frame(now: number): void {
   });
   bubbles?.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   priceTags.update(state, sceneId, renderer, canvasToScreen);
+  lotSigns.update(state, sceneId, camera, canvasToScreen, (id) => renderer.furniTop(id));
+  furniLabels.update(state, sceneId, camera, canvasToScreen);
+  nameTags.update(state, sceneId, views, renderer, camera, canvasToScreen, PLAYER_ID);
+  workTags.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
+  levelUps.update(state, sceneId, views, renderer, camera, canvasToScreen, now);
   requestAnimationFrame(frame);
 }
 
@@ -449,7 +618,10 @@ function updateLocationSign(): void {
   const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const forced = clock.isForced ? ` (${PHASE_NAMES[clock.phase()]})` : '';
   // Tu propia caravana se llama "Tu caravana" (para los demás, "Caravana de ...").
-  const name = scene?.id === trailerSceneId(PLAYER_ID) ? 'Tu caravana' : (scene?.name ?? '');
+  // En una plaza, su nombre (está en el mismo mapa que la calle).
+  const me = state.avatars[PLAYER_ID];
+  const area = me && scene?.id === SCENES.street ? areaNameAt(state, me.x, me.y) : null;
+  const name = scene?.id === trailerSceneId(PLAYER_ID) ? 'Tu caravana' : (area ?? scene?.name ?? '');
   locationSign.textContent = `${name} · ${time}${forced}`;
 }
 setInterval(updateLocationSign, 10_000);
@@ -464,6 +636,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', resize);
+// En el móvil, la barra del navegador aparece y desaparece sin cambiar la ventana.
+window.visualViewport?.addEventListener('resize', resize);
 resize();
 refreshUi();
 requestAnimationFrame(frame);

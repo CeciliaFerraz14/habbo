@@ -2,8 +2,20 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Sin zoom de página en el móvil: el juego tiene su propio zoom (botones y pellizco). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Pixel Springs</title>
+    <!-- App instalable: icono y nombre al añadirla a la pantalla de inicio del
+         móvil, y sin barra del navegador al abrirla desde ahí. Los iconos
+         están en public/icons (generados a partir del logo). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#3fb8af" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Pixel Springs" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,9 +33,37 @@
     <!-- Pantalla de carga: se ve mientras se generan los sprites y se conecta.
          main.ts escribe el estado, monta el login dentro y la quita al terminar. -->
     <div id="splash">
+      <!-- Animación de carga, en HTML y CSS para que se mueva desde el primer
+           instante (antes de que cargue el JS): un coche pixelado que cruza
+           el horizonte y un matorral rodante en sentido contrario. -->
+      <div class="splash-road" aria-hidden="true">
+        <svg class="splash-car" viewBox="0 0 16 9" shape-rendering="crispEdges">
+          <rect x="4" y="1" width="7" height="3" fill="#c83c3c" />
+          <rect x="5" y="2" width="2" height="2" fill="#a6e3d4" />
+          <rect x="8" y="2" width="2" height="2" fill="#a6e3d4" />
+          <rect x="1" y="4" width="14" height="2" fill="#c83c3c" />
+          <rect x="1" y="6" width="14" height="1" fill="#8f2b2b" />
+          <rect x="15" y="4" width="1" height="1" fill="#ffe14d" />
+          <rect x="15" y="5" width="1" height="1" fill="#d8dde3" />
+          <rect x="1" y="4" width="1" height="1" fill="#ff4f4f" />
+          <rect x="3" y="7" width="3" height="2" fill="#2a1a14" />
+          <rect x="10" y="7" width="3" height="2" fill="#2a1a14" />
+        </svg>
+        <svg class="splash-weed" viewBox="0 0 7 7" shape-rendering="crispEdges">
+          <rect x="2" y="0" width="3" height="1" fill="#a07a50" />
+          <rect x="1" y="1" width="5" height="1" fill="#8a6a48" />
+          <rect x="0" y="2" width="7" height="3" fill="#a07a50" />
+          <rect x="2" y="3" width="1" height="1" fill="#6a4a30" />
+          <rect x="4" y="2" width="1" height="1" fill="#6a4a30" />
+          <rect x="1" y="5" width="5" height="1" fill="#8a6a48" />
+          <rect x="2" y="6" width="3" height="1" fill="#a07a50" />
+        </svg>
+      </div>
       <img class="splash-logo" src="/src/assets/pixel-springs-logo.png" alt="Pixel Springs" />
       <div class="splash-content">
         <p class="splash-status">Cargando…</p>
+        <div class="splash-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <p class="splash-hint"></p>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

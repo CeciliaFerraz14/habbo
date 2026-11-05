@@ -1,20 +1,30 @@
 // Registro de modelos: relaciona cada mueble (y cada estructura de la calle)
 // del catálogo con su dibujo.
 import type { FurniId } from '@juego/shared';
+import { arcadeCabinet } from '../structures/arcadeCabinet';
 import { barTap } from '../structures/barTap';
 import { barberChair } from '../structures/barberChair';
+import { bus } from '../structures/bus';
 import { car } from '../structures/car';
 import { clothesRack } from '../structures/clothesRack';
 import { cottonBed } from '../structures/cottonBed';
 import { dinerGrill } from '../structures/dinerGrill';
 import { fruitPlanter } from '../structures/fruitPlanter';
 import { fruitStand } from '../structures/fruitStand';
+import { gasCounter } from '../structures/gasCounter';
 import { gasStation } from '../structures/gasStation';
+import { fountain } from '../structures/fountain';
+import { mayorStatue } from '../structures/mayorStatue';
+import { parkBench } from '../structures/parkBench';
+import { minimartShelf } from '../structures/minimartShelf';
+import { noticeBoard } from '../structures/noticeBoard';
 import { saguaro } from '../structures/saguaro';
 import { scrapPile } from '../structures/scrapPile';
 import { sewingMachine } from '../structures/sewingMachine';
 import { shop } from '../structures/shop';
 import { shopCounter } from '../structures/shopCounter';
+import { solar } from '../structures/solar';
+import { sodaMachine } from '../structures/sodaMachine';
 import { streetLamp } from '../structures/streetLamp';
 import { tokenMachine } from '../structures/tokenMachine';
 import { trailer } from '../structures/trailer';
@@ -23,19 +33,55 @@ import { welcomeSign } from '../structures/welcomeSign';
 import { workbench } from '../structures/workbench';
 import { arcadeMachine } from './arcadeMachine';
 import { barCounter } from './barCounter';
+import {
+  barberPole,
+  cashRegister,
+  engineBlock,
+  flowerBox,
+  giftBoxes,
+  hairDryer,
+  handPump,
+  mannequin,
+  menuBoard,
+  neonBurger,
+  oilDrum,
+  oldScale,
+  orangeCrate,
+  pieStand,
+  sawhorse,
+  scarecrow,
+  scrapRobot,
+  seedSacks,
+  standingMirror,
+  toolRack,
+  toolbox,
+  waterBucket,
+  watermelons,
+  windmill,
+} from './businessDecor';
 import { barStool } from './barStool';
 import { beerBarrel } from './beerBarrel';
 import { dartboard } from './dartboard';
+import { bed } from './bed';
+import { cowSkull } from './cowSkull';
 import { dinerBooth } from './dinerBooth';
 import { formicaTable } from './formicaTable';
+import { goldenJukebox } from './goldenJukebox';
 import { jukebox } from './jukebox';
+import { milkshakeMachine } from './milkshakeMachine';
 import type { ModelSource } from './model';
+import { nameSign } from './nameSign';
 import { neonLamp } from './neonLamp';
+import { openSign } from './openSign';
 import { pinball } from './pinball';
 import { pottedCactus } from './pottedCactus';
+import { radio } from './radio';
 import { roadSign } from './roadSign';
+import { rockingChair } from './rockingChair';
+import { sofa } from './sofa';
 import { tire } from './tire';
 import { vintageFridge } from './vintageFridge';
+import { gasPump, lavaLamp, neonCactus, pinkFlamingo, retroTv, wagonWheel } from './vendorItems';
 
 export const MODELS: Record<FurniId, ModelSource> = {
   // Muebles
@@ -53,6 +99,13 @@ export const MODELS: Record<FurniId, ModelSource> = {
   dartboard,
   arcade_machine: arcadeMachine,
   pinball,
+  bed,
+  sofa,
+  radio,
+  rocking_chair: rockingChair,
+  open_sign: openSign,
+  milkshake_machine: milkshakeMachine,
+  cow_skull: cowSkull,
   // Estructuras de la calle
   shop,
   trailer,
@@ -60,6 +113,7 @@ export const MODELS: Record<FurniId, ModelSource> = {
   street_lamp: streetLamp,
   saguaro,
   welcome_sign: welcomeSign,
+  solar,
   // Puestos de trabajo de los negocios
   scrap_pile: scrapPile,
   workbench,
@@ -75,5 +129,52 @@ export const MODELS: Record<FurniId, ModelSource> = {
   sewing_machine: sewingMachine,
   // Expositor de la tienda de ropa
   clothes_rack: clothesRack,
+  // Gasolinera (interior)
+  gas_counter: gasCounter,
+  minimart_shelf: minimartShelf,
+  soda_machine: sodaMachine,
+  arcade_cabinet: arcadeCabinet,
+  notice_board: noticeBoard,
+  // Exclusivos (recompensas de rango) y la estatua del alcalde
+  name_sign: nameSign,
+  golden_jukebox: goldenJukebox,
+  // Decoración de cada negocio
+  oil_drum: oilDrum,
+  engine_block: engineBlock,
+  scrap_robot: scrapRobot,
+  water_bucket: waterBucket,
+  hand_pump: handPump,
+  windmill,
+  seed_sacks: seedSacks,
+  flower_box: flowerBox,
+  scarecrow,
+  toolbox,
+  sawhorse,
+  tool_rack: toolRack,
+  cash_register: cashRegister,
+  gift_boxes: giftBoxes,
+  mannequin,
+  menu_board: menuBoard,
+  pie_stand: pieStand,
+  neon_burger: neonBurger,
+  barber_pole: barberPole,
+  standing_mirror: standingMirror,
+  hair_dryer: hairDryer,
+  orange_crate: orangeCrate,
+  watermelons,
+  old_scale: oldScale,
+  // Exclusivos que venden los vecinos
+  pink_flamingo: pinkFlamingo,
+  lava_lamp: lavaLamp,
+  wagon_wheel: wagonWheel,
+  gas_pump: gasPump,
+  neon_cactus: neonCactus,
+  retro_tv: retroTv,
+  mayor_statue: mayorStatue,
+  // Plazas
+  fountain,
+  park_bench: parkBench,
+  // Vehículos
   car,
+  bus,
 };

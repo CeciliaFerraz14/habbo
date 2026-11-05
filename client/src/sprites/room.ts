@@ -33,6 +33,9 @@ const C = {
   doorKnob: '#f2b134',
   doorway: '#1a1414',
   sidewalk: '#cdbb9c',
+  plazaA: '#dcc8a4',
+  plazaB: '#d0b994',
+  plazaLine: '#b49c78',
   sidewalkLine: '#a8987c',
   asphalt: '#5e5450',
   asphaltLine: '#574d49',
@@ -80,6 +83,18 @@ const THEMES: Record<InteriorTheme, ThemeColors> = {
     wallCap: '#e8d0a8',
     baseboard: '#6e4428',
     plankEvery: 12,
+  },
+  // Minimarket de la gasolinera: azulejo claro, paredes verde agua y rodapié rojo.
+  minimart: {
+    floorA: '#ece6da',
+    floorB: '#c9d3cf',
+    floorLine: '#a8a89c',
+    wallLeft: '#cfe0d8',
+    wallLeftSeam: '#b6c9c0',
+    wallRight: '#dceae4',
+    wallRightSeam: '#c2d4cc',
+    wallCap: '#f6f2e8',
+    baseboard: '#c83c3c',
   },
 };
 
@@ -261,6 +276,8 @@ export interface RoomSprites {
   doorLeftOpen: Sprite;
   doorRightOpen: Sprite;
   sidewalk: Sprite;
+  plazaA: Sprite;
+  plazaB: Sprite;
   asphalt: Sprite;
   asphaltLine: Sprite;
   hover: Sprite;
@@ -288,6 +305,8 @@ export function buildRoomSprites(theme: InteriorTheme = 'adobe'): RoomSprites {
     doorLeftOpen: doorSegment('left', true),
     doorRightOpen: doorSegment('right', true),
     sidewalk: floorTile(C.sidewalk, C.sidewalkLine),
+    plazaA: floorTile(C.plazaA, C.plazaLine),
+    plazaB: floorTile(C.plazaB, C.plazaLine),
     asphalt: floorTile(C.asphalt, C.asphaltLine),
     asphaltLine: roadLineTile(),
     hover: outlineTile(C.hover),

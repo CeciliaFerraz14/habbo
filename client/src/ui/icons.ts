@@ -1,5 +1,5 @@
 // Iconos de muebles y prendas para la interfaz, a partir de sus sprites del juego.
-import { isGarmentDisplay, type FurniId, type Garment, type Product } from '@juego/shared';
+import { isGarmentDisplay, type FurniId, type Garment, type Product, type Rotation } from '@juego/shared';
 import type { Sprite } from '../sprites/canvas';
 import { getGarmentSprite } from '../sprites/avatar';
 import { getFurniSprite } from '../sprites/furniture/bake';
@@ -23,8 +23,8 @@ function spriteIcon(sprite: Sprite, scale = 1): HTMLCanvasElement {
 }
 
 /** Icono de un mueble. */
-export function furniIcon(defId: FurniId): HTMLCanvasElement {
-  return spriteIcon(getFurniSprite(defId, 1).sprite);
+export function furniIcon(defId: FurniId, rotation: Rotation = 1, variant?: string): HTMLCanvasElement {
+  return spriteIcon(getFurniSprite(defId, rotation, 'all', variant).sprite);
 }
 
 /** Icono de una prenda de un tipo y color. */

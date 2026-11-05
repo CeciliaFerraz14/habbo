@@ -11,20 +11,29 @@
 // Al arrancar, el servidor reconstruye el mundo: crea el mundo inicial y le
 // "pega encima" lo guardado (locales, muebles, perfiles, inventarios...).
 //
-// Lo que NO se guarda: NPC, coches y chat (se regeneran solos).
+// Lo que NO se guarda: NPC, coches, chat y lo que llevan en la mano los
+// avatares (se regeneran solos).
 // =============================================================================
 
 import {
+  addBuiltLot,
+  addHome,
   buildingVariant,
   createInitialState,
   createTrailer,
   isGarmentItem,
   lotBuildingId,
   lotSceneName,
+  nextHomeSlot,
   releaseNpcLots,
+  solarOfLot,
+  withStatue,
   type AvatarLook,
   type FurniItem,
   type GameState,
+  type GasPlayerState,
+  type PlayerProgress,
+  type SavedPosition,
   type InventoryItem,
   type Lot,
   type Materials,
@@ -58,6 +67,9 @@ function rowToLot(row: Record<string, any>): Lot {
     jobs: row.jobs ?? [],
     nextProductionAt: Number(row.next_production_at),
     nextRentAt: Number(row.next_rent_at),
+    ...(row.built_by ? { builtBy: row.built_by, readyAt: Number(row.ready_at ?? 0) } : {}),
+    ...(row.level > 1 ? { level: Number(row.level) } : {}),
+    ...(Number(row.upgrade_ready_at ?? 0) > 0 ? { upgradeReadyAt: Number(row.upgrade_ready_at) } : {}),
   };
 }
 
@@ -74,6 +86,10 @@ function lotToRow(lot: Lot) {
     jobs: lot.jobs,
     next_production_at: lot.nextProductionAt,
     next_rent_at: lot.nextRentAt,
+    built_by: lot.builtBy ?? null,
+    ready_at: lot.readyAt ?? 0,
+    level: lot.level ?? 1,
+    upgrade_ready_at: lot.upgradeReadyAt ?? 0,
   };
 }
 
@@ -155,14 +171,36 @@ export class Persistence {
     const profileRows = check(profiles, 'profiles') ?? [];
     const itemRows = check(items, 'inventory_items') ?? [];
 
-    // 1. Reloj y semilla: la simulación continúa donde se quedó.
+    // 1. Reloj y semilla: la simulación continúa donde se quedó. También los
+    //    encargos de Hank y el récord de la máquina recreativa.
     if (worldRow) {
       state = {
         ...state,
         tick: Number(worldRow.tick),
         seed: Number(worldRow.seed),
         nextId: Math.max(state.nextId, Number(worldRow.next_id)),
+        orders: worldRow.gas?.orders ?? [],
+        pinballRecord: worldRow.gas?.pinballRecord ?? null,
+        mayors: worldRow.gas?.mayors ?? [],
       };
+    }
+
+    // 2a. Parcelas: cada jugador tiene la suya en la calle (y, desde el segundo,
+    //     un local nuevo). Se ponen ANTES de cargar los locales, porque crean los
+    //     locales 7, 8... A quien aún no tenga (perfiles de antes de esto), se le
+    //     da la siguiente, por orden de antigüedad.
+    const bySlot = [...profileRows].sort(
+      (a, b) => (a.home_slot ?? Infinity) - (b.home_slot ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)),
+    );
+    for (const p of bySlot) {
+      state = addHome(state, p.id, p.home_slot ?? nextHomeSlot(state));
+    }
+
+    // 2b. Locales construidos en los solares del Ensanche: su edificio, su
+    //     puerta y su interior (el resto del local viene con los demás, abajo).
+    for (const row of lotRows) {
+      const k = solarOfLot(row.id);
+      if (k !== null && row.built_by) state = addBuiltLot(state, k, row.built_by, Number(row.ready_at ?? 0));
     }
 
     // 2. Locales. Si hay locales guardados, los muebles de los locales del
@@ -179,7 +217,7 @@ export class Persistence {
         lotMap[lot.id] = lot;
         // El edificio y el nombre del local se deducen del propio local.
         const building = furniMap[lotBuildingId(lot.id)];
-        if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot) };
+        if (building) furniMap[building.id] = { ...building, variant: buildingVariant(lot, state.tick) };
         if (scenes[lot.id]) scenes[lot.id] = { ...scenes[lot.id], name: lotSceneName(lot) };
       }
     }
@@ -188,12 +226,22 @@ export class Persistence {
     //    muebles iniciales: sus muebles reales vienen de la tabla furniture).
     const money: Record<string, number> = { ...state.money };
     const materials: Record<string, Materials> = { ...state.materials };
+    const subsidies: Record<string, number> = { ...state.subsidies };
+    const gasPlayers: Record<string, GasPlayerState> = { ...state.gasPlayers };
+    const lastPositions: Record<string, SavedPosition> = { ...state.lastPositions };
+    const progress: Record<string, PlayerProgress> = { ...state.progress };
     const inventories: Record<string, InventoryItem[]> = { ...state.inventories };
     const persistence = new Persistence(state);
     for (const p of profileRows) {
       persistence.profiles.set(p.id, { name: p.name, look: p.look });
       money[p.id] = p.money;
       materials[p.id] = p.materials ?? {};
+      subsidies[p.id] = Number(p.next_subsidy_at ?? 0);
+      if (p.last_position?.sceneId) lastPositions[p.id] = p.last_position;
+      // Sin "visto por última vez" (perfiles de antes de esto): cuenta desde ahora.
+      if (p.progress?.xp !== undefined) progress[p.id] = { lastSeen: state.tick, ...p.progress, name: p.name };
+      // Un turno a medias no sobrevive a un reinicio (el jugador no está dentro).
+      if (p.gas_station?.scratchDay !== undefined) gasPlayers[p.id] = { ...p.gas_station, shiftEndsAt: 0 };
       inventories[p.id] = [];
       const trailer = createTrailer(p.id, p.name).scene;
       scenes[trailer.id] = trailer;
@@ -217,7 +265,20 @@ export class Persistence {
       };
     }
 
-    state = { ...state, scenes, furniture: furniMap, lots: lotMap, money, materials, inventories };
+    // La estatua de la calle no se guarda: se pone si hay algún alcalde.
+    state = withStatue({
+      ...state,
+      scenes,
+      furniture: furniMap,
+      lots: lotMap,
+      money,
+      materials,
+      subsidies,
+      gasPlayers,
+      lastPositions,
+      progress,
+      inventories,
+    });
     persistence.saved = state;
     // Mundos guardados de antes de quitar las tiendas NPC: se liberan después de
     // fijar `saved`, así el primer guardado escribe los locales ya reseteados y
@@ -243,9 +304,20 @@ export class Persistence {
     this.saving = true;
     const prev = this.saved;
     try {
-      // Perfiles: jugadores cuyo avatar, dinero o materiales han cambiado.
+      // Perfiles: jugadores cuyo avatar, dinero, materiales, subvención o datos
+      // de la gasolinera han cambiado.
       const changedPlayers = new Set<string>();
-      for (const key of ['avatars', 'money', 'materials', 'inventories'] as const) {
+      for (const key of [
+        'avatars',
+        'money',
+        'materials',
+        'subsidies',
+        'gasPlayers',
+        'lastPositions',
+        'progress',
+        'homes',
+        'inventories',
+      ] as const) {
         for (const id in state[key]) {
           if (isPlayerId(id) && state[key][id] !== prev[key][id]) changedPlayers.add(id);
         }
@@ -262,6 +334,14 @@ export class Persistence {
           look: info.look,
           money: state.money[id] ?? 0,
           materials: state.materials[id] ?? {},
+          next_subsidy_at: state.subsidies[id] ?? 0,
+          gas_station: state.gasPlayers[id] ?? {},
+          progress: state.progress[id] ?? {},
+          home_slot: state.homes[id] ?? null,
+          // Dónde está (si está conectado) o dónde se desconectó.
+          last_position: avatar
+            ? { sceneId: avatar.sceneId, x: avatar.x, y: avatar.y, direction: avatar.direction }
+            : (state.lastPositions[id] ?? null),
           updated_at: new Date().toISOString(),
         }];
       });
@@ -301,6 +381,7 @@ export class Persistence {
           tick: state.tick,
           seed: state.seed,
           next_id: state.nextId,
+          gas: { orders: state.orders, pinballRecord: state.pinballRecord, mayors: state.mayors },
           saved_at: new Date().toISOString(),
         }),
         'world',

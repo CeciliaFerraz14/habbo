@@ -8,6 +8,7 @@
 // - Lo que depende solo del tiempo (cuentas atrás, barras de progreso) se
 //   actualiza en su sitio en cada tick.
 import {
+  buildingVariant,
   CATALOG,
   craftJobInfo,
   DECOR_IDS,
@@ -22,12 +23,21 @@ import {
   getListings,
   hasMaterials,
   isGarmentDisplay,
+  isGarmentItem,
   isKind,
+  isUpgrading,
+  jobOwner,
   listingValue,
+  lotLevel,
   productName,
   secondsToTicks,
   sellsItem,
+  storeListingsMax,
   totalMaterials,
+  upgradeCost,
+  workshopFee,
+  workshopQueueSize,
+  type BusinessDecorId,
   type FacadeId,
   type GameState,
   type GarmentId,
@@ -49,18 +59,32 @@ export interface BusinessActions {
   /** En la tienda de ropa, `color` es el de la prenda. */
   craft: (lotId: string, recipe: RecipeId, color?: string) => void;
   collectCrafted: (lotId: string) => void;
+  /** Taller: abrirlo a todos (pagando) o hacerlo privado. */
+  setWorkshopPublic: (lotId: string, open: boolean) => void;
   listItem: (lotId: string, itemId: string, price: number) => void;
   setPrice: (itemId: string, price: number) => void;
   unlist: (itemId: string) => void;
   setFacade: (lotId: string, facade: FacadeId) => void;
   stockLot: (lotId: string) => void;
   setServicePrice: (lotId: string, price: number) => void;
+  /** Cerrar el negocio (el local vuelve a estar en alquiler). */
+  closeBusiness: (lotId: string) => void;
+  /** Mejorar el local al nivel siguiente. */
+  upgradeLot: (lotId: string) => void;
+  /** Comprar decoración propia del negocio. */
+  buyDecor: (lotId: string, defId: BusinessDecorId) => void;
 }
 
 export interface BusinessWindow {
   open: (lotId: string) => void;
   update: (state: GameState, playerId: string) => void;
 }
+
+/** Tiempo para confirmar "Cerrar el negocio" con un segundo toque (ms). */
+const CLOSE_CONFIRM_MS = 4000;
+
+/** Aumento de la vista previa de la fachada (entero, para que los píxeles no se deformen). */
+const PREVIEW_SCALE = 2;
 
 export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   const win = new PixelWindow({
@@ -87,10 +111,55 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
 
   // --- Fachada (todos los negocios) -------------------------------------------
   /**
-   * Plantillas de fachada: un botón por plantilla con sus dos colores. La
-   * elegida va marcada. El icono del cartel lo pone el tipo de negocio.
+   * Fachada que se está previsualizando (al pasar el ratón por una opción), o
+   * null para ver la actual. Vive fuera de buildFacadePicker para que no se
+   * pierda si la ventana se reconstruye mientras el ratón está encima.
+   */
+  let previewFacade: FacadeId | null = null;
+  /**
+   * ¿Está desplegado el selector de fachada? Plegado por defecto: ocupa mucho
+   * (sobre todo en el móvil) y casi nunca hace falta. Se recuerda mientras la
+   * ventana sigue abierta, aunque se reconstruya.
+   */
+  let facadeOpen = false;
+
+  /**
+   * Plantillas de fachada. Plegadas, solo una línea ("Fachada: Clásica" y el
+   * botón Cambiar). Desplegadas: una vista previa del local, tal como se verá
+   * desde la calle, y un botón por plantilla con sus dos colores. Al pasar el
+   * ratón (o el foco) por una opción, la vista previa la muestra; al hacer
+   * clic se aplica. El icono del cartel lo pone el tipo de negocio.
    */
   const buildFacadePicker = (lot: Lot) => {
+    const header = document.createElement('div');
+    header.className = 'facade-header';
+    const title = text(`Fachada: ${lot.facade ? FACADES[lot.facade].name : '—'}`, 'section-title');
+    const toggle = button('', true, () => {
+      facadeOpen = !facadeOpen;
+      showOpen();
+    });
+    header.append(title, toggle);
+    const panel = document.createElement('div');
+    const showOpen = () => {
+      panel.hidden = !facadeOpen;
+      toggle.textContent = facadeOpen ? 'Ocultar' : 'Cambiar';
+    };
+
+    const preview = document.createElement('div');
+    preview.className = 'facade-preview';
+    const caption = document.createElement('span');
+    caption.className = 'hint';
+    const showPreview = (id: FacadeId | null) => {
+      previewFacade = id;
+      const shown = id ?? lot.facade;
+      // Mismo sprite y rotación que el edificio de la calle, a doble tamaño.
+      const icon = furniIcon('shop', 1, buildingVariant({ ...lot, facade: shown }));
+      icon.style.width = `${icon.width * PREVIEW_SCALE}px`;
+      preview.replaceChildren(icon, caption);
+      caption.textContent =
+        shown && shown !== lot.facade ? `Vista previa: ${FACADES[shown].name}` : 'Fachada actual';
+    };
+
     const row = document.createElement('div');
     row.className = 'facade-picker';
     for (const id of FACADE_IDS) {
@@ -105,14 +174,149 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       swatch.style.background = `linear-gradient(${facade.trim} 50%, ${facade.wall} 50%)`;
       b.append(swatch, facade.name);
       b.addEventListener('click', () => actions.setFacade(lot.id, id));
+      b.addEventListener('mouseenter', () => showPreview(id));
+      b.addEventListener('focus', () => showPreview(id));
+      b.addEventListener('blur', () => showPreview(null));
       row.append(b);
     }
-    win.body.append(text('Fachada:', 'section-title'), row);
+    row.addEventListener('mouseleave', () => showPreview(null));
+    showPreview(previewFacade);
+    panel.append(preview, row);
+    showOpen();
+    win.body.append(header, panel);
+  };
+
+  // --- Cerrar el negocio ------------------------------------------------------
+  /**
+   * Hasta cuándo vale el primer toque de "Cerrar el negocio". Vive fuera del
+   * botón: la ventana se reconstruye a menudo (por ejemplo, al producir) y el
+   * segundo toque tiene que seguir contando como confirmación.
+   */
+  let closeArmedUntil = 0;
+
+  /**
+   * Botón para cerrar el negocio, al final. Pide confirmación (un segundo
+   * toque en unos segundos) para no cerrarlo sin querer.
+   */
+  const buildClose = (lot: Lot) => {
+    const config = ECONOMY.businesses[lot.business!];
+    const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
+    // Un local alquilado pierde su nivel al cerrar; uno construido lo conserva.
+    const losesLevel = !lot.builtBy && (lotLevel(lot) > 1 || isUpgrading(lot));
+    const label = () => (Date.now() < closeArmedUntil ? '¿Seguro? Toca otra vez para cerrar' : 'Cerrar el negocio');
+    const close = button(label(), true, () => {
+      if (Date.now() < closeArmedUntil) {
+        closeArmedUntil = 0;
+        actions.closeBusiness(lot.id);
+        return;
+      }
+      closeArmedUntil = Date.now() + CLOSE_CONFIRM_MS;
+      close.textContent = label();
+      setTimeout(() => (close.textContent = label()), CLOSE_CONFIRM_MS);
+    });
+    close.classList.add('btn-danger');
+    win.body.append(
+      text('Cerrar el negocio', 'section-title'),
+      text(
+        (lot.builtBy
+          ? 'Recuperas los muebles y materiales de dentro. El local (y su nivel) sigue siendo tuyo.'
+          : `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
+            'Luego puedes abrir otro negocio en el mismo local.') +
+          (losesLevel ? ' Ojo: el local vuelve al nivel 1.' : ''),
+      ),
+      close,
+    );
+  };
+
+  // --- Nivel del local ----------------------------------------------------------
+  /** Qué gana cada tipo de negocio con un nivel más. */
+  const levelBenefit = (lot: Lot): string => {
+    const config = ECONOMY.businesses[lot.business!];
+    const { storeListingsPerLevel, workshopQueuePerLevel } = ECONOMY.lotLevels;
+    if (config.service) return 'Un puesto más: atiendes a un cliente más a la vez y paran más viajeros.';
+    if (config.production) return 'Otro puesto de producción: produce y almacena más.';
+    if (config.kind === 'workshop') {
+      return `Otro banco: fabricas un mueble más a la vez y caben ${workshopQueuePerLevel} más en la cola.`;
+    }
+    if (config.kind === 'clothing') {
+      return `Otra máquina: coses una prenda más a la vez, caben ${workshopQueuePerLevel} más en la cola y ${storeListingsPerLevel} huecos de venta más.`;
+    }
+    return `${storeListingsPerLevel} huecos de venta más, y paran más viajeros.`;
+  };
+
+  /**
+   * Nivel del local: estrellas, lo que da el siguiente y el botón de mejorar
+   * (con lo que cuesta), o la cuenta atrás si ya está en obras.
+   */
+  const buildLevel = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
+    const level = lotLevel(lot);
+    const { max } = ECONOMY.lotLevels;
+    const stars = '★'.repeat(level) + '☆'.repeat(max - level);
+    win.body.append(text(`Nivel del local: ${stars} (${level}/${max})`, 'section-title'));
+    if (isUpgrading(lot)) {
+      const countdown = text('');
+      timers.push((tick) => {
+        countdown.textContent = `En obras: sube al nivel ${level + 1} en ${formatTicks(lot.upgradeReadyAt! - tick)}. El negocio sigue abierto.`;
+      });
+      win.body.append(countdown);
+      return;
+    }
+    const cost = upgradeCost(lot);
+    if (!cost) {
+      win.body.append(text('Tu local está al máximo nivel.'));
+      return;
+    }
+    const mine = state.materials[playerId] ?? {};
+    const money = state.money[playerId] ?? 0;
+    const affordable = money >= cost.price && hasMaterials(mine, cost.materials);
+    win.body.append(
+      text(`Nivel ${level + 1}: ${levelBenefit(lot)} Obras: ${Math.round(cost.seconds / 60)} min.`),
+      materialChips(cost.materials, { have: mine }),
+      button(`Mejorar · ${formatMoney(cost.price)}`, inside && affordable, () => actions.upgradeLot(lot.id)),
+    );
+    if (!affordable) win.body.append(text('Te falta dinero o materiales para mejorarlo.'));
+  };
+
+  // --- Decoración del negocio ---------------------------------------------------
+  /**
+   * Muebles propios de este tipo de negocio, para decorar el local. Los de más
+   * nivel salen bloqueados (con el nivel que piden) hasta mejorar el local.
+   */
+  const buildDecor = (lot: Lot, state: GameState, playerId: string) => {
+    const level = lotLevel(lot);
+    const money = state.money[playerId] ?? 0;
+    const owned = (state.inventories[playerId] ?? []).flatMap((i) => (isGarmentItem(i) ? [] : [i.defId]));
+    const list = document.createElement('div');
+    list.className = 'recipes';
+    for (const offer of ECONOMY.businessDecor[lot.business!]) {
+      const row = document.createElement('div');
+      row.className = 'recipe';
+      const name = document.createElement('div');
+      const have = owned.filter((d) => d === offer.defId).length;
+      name.textContent = `${CATALOG[offer.defId].name} · ${formatMoney(offer.price)}${have ? ` (tienes ${have})` : ''}`;
+      const locked = level < offer.minLevel;
+      const buy = button(locked ? `Nivel ${offer.minLevel}` : 'Comprar', !locked && money >= offer.price, () =>
+        actions.buyDecor(lot.id, offer.defId),
+      );
+      if (locked) buy.title = `Mejora el local al nivel ${offer.minLevel} para comprarlo`;
+      row.append(furniIcon(offer.defId), name, buy);
+      list.append(row);
+    }
+    win.body.append(
+      text('Decoración del negocio:', 'section-title'),
+      list,
+      text('Va a tu inventario: colócalo en tu local (o en tu caravana) como cualquier mueble.'),
+    );
   };
 
   // --- Productores (chatarrería, pozo, invernadero) ----------------------------
   const buildProducer = (lot: Lot, inside: boolean, production: ProductionConfig) => {
-    const { output, seconds, storageCap } = production;
+    const level = lotLevel(lot);
+    const { seconds } = production;
+    const storageCap = production.storageCap * level;
+    const output = Object.fromEntries(
+      Object.entries(production.output).map(([m, qty]) => [m, qty * level]),
+    ) as typeof production.output;
     const produced = Object.keys(output) as MaterialId[];
     const countdown = text('');
     timers.push((tick) => {
@@ -140,7 +344,9 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   // --- Tienda ----------------------------------------------------------------
   const buildStore = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const products = getListings(state, lot.id);
-    const full = products.length >= ECONOMY.store.maxListings;
+    // Con el rango de Empresario caben más productos.
+    const maxListings = storeListingsMax(state, playerId, lot);
+    const full = products.length >= maxListings;
 
     // Productos a la venta, con su precio editable.
     const onSale = document.createElement('div');
@@ -170,7 +376,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     // decoración, prendas en la de ropa), agrupado por tipo y color.
     const forSale = document.createElement('div');
     forSale.className = 'recipes';
-    const inventory = state.inventories[playerId] ?? [];
+    // Los exclusivos (recompensas de rango) no se venden.
+    const inventory = (state.inventories[playerId] ?? []).filter((i) => isGarmentItem(i) || !CATALOG[i.defId].exclusive);
     const groups = new Map<string, { product: Product; ids: string[] }>();
     for (const item of inventory) {
       if (!sellsItem(lot, item)) continue;
@@ -211,7 +418,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
 
     const commission = Math.round(ECONOMY.store.commissionRate * 100);
     win.body.append(
-      text(`A la venta (${products.length}/${ECONOMY.store.maxListings}):`, 'section-title'),
+      text(`A la venta (${products.length}/${maxListings}):`, 'section-title'),
       onSale,
       text('Poner a la venta:', 'section-title'),
       forSale,
@@ -268,19 +475,25 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   // --- Fabricación (taller y tienda de ropa) ---------------------------------
-  /** Cola de fabricación con barras de progreso y el botón para recoger lo terminado. */
-  const buildCraftQueue = (lot: Lot, inside: boolean, state: GameState) => {
+  /**
+   * Cola de fabricación con barras de progreso y el botón para recoger lo
+   * terminado. Su dueño ve toda la cola (lo de otros, con su nombre). Quien usa
+   * un taller público ajeno ve solo lo suyo.
+   */
+  const buildCraftQueue = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
+    const isOwner = lot.ownerId === playerId;
+    const shown = isOwner ? lot.jobs : lot.jobs.filter((j) => j.by === playerId);
     const queue = document.createElement('div');
     queue.className = 'queue';
-    if (lot.jobs.length === 0) queue.append(text('Nada en fabricación.'));
-    for (const job of lot.jobs) {
+    if (shown.length === 0) queue.append(text(isOwner ? 'Nada en fabricación.' : 'No tienes nada en fabricación aquí.'));
+    for (const job of shown) {
       const info = craftJobInfo(job);
       if (!info) continue;
       const total = secondsToTicks(info.seconds);
       const row = document.createElement('div');
       row.className = 'queue-row';
       const name = document.createElement('span');
-      name.textContent = info.name;
+      name.textContent = info.name + (isOwner && job.byName ? ` · de ${job.byName}` : '');
       const bar = document.createElement('div');
       bar.className = 'progress';
       const fill = document.createElement('i');
@@ -298,9 +511,11 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
         status.textContent = remaining <= 0 ? '¡Listo!' : remaining > total ? 'En cola' : formatTicks(remaining);
       });
     }
-    const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
+    // Cada uno recoge lo suyo.
+    const done = lot.jobs.filter((j) => j.readyAt <= state.tick && jobOwner(j, lot) === playerId).length;
+    // La cola es la del taller (con el rango de Vecino de su dueño, un hueco más).
     win.body.append(
-      text(`En fabricación (${lot.jobs.length}/${ECONOMY.workshop.queueSize}):`, 'section-title'),
+      text(`En fabricación (${lot.jobs.length}/${workshopQueueSize(state, lot.ownerId!, lot)}):`, 'section-title'),
       queue,
       button(`Recoger (${done})`, inside && done > 0, () => actions.collectCrafted(lot.id)),
     );
@@ -309,7 +524,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   /**
    * Una receta: icono, nombre con su tiempo, materiales que pide (marcando los
    * que te faltan) y el botón "Fabricar", que solo se activa dentro del local,
-   * con hueco en la cola y con los materiales.
+   * con hueco en la cola y con los materiales. `fee`: lo que cuesta en un taller ajeno.
    */
   const recipeRow = (
     icon: HTMLElement,
@@ -318,6 +533,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     have: Materials,
     canCraft: boolean,
     onCraft: () => void,
+    fee = 0,
   ) => {
     const row = document.createElement('div');
     row.className = 'recipe';
@@ -326,34 +542,58 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const name = document.createElement('div');
     name.textContent = label;
     info.append(name, materialChips(materials, { have }));
-    row.append(icon, info, button('Fabricar', canCraft && hasMaterials(have, materials), onCraft));
+    const action = fee > 0 ? `Fabricar · ${formatMoney(fee)}` : 'Fabricar';
+    row.append(icon, info, button(action, canCraft && hasMaterials(have, materials), onCraft));
     return row;
   };
 
+  /** ¿Cabe otro trabajo en la cola, y se puede pedir desde donde está el jugador? */
+  const canQueue = (lot: Lot, inside: boolean, state: GameState) =>
+    inside && lot.jobs.length < workshopQueueSize(state, lot.ownerId!, lot);
+
   // --- Taller ----------------------------------------------------------------
+  /**
+   * El taller. Su dueño fabrica muebles y materiales gratis y decide si es
+   * público. Quien usa un taller público ajeno solo fabrica muebles y paga por cada uno.
+   */
   const buildWorkshop = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const mine = state.materials[playerId] ?? {};
-    const canCraft = inside && lot.jobs.length < ECONOMY.workshop.queueSize;
-    buildCraftQueue(lot, inside, state);
+    const isOwner = lot.ownerId === playerId;
+    const money = state.money[playerId] ?? 0;
+    const canCraft = canQueue(lot, inside, state);
+    if (!isOwner) {
+      win.body.append(
+        text(
+          `Taller de ${lot.ownerName}: fabricas con tus materiales y le pagas un ` +
+            `${Math.round(ECONOMY.workshop.feeRate * 100)} % del valor de cada mueble.`,
+        ),
+      );
+    }
+    buildCraftQueue(lot, inside, state, playerId);
 
     const recipes = document.createElement('div');
     recipes.className = 'recipes';
     for (const defId of DECOR_IDS) {
       const recipe = ECONOMY.recipes[defId];
       const label = `${CATALOG[defId].name} · ${recipe.seconds} s`;
+      // En un taller ajeno, cada mueble cuesta una parte de su valor.
+      const fee = isOwner ? 0 : workshopFee(defId);
       recipes.append(
-        recipeRow(furniIcon(defId), label, recipe.materials, mine, canCraft, () => actions.craft(lot.id, defId)),
+        recipeRow(furniIcon(defId), label, recipe.materials, mine, canCraft && money >= fee, () => actions.craft(lot.id, defId), fee),
       );
     }
-    for (const [material, recipe] of Object.entries(ECONOMY.materialRecipes) as [MaterialId, MaterialRecipe][]) {
-      const label = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
-      recipes.append(
-        recipeRow(materialSwatch(material), label, recipe.materials, mine, canCraft, () =>
-          actions.craft(lot.id, material),
-        ),
-      );
+    if (isOwner) {
+      for (const [material, recipe] of Object.entries(ECONOMY.materialRecipes) as [MaterialId, MaterialRecipe][]) {
+        const label = `${ECONOMY.materials[material].name} x${recipe.quantity} · ${recipe.seconds} s`;
+        recipes.append(
+          recipeRow(materialSwatch(material), label, recipe.materials, mine, canCraft, () =>
+            actions.craft(lot.id, material),
+          ),
+        );
+      }
     }
     win.body.append(text('Recetas:', 'section-title'), recipes);
+    if (isOwner) buildWorkshopFee(lot, inside);
   };
 
   // --- Tienda de ropa ----------------------------------------------------------
@@ -363,8 +603,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
    */
   const buildClothing = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const mine = state.materials[playerId] ?? {};
-    const canCraft = inside && lot.jobs.length < ECONOMY.workshop.queueSize;
-    buildCraftQueue(lot, inside, state);
+    const canCraft = canQueue(lot, inside, state);
+    buildCraftQueue(lot, inside, state, playerId);
 
     // Muestras de color: elegir una solo repinta la muestra elegida y los
     // iconos de las recetas, en su sitio (el resto de la ventana no se toca).
@@ -409,6 +649,21 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     buildStore(lot, inside, state, playerId);
   };
 
+  /** Dueño: abrir el taller a todos (te pagan por mueble) o hacerlo privado. */
+  const buildWorkshopFee = (lot: Lot, inside: boolean) => {
+    const open = lot.price > 0;
+    const rate = Math.round(ECONOMY.workshop.feeRate * 100);
+    win.body.append(
+      text(`Taller ${open ? 'público' : 'privado'}:`, 'section-title'),
+      text(
+        open
+          ? `Otros jugadores pueden fabricar aquí con sus materiales y te pagan un ${rate} % del valor de cada mueble.`
+          : 'Ahora solo lo usas tú. Ábrelo para que otros puedan fabricar aquí pagándote.',
+      ),
+      button(open ? 'Hacerlo privado' : 'Abrir a todos', inside, () => actions.setWorkshopPublic(lot.id, !open)),
+    );
+  };
+
   const update = (state: GameState, playerId: string) => {
     if (!win.isOpen || !lotId) return;
     const lot = state.lots[lotId];
@@ -417,8 +672,10 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
       return;
     }
     const inside = state.avatars[playerId]?.sceneId === lot.id;
-    // Al salir del local, la ventana del negocio se cierra sola.
-    if (!inside) {
+    // Al salir del local, la ventana del negocio se cierra sola. Y quien no es
+    // el dueño solo puede verla en un taller público (para usarlo).
+    const isOwner = lot.ownerId === playerId;
+    if (!inside || (!isOwner && !(lot.business === 'workshop' && lot.price > 0))) {
       win.close();
       return;
     }
@@ -428,20 +685,30 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const done = lot.jobs.filter((j) => j.readyAt <= state.tick).length;
     const listings = getListings(state, lot.id);
     const inventory = state.inventories[playerId] ?? [];
-    const next = JSON.stringify([lot, mine, inside, done, listings, inventory]);
+    // (El dinero y los materiales cuentan también para el botón de mejorar.)
+    const next = JSON.stringify([lot, mine, inside, done, listings, inventory, state.money[playerId]]);
     if (next !== signature) {
       signature = next;
       timers = [];
       const config = ECONOMY.businesses[lot.business];
-      win.setTitle(`${config.name} · ${lot.label}`);
+      win.setTitle(isOwner ? `${config.name} · ${lot.label}` : `Taller de ${lot.ownerName} · ${lot.label}`);
       win.body.replaceChildren();
+      // Quien usa un taller ajeno solo ve el taller (ni fachada ni cerrar).
+      if (!isOwner) {
+        buildWorkshop(lot, inside, state, playerId);
+        for (const timer of timers) timer(state.tick);
+        return;
+      }
       buildFacadePicker(lot);
       if (config.production) buildProducer(lot, inside, config.production);
       else if (config.service) buildService(lot, inside, state, playerId, config.service);
       else if (config.kind === 'workshop') buildWorkshop(lot, inside, state, playerId);
       else if (config.kind === 'clothing') buildClothing(lot, inside, state, playerId);
       else buildStore(lot, inside, state, playerId);
+      buildLevel(lot, inside, state, playerId);
+      buildDecor(lot, state, playerId);
       if (!inside) win.body.append(text('Entra en el local para gestionarlo.'));
+      buildClose(lot);
     }
     for (const timer of timers) timer(state.tick);
   };
@@ -450,6 +717,8 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     open(id) {
       lotId = id;
       signature = '';
+      // Cada vez que se abre, la fachada empieza plegada.
+      facadeOpen = false;
       win.open();
     },
     update,

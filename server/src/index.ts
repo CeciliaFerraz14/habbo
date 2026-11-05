@@ -53,7 +53,9 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   const { id, name } = socket.data.identity as PlayerIdentity;
   // El cliente propone su aspecto, pero solo aceptamos colores permitidos.
-  const look = normalizeLook(socket.handshake.auth?.look) ?? DEFAULT_LOOK;
+  // Aceptamos también los colores especiales: al entrar (JOIN), el juego le
+  // quita lo que su rango aún no permite.
+  const look = normalizeLook(socket.handshake.auth?.look, true) ?? DEFAULT_LOOK;
 
   const avatar: Avatar = {
     id,

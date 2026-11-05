@@ -5,6 +5,15 @@ const root = () => document.querySelector<HTMLDivElement>('#ui')!;
 /** Cada ventana que se toca pasa por encima de las demás. */
 let topZ = 10;
 
+/** Distancia mínima entre una ventana y el borde de la pantalla. */
+const SCREEN_MARGIN = 8;
+
+/** Ventanas abiertas, para volver a encajarlas si cambia el tamaño de la pantalla. */
+const openWindows = new Set<PixelWindow>();
+window.addEventListener('resize', () => {
+  for (const win of openWindows) win.fitToScreen();
+});
+
 export interface WindowOptions {
   title: string;
   /** Posición inicial en píxeles desde la esquina superior izquierda. */
@@ -67,11 +76,27 @@ export class PixelWindow {
 
   open(): void {
     this.el.hidden = false;
+    openWindows.add(this);
     this.bringToFront();
+    this.fitToScreen();
   }
 
   close(): void {
     this.el.hidden = true;
+    openWindows.delete(this);
+  }
+
+  /**
+   * Mueve la ventana lo justo para que quepa entera en la pantalla. Su alto
+   * máximo lo limita el CSS (si el contenido no cabe, se hace scroll dentro).
+   */
+  fitToScreen(): void {
+    const maxX = Math.max(SCREEN_MARGIN, window.innerWidth - this.el.offsetWidth - SCREEN_MARGIN);
+    const maxY = Math.max(SCREEN_MARGIN, window.innerHeight - this.el.offsetHeight - SCREEN_MARGIN);
+    const x = Math.min(Math.max(this.el.offsetLeft, SCREEN_MARGIN), maxX);
+    const y = Math.min(Math.max(this.el.offsetTop, SCREEN_MARGIN), maxY);
+    this.el.style.left = `${x}px`;
+    this.el.style.top = `${y}px`;
   }
 
   toggle(): void {

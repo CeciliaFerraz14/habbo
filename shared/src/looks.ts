@@ -14,6 +14,17 @@ export const LOOK_COLORS: Record<LookPart, readonly string[]> = {
   pants: ['#3050a0', '#2a2a3a', '#8a5a34', '#c9a77a', '#5e5450', '#a83850'],
 };
 
+/**
+ * Colores especiales que se desbloquean con el rango Cowboy del asfalto (junto
+ * con el sombrero). La piel no tiene especiales.
+ */
+export const PREMIUM_LOOK_COLORS: Record<LookPart, readonly string[]> = {
+  hair: ['#d8dde3', '#7b3fa0', '#39e6ff', '#ffe14d'],
+  skin: [],
+  shirt: ['#ffe14d', '#ff4fa3', '#1a1f3a', '#39e6ff'],
+  pants: ['#d8dde3', '#c83c3c', '#2f8f8a'],
+};
+
 /** Las partes del avatar que se pueden cambiar, en el orden en que se muestran. */
 export const LOOK_PARTS = Object.keys(LOOK_COLORS) as LookPart[];
 
@@ -35,27 +46,47 @@ export const DEFAULT_LOOK: AvatarLook = {
   pants: '#3050a0',
 };
 
+/** ¿Este color está permitido para esta parte? (`premium`: con los especiales). */
+function allowedColor(part: LookPart, color: string, premium: boolean): boolean {
+  return LOOK_COLORS[part].includes(color) || (premium && PREMIUM_LOOK_COLORS[part].includes(color));
+}
+
 /**
  * Comprueba un aspecto que viene del cliente y devuelve una copia limpia, o
  * null si no vale. Vale si todos los colores están entre los permitidos y, si
  * lleva ropa, cada prenda existe, va en su ranura y tiene un color de
- * GARMENT_COLORS. No nos fiamos de su forma: la copia solo lleva los campos
- * conocidos, así nadie cuela datos de más que luego se envían a todos y se
- * guardan. Aquí no se mira si las prendas son suyas (eso lo hace
+ * GARMENT_COLORS. Con `premium` (rango Cowboy del asfalto) valen también los
+ * colores especiales y el sombrero. No nos fiamos de su forma: la copia solo
+ * lleva los campos conocidos, así nadie cuela datos de más que luego se envían
+ * a todos y se guardan. Aquí no se mira si las prendas son suyas (eso lo hace
  * dropUnownedOutfit).
  */
-export function normalizeLook(look: unknown): AvatarLook | null {
+export function normalizeLook(look: unknown, premium = false): AvatarLook | null {
   if (!isRecord(look)) return null;
+  if (look.hat && !premium) return null;
   const clean = {} as AvatarLook;
   for (const part of LOOK_PARTS) {
     const color = look[part];
-    if (typeof color !== 'string' || !LOOK_COLORS[part].includes(color)) return null;
+    if (typeof color !== 'string' || !allowedColor(part, color, premium)) return null;
     clean[part] = color;
   }
+  if (look.hat) clean.hat = true;
   if (look.outfit === undefined) return clean;
   const outfit = normalizeOutfit(look.outfit);
   if (!outfit) return null;
   return withOutfit(clean, outfit);
+}
+
+/**
+ * El mismo aspecto, sin lo que no puede llevar: si no tiene el rango, los
+ * colores especiales vuelven a los de por defecto y se quita el sombrero. Las
+ * prendas no dependen del rango: se quedan.
+ */
+export function sanitizeLook(look: AvatarLook, premium: boolean): AvatarLook {
+  const clean: AvatarLook = { ...DEFAULT_LOOK };
+  for (const part of LOOK_PARTS) if (allowedColor(part, look[part], premium)) clean[part] = look[part];
+  if (premium && look.hat) clean.hat = true;
+  return withOutfit(clean, look.outfit ?? {});
 }
 
 function normalizeOutfit(outfit: unknown): Outfit | null {

@@ -29,7 +29,13 @@ Abre http://localhost:5173
 ## Cómo se juega
 
 1. Empiezas en **tu caravana** con 500 $ y unos muebles. Sal por la puerta a la **Calle Mayor**.
-2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio:
+   Cada jugador nuevo hace crecer el pueblo: recibe su parcela con **su caravana**
+   (con su nombre encima; cualquiera puede entrar de visita) y un **local nuevo**,
+   en las **plazas** que hay al otro lado de la carretera, en el mismo mapa (con
+   fuente y bancos para sentarse). Caben 4 parcelas por plaza; cuando se llena,
+   se abre la siguiente a su derecha.
+2. Haz clic en un **local con tablones** para alquilarlo y elige el negocio (puedes
+   tener los que puedas pagar). Si dejas de entrar 7 días, el local se libera:
    - **Chatarrería**: produce chapa, madera vieja y neumáticos cada pocos segundos.
    - **Pozo**: produce agua.
    - **Invernadero**: produce fruta.
@@ -55,8 +61,18 @@ Abre http://localhost:5173
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
-6. También puedes comprar materiales en la **gasolinera** (proveedor) y muebles en
-   las tiendas de otros jugadores.
+   Para no quedarte nunca a cero, una vez al día puedes recoger la **subvención
+   del pueblo** con el botón de la cartera (no se acumula si no la recoges).
+6. Al final de la calle está la **gasolinera de Hank**. Dentro:
+   - En el **mostrador**: comprar y vender materiales (con una oferta distinta
+     cada día), los **encargos** de Hank (muebles que paga por encima de su
+     valor; el primero que los entrega se lo lleva), **turnos** en la caja
+     (sueldo más propinas por cada coche que reposta) y **rasca y gana**.
+   - La **máquina de refrescos** (tu avatar lleva la lata en la mano un rato),
+     la **máquina recreativa** (con récord del pueblo) y el **tablón de
+     anuncios**, con todos los negocios, los encargos y la oferta del día.
+   - De vez en cuando para un **autobús de turistas** y bajan varios viajeros a la vez.
+   Los muebles también se compran en las tiendas de otros jugadores.
 7. Decora tu caravana con lo que compres o fabriques.
 8. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
    te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
@@ -97,18 +113,23 @@ escriben en segundos.
 | Cuánto cabe en el almacén de un servicio y límites de precio | `services` |
 | Nombre y colores de las plantillas de fachada | `FACADES` (el dibujo, en `client/src/sprites/structures/shop.ts`) |
 | Cada cuánto se cobra el alquiler | `rent.periodSeconds` |
+| Cuánto da la subvención del pueblo y cada cuánto | `subsidy` |
 | Recetas del taller (materiales y tiempo): muebles y fichas | `recipes`, `materialRecipes` |
 | Recetas de la tienda de ropa (tela y tiempo de cada prenda) | `garmentRecipes` |
 | Valor de referencia de cada mueble y de cada prenda | `baseValue`, `garmentValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
-| Precios del proveedor de materiales | `supplier` |
+| Precios del proveedor, lo que paga al comprarte y la oferta del día | `supplier` |
+| Encargos de Hank, turnos, rasca y gana, máquinas, coches que repostan y autobús | `gasStation` |
 | Frecuencia de coches, probabilidad de parar y forma de comprar de los viajeros | `travelers` |
 
 Cómo fluye el dinero:
 
 - **Entra** con los **viajeros**: traen dinero de fuera y lo gastan en las tiendas.
-- **Sale** con el **alquiler** de los locales, la **comisión** de cada venta y las
-  compras al **proveedor** de materiales.
+  También con la **subvención** diaria, los **encargos** y **turnos** de la
+  gasolinera y lo que paga el proveedor por tus materiales.
+- **Sale** con el **alquiler** de los locales, la **comisión** de cada venta, las
+  compras al **proveedor** de materiales, el **rasca y gana** (de media devuelve
+  menos de lo que cuesta) y las máquinas de la gasolinera.
 - **Circula** entre jugadores cuando unos compran a otros.
 
 Pistas para equilibrar:

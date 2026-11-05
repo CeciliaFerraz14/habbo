@@ -1,0 +1,111 @@
+// Tablón de anuncios de la gasolinera: lo que pasa en el pueblo de un vistazo.
+// Negocios abiertos (y quién los lleva), locales en alquiler, encargos de
+// Hank, la oferta del día y el récord de la máquina recreativa.
+import {
+  CATALOG,
+  ECONOMY,
+  getListings,
+  isUnderConstruction,
+  rankOf,
+  SCENES,
+  topPlayers,
+  type GameState,
+  type Lot,
+} from '@juego/shared';
+import { formatMoney } from './economyUi';
+import { dealText } from './gasWindow';
+import { PixelWindow } from './window';
+
+export interface BoardWindow {
+  open: () => void;
+  update: (state: GameState, playerId: string) => void;
+}
+
+/** Una línea del tablón sobre un local. */
+function lotLine(state: GameState, lot: Lot): string {
+  if (lot.builtBy && !lot.business) {
+    const name = state.progress[lot.builtBy]?.name ?? 'un vecino';
+    return `${lot.label} · local de ${name}, ${isUnderConstruction(lot, state.tick) ? 'en obras' : 'cerrado'}`;
+  }
+  if (!lot.business || !lot.ownerName) {
+    const cheapest = Math.min(...Object.values(ECONOMY.businesses).map((b) => b.deposit));
+    return `${lot.label} · En alquiler (desde ${formatMoney(cheapest)})`;
+  }
+  const config = ECONOMY.businesses[lot.business];
+  const head = `${lot.label} · ${config.name} de ${lot.ownerName}`;
+  if (config.service) return `${head} · ${config.service.name} ${formatMoney(lot.price)}`;
+  if (config.kind === 'workshop') {
+    const rate = Math.round(ECONOMY.workshop.feeRate * 100);
+    return lot.price > 0 ? `${head} · abierto a todos (un ${rate} % del valor de cada mueble)` : `${head} · privado`;
+  }
+  if (config.kind === 'store' || config.kind === 'clothing') {
+    const listings = getListings(state, lot.id);
+    if (listings.length === 0) return `${head} · sin género`;
+    const cheapest = Math.min(...listings.map((l) => l.price ?? 0));
+    return `${head} · ${listings.length} productos desde ${formatMoney(cheapest)}`;
+  }
+  return head;
+}
+
+export function createBoardWindow(): BoardWindow {
+  const win = new PixelWindow({
+    title: 'Tablón del pueblo',
+    x: 24,
+    y: 110,
+    width: 420,
+  });
+  let signature = '';
+
+  const section = (title: string, lines: string[]) => {
+    const h = document.createElement('p');
+    h.className = 'section-title';
+    h.textContent = title;
+    const list = document.createElement('ul');
+    list.className = 'board-list';
+    for (const line of lines) {
+      const li = document.createElement('li');
+      li.textContent = line;
+      list.append(li);
+    }
+    win.body.append(h, list);
+  };
+
+  const update = (state: GameState, playerId: string) => {
+    if (!win.isOpen) return;
+    if (state.avatars[playerId]?.sceneId !== SCENES.gas) {
+      win.close();
+      return;
+    }
+    const lots = Object.values(state.lots);
+    const lines = lots.map((lot) => lotLine(state, lot));
+    const orders = state.orders.map(
+      (o) => `${o.quantity} × ${CATALOG[o.defId].name} · paga ${formatMoney(o.reward)}`,
+    );
+    const record = state.pinballRecord;
+    const top = topPlayers(state).map((p, i) => `${i + 1}. ${p.name} · nivel ${p.level} (${rankOf(p.level).name})`);
+    const next = JSON.stringify([lines, orders, dealText(state.tick), record, top]);
+    if (next === signature) return;
+    signature = next;
+
+    win.body.replaceChildren();
+    section('Negocios', lines);
+    section('Solares en el Ensanche', [
+      `Construye tu propio local al final de la Calle Mayor: ${formatMoney(ECONOMY.building.price)}, ` +
+        `${ECONOMY.building.materials.sheet_metal} de chapa y ${ECONOMY.building.materials.old_wood} de madera vieja.`,
+    ]);
+    section('Encargos de Hank', orders.length > 0 ? orders : ['Ninguno ahora mismo.']);
+    section('Oferta de hoy en el mostrador', [dealText(state.tick)]);
+    section('Vecinos de más rango', top.length > 0 ? top : ['Todavía nadie.']);
+    section('Récord de la máquina recreativa', [
+      record ? `${record.name}: ${record.score.toLocaleString('es-ES')} puntos` : 'Nadie ha jugado todavía.',
+    ]);
+  };
+
+  return {
+    open() {
+      signature = '';
+      win.open();
+    },
+    update,
+  };
+}

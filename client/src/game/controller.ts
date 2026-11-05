@@ -9,8 +9,10 @@ import {
   canEditScene,
   canPlaceFurni,
   CATALOG,
+  createWalkableCheck,
   ECONOMY,
   footprintContains,
+  furnitureInScene,
   getDoorAt,
   getFootprint,
   isDoorLocked,
@@ -18,6 +20,7 @@ import {
   isInsideScene,
   lotOfStation,
   sellsProducts,
+  solarOf,
   type Door,
   type FurniId,
   type GameState,
@@ -46,12 +49,20 @@ export interface ControllerEvents {
   notify: (message: string) => void;
   /** Abre la ventana para alquilar un local libre. */
   openRent: (lotId: string) => void;
+  /** Abre la ventana de un solar en venta, para construir en él. */
+  openBuild: (solar: number) => void;
   /** Abre la ventana de gestión de un negocio. */
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
   openShop: (lotId: string) => void;
-  /** Abre el proveedor de materiales de la gasolinera. */
-  openSupplier: () => void;
+  /** Abre el mostrador de Hank (proveedor, encargos, trabajo, rasca y gana). */
+  openGasCounter: () => void;
+  /** Abre la ventana de un vecino que vende exclusivos. */
+  openVendor: (npcId: string) => void;
+  /** Abre el tablón de anuncios de la gasolinera. */
+  openBoard: () => void;
+  /** Usa una máquina de la gasolinera: compra un refresco o echa una partida. */
+  useMachine: (machine: 'soda' | 'pinball') => void;
 }
 
 export class GameController {
@@ -226,7 +237,19 @@ export class GameController {
       return;
     }
 
-    // 3. ¿Clic sobre un mueble? Lo seleccionamos. Si es sentable o pisable,
+    // 3. ¿Clic en un vecino que vende exclusivos? Vamos a su lado y abrimos
+    //    su ventana (él se queda quieto mientras estemos cerca).
+    if (picked?.kind === 'vendor') {
+      this.select(null);
+      const npc = state.avatars[picked.avatarId];
+      if (!npc) return;
+      const beside = this.besideOf(npc);
+      if (beside) this.moveTo(beside);
+      this.events.openVendor(npc.id);
+      return;
+    }
+
+    // 4. ¿Clic sobre un mueble? Lo seleccionamos. Si es sentable o pisable,
     //    además caminamos hasta él (y si es una silla, nos sentamos).
     if (picked?.kind === 'furni') {
       const item = state.furniture[picked.item.id];
@@ -248,14 +271,23 @@ export class GameController {
           const service = lot?.business ? ECONOMY.businesses[lot.business].service : undefined;
           if (lot?.ownerId === this.playerId) this.events.openBusiness(lotId);
           else if (sellsProducts(lot)) this.events.openShop(lotId);
+          // Taller ajeno: si es público, se puede usar pagando (la misma ventana, en modo cliente).
+          else if (lot?.business === 'workshop' && lot.price > 0) this.events.openBusiness(lotId);
+          else if (lot?.business === 'workshop') this.events.notify('Este taller es privado: solo lo usa su dueño.');
           else if (service) this.events.notify(`${service.name}: ${ECONOMY.currency}${lot!.price}. Solo para viajeros.`);
           else this.events.notify('Este negocio no es tuyo.');
           return;
         }
-        // La gasolinera es el proveedor de materiales.
-        if (item.defId === 'gas_station') {
-          this.events.openSupplier();
-          return;
+        // Dentro de la gasolinera: el mostrador, el tablón y las máquinas.
+        if (item.defId === 'gas_counter') return this.events.openGasCounter();
+        if (item.defId === 'notice_board') return this.events.openBoard();
+        if (item.defId === 'soda_machine') return this.events.useMachine('soda');
+        if (item.defId === 'arcade_cabinet') return this.events.useMachine('pinball');
+        // Solar en venta: vamos delante del cartel y abrimos su ventana.
+        const solar = solarOf(item.id);
+        if (solar !== null) {
+          this.moveTo({ x: item.x + 2, y: item.y + 5 });
+          return this.events.openBuild(solar);
         }
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
@@ -281,7 +313,7 @@ export class GameController {
       return;
     }
 
-    // 4. Clic en el suelo: deseleccionamos y caminamos (si es una puerta de
+    // 5. Clic en el suelo: deseleccionamos y caminamos (si es una puerta de
     //    la calle, al llegar cambiaremos de escena).
     this.select(null);
     const scene = this.scene;
@@ -302,6 +334,41 @@ export class GameController {
       return;
     }
     this.moveTo(door);
+  }
+
+  /**
+   * Ir andando a una baldosa de la escena en la que está el jugador (desde el
+   * mapa del pueblo): si es un edificio con puerta, hasta la puerta (y se
+   * entra); si es una puerta, igual; si no, hasta la baldosa.
+   */
+  walkTo(x: number, y: number): void {
+    const scene = this.scene;
+    if (!scene || !isInsideScene(scene, x, y)) return;
+    this.select(null);
+    const building = furnitureInScene(this.getState(), scene.id).find((f) =>
+      footprintContains(getFootprint(f), x, y),
+    );
+    const door = building
+      ? scene.doors.find((d) => d.buildingId === building.id)
+      : getDoorAt(scene, x, y);
+    if (door) this.goToDoor(door);
+    else this.moveTo({ x, y });
+  }
+
+  /** Baldosa libre junto a alguien, la más cercana al jugador (o null si no hay). */
+  private besideOf(target: Point): Point | null {
+    const state = this.getState();
+    const player = state.avatars[this.playerId];
+    if (!player) return null;
+    const walkable = createWalkableCheck(state, player.sceneId);
+    const around = [
+      { x: target.x + 1, y: target.y },
+      { x: target.x, y: target.y + 1 },
+      { x: target.x - 1, y: target.y },
+      { x: target.x, y: target.y - 1 },
+    ].filter((t) => walkable(t.x, t.y));
+    const dist = (t: Point) => Math.abs(t.x - player.x) + Math.abs(t.y - player.y);
+    return around.sort((a, b) => dist(a) - dist(b))[0] ?? null;
   }
 
   /** ¿Puede el jugador decorar la escena en la que está? */

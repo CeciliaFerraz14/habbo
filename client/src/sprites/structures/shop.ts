@@ -4,11 +4,13 @@
 //
 // La variante (ver buildingVariant() en shared/economy.ts) tiene la forma:
 //   'closed'                                tablones, cartel apagado
-//   'open:<neón>:<fachada>:<negocio>'       abierto, con su plantilla y su icono
+//   'open:<neón>:<fachada>:<negocio>:<nivel>' abierto, con su plantilla, su icono
+//                                           y una estrella por nivel en el remate
 // y el renderer le añade '+door' mientras la puerta está abierta (animación).
 import { FACADES, type BusinessType, type FacadeConfig } from '@juego/shared';
 import { box, glow, type Box, type FurniModel } from '../furniture/model';
 import { PALETTE } from '../palette';
+import { SHOP_LOGOS } from './shopLogos';
 
 const BACK_WALL = '#d9b88a';
 const ROOF = '#a8825a';
@@ -18,6 +20,15 @@ const GLASS = '#a6e3d4';
 const DARK = '#1a1414';
 const CREAM = '#f6e7c8';
 const CHROME = '#d8dde3';
+/** Fondo del cartel cuando el local está abierto (oscuro, para que brille el neón). */
+const SIGN_DARK = '#2a2030';
+
+/**
+ * Placa del dueño: franja crema entre el escaparate y el cartel, en el plano
+ * x = 62..63, y de 8 a 56, z de 35 a 43. El nombre lo escribe encima la
+ * interfaz (ui/lotSigns.ts), que usa estas mismas medidas.
+ */
+export const OWNER_PLATE = { x: 63, y0: 8, y1: 56, z0: 35, z1: 43 };
 
 interface ShopLook {
   open: boolean;
@@ -26,11 +37,13 @@ interface ShopLook {
   facade: FacadeConfig;
   facadeId: string;
   business: BusinessType | undefined;
+  /** Nivel del local (1..3): una estrella dorada por nivel encima del remate. */
+  level: number;
 }
 
 function parseVariant(variant: string | undefined): ShopLook {
   const [base, flags = ''] = (variant ?? 'closed').split('+');
-  const [status, neon = PALETTE.neonPink, facadeId = 'classic', business] = base.split(':');
+  const [status, neon = PALETTE.neonPink, facadeId = 'classic', business, level = '1'] = base.split(':');
   return {
     open: status === 'open',
     doorOpen: flags.includes('door'),
@@ -38,10 +51,12 @@ function parseVariant(variant: string | undefined): ShopLook {
     facadeId,
     facade: FACADES[facadeId as keyof typeof FACADES] ?? FACADES.classic,
     business: business as BusinessType | undefined,
+    level: Math.max(1, Number(level) || 1),
   };
 }
 
 export function shop(variant: string | undefined): FurniModel {
+  if (variant === 'construction') return construction();
   const look = parseVariant(variant);
   const { open, facade } = look;
   // Las piezas de neón: apagadas son tubos grises; encendidas, dan luz.
@@ -52,15 +67,17 @@ export function shop(variant: string | undefined): FurniModel {
     // Edificio de detrás y su tejado plano
     box(0, 2, 0, 56, 62, 44, BACK_WALL),
     box(0, 2, 44, 56, 62, 47, ROOF),
-    // Fachada falsa y su remate, con los colores de la plantilla
-    box(56, 0, 0, 62, 64, 66, open ? facade.wall : '#c9a77a'),
-    box(56, 0, 66, 63, 64, 69, open ? facade.trim : '#8a5a34'),
-    // Cartel encima de la puerta, con su marco de neón
-    box(62, 6, 40, 64, 58, 60, open ? CREAM : '#a89880'),
-    neon(64, 8, 57, 65, 56, 58),
-    neon(64, 8, 42, 65, 56, 43),
-    neon(64, 8, 43, 65, 9, 57),
-    neon(64, 55, 43, 65, 56, 57),
+    // Fachada falsa (bien alta, como en los pueblos del Oeste) y su remate,
+    // con los colores de la plantilla
+    box(56, 0, 0, 62, 64, 82, open ? facade.wall : '#c9a77a'),
+    box(56, 0, 82, 63, 64, 85, open ? facade.trim : '#8a5a34'),
+    // Cartel grande encima de la puerta (y de la placa del dueño), con su marco
+    // de neón. Abierto es oscuro, como un cartel de neón de verdad: el logo resalta.
+    box(62, 2, 44, 64, 62, 80, open ? SIGN_DARK : '#a89880'),
+    neon(64, 3, 77, 65, 61, 78),
+    neon(64, 3, 46, 65, 61, 47),
+    neon(64, 3, 47, 65, 4, 77),
+    neon(64, 60, 47, 65, 61, 77),
     ...doorBoxes(look),
   ];
 
@@ -68,9 +85,35 @@ export function shop(variant: string | undefined): FurniModel {
     boxes.push(...closedFront());
     return { boxes };
   }
-  boxes.push(...templateFront(look), ...businessIcon(look.business, neon));
+  const plate = OWNER_PLATE;
+  boxes.push(
+    ...templateFront(look),
+    box(plate.x - 1, plate.y0, plate.z0, plate.x, plate.y1, plate.z1, CREAM),
+    ...logoBoxes(look.business, look.neon),
+    ...levelStars(look.level),
+  );
   // Abierto, el neón tiñe la acera delante de la fachada.
   return { boxes, light: { color: look.neon, radius: 36, dx: 2.4 } };
+}
+
+/**
+ * Estrellas del nivel del local, centradas sobre el remate de la fachada: una
+ * por nivel, doradas y con luz (se ven de noche). Cada estrella es una cruz
+ * de cajitas de 5x5 (en y) por 6 px de alto (en z).
+ */
+function levelStars(level: number): Box[] {
+  const GOLD = '#ffd23f';
+  const STEP = 10;
+  const first = 32 - ((level - 1) * STEP) / 2;
+  const boxes: Box[] = [];
+  for (let i = 0; i < level; i++) {
+    const c = first + i * STEP;
+    boxes.push(
+      glow(58, c - 1, 85, 61, c + 1, 92, GOLD), // palo vertical
+      glow(58, c - 3, 87, 61, c + 3, 90, GOLD), // palo horizontal
+    );
+  }
+  return boxes;
 }
 
 /**
@@ -90,17 +133,61 @@ function closedFront(): Box[] {
     box(62, 4, 14, 63, 13, 30, '#3b3440'),
     box(62, 38, 10, 63, 60, 32, '#3b3440'),
     // "Letras" apagadas del cartel
-    box(64, 14, 46, 65, 16, 54, off),
-    box(64, 22, 46, 65, 24, 54, off),
-    box(64, 30, 46, 65, 32, 54, off),
-    box(64, 38, 46, 65, 40, 54, off),
-    box(64, 46, 46, 65, 48, 54, off),
+    box(64, 10, 54, 65, 14, 70, off),
+    box(64, 20, 54, 65, 24, 70, off),
+    box(64, 30, 54, 65, 34, 70, off),
+    box(64, 40, 54, 65, 44, 70, off),
+    box(64, 50, 54, 65, 54, 70, off),
     // Tablones en la puerta y el escaparate
     box(63, 16, 8, 64, 34, 11, PLANK),
     box(63, 16, 20, 64, 34, 23, PLANK),
     box(63, 36, 14, 64, 62, 17, PLANK),
     box(63, 36, 25, 64, 62, 28, PLANK),
   ];
+}
+
+/** Panel amarillo de "obras" en el andamio; el texto lo escribe la interfaz (ui/furniLabels.ts). */
+export const WORKS_SIGN = { x: 66, y0: 18, y1: 46, z0: 8, z1: 18 };
+
+/**
+ * Local en obras (construido en un solar, ver buildLot): losa, muros a medio
+ * levantar, la estructura de madera y un andamio delante con su cartel.
+ */
+function construction(): FurniModel {
+  const steel = '#8a8f96';
+  const post = (x: number, y: number): Box => box(x, y, 3, x + 3, y + 3, 44, PLANK);
+  return {
+    boxes: [
+      // Losa de hormigón y muros a medio subir
+      box(0, 0, 0, 64, 64, 3, '#bdb4a2'),
+      box(0, 2, 3, 56, 62, 22, BACK_WALL),
+      box(56, 0, 3, 62, 18, 30, '#c9a77a'),
+      box(56, 32, 3, 62, 64, 16, '#c9a77a'),
+      // Estructura de madera: postes y vigas de arriba
+      post(0, 2),
+      post(0, 59),
+      post(28, 2),
+      post(28, 59),
+      post(53, 2),
+      post(53, 59),
+      box(0, 2, 41, 56, 5, 44, PLANK),
+      box(0, 59, 41, 56, 62, 44, PLANK),
+      box(53, 2, 41, 56, 62, 44, PLANK),
+      // Andamio delante de la fachada: tubos y dos plataformas
+      box(64, 2, 0, 65, 4, 56, steel),
+      box(64, 30, 0, 65, 32, 56, steel),
+      box(64, 60, 0, 65, 62, 56, steel),
+      box(62, 2, 26, 68, 62, 28, PLANK),
+      box(62, 2, 52, 68, 62, 54, PLANK),
+      // Cartel de obras, amarillo con franjas negras arriba y abajo
+      box(65, 16, 6, 66, 48, 20, '#f0c020'),
+      box(66, 16, 18, 67, 48, 20, '#2a2030'),
+      box(66, 16, 6, 67, 48, 8, '#2a2030'),
+      // Ladrillos y un saco de cemento esperando
+      box(4, 8, 3, 14, 18, 9, '#c0603c'),
+      box(40, 40, 3, 48, 50, 8, '#e8e0cc'),
+    ],
+  };
 }
 
 /** Lo que distingue a cada plantilla: ventanas, zócalos, persianas, toldos... */
@@ -159,134 +246,37 @@ function templateFront(look: ShopLook): Box[] {
 }
 
 /**
- * Icono de neón en el cartel según el negocio, para saber desde la calle qué
- * es cada local: un neumático (chatarrería), una gota (pozo), una hoja
- * (invernadero), un martillo (taller), una bolsa (tienda), tenedor y cuchillo
- * (diner), una jarra (bar), un joystick (recreativos), un copo de algodón
- * (campo de algodón), unas tijeras (peluquería) o una manzana (frutería). Está hecho de
- * tubos en el plano del cartel.
+ * Dónde va el logo: en el plano del cartel (x = 64..65), centrado en y = 32,
+ * con su fila de arriba en z = 74. Cada píxel del dibujo mide scale x scale,
+ * para que se lea bien desde la calle.
  */
-function businessIcon(
-  business: BusinessType | undefined,
-  neon: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => Box,
-): Box[] {
-  // Coordenadas en el plano del cartel (x = 64..65): y de 20 a 44, z de 43 a 57.
-  // Los tubos tienen 2 de grosor para que se lean bien sin zoom.
-  switch (business) {
-    case 'scrapyard':
-      // Neumático: un aro y el buje en el centro.
-      return [
-        neon(64, 21, 55, 65, 43, 57),
-        neon(64, 21, 43, 65, 43, 45),
-        neon(64, 21, 45, 65, 23, 55),
-        neon(64, 41, 45, 65, 43, 55),
-        neon(64, 30, 48, 65, 34, 52),
-      ];
-    case 'well':
-      // Gota de agua: estrecha arriba y ancha abajo.
-      return [
-        neon(64, 30, 53, 65, 34, 57),
-        neon(64, 27, 49, 65, 37, 53),
-        neon(64, 25, 45, 65, 39, 49),
-        neon(64, 28, 43, 65, 36, 45),
-      ];
-    case 'greenhouse':
-      // Hoja con su tallo.
-      return [
-        neon(64, 31, 43, 65, 33, 49),
-        neon(64, 25, 49, 65, 39, 53),
-        neon(64, 28, 53, 65, 36, 56),
-        neon(64, 31, 56, 65, 33, 57),
-      ];
-    case 'diner':
-      // Tenedor (mango y tres púas) y cuchillo.
-      return [
-        neon(64, 25, 43, 65, 27, 51),
-        neon(64, 22, 51, 65, 30, 53),
-        neon(64, 22, 53, 65, 24, 57),
-        neon(64, 25, 53, 65, 27, 57),
-        neon(64, 28, 53, 65, 30, 57),
-        neon(64, 36, 43, 65, 38, 57),
-        neon(64, 38, 49, 65, 41, 57),
-      ];
-    case 'cotton_field':
-      // Copo de algodón: tres bolas en triángulo sobre el tallo.
-      return [
-        neon(64, 27, 51, 65, 37, 57),
-        neon(64, 22, 45, 65, 32, 51),
-        neon(64, 32, 45, 65, 42, 51),
-        neon(64, 30, 43, 65, 34, 45),
-      ];
-    case 'bar':
-      // Jarra: cuerpo, espuma y asa.
-      return [
-        neon(64, 24, 43, 65, 38, 45),
-        neon(64, 24, 45, 65, 26, 53),
-        neon(64, 36, 45, 65, 38, 53),
-        neon(64, 22, 53, 65, 40, 57),
-        neon(64, 38, 47, 65, 43, 49),
-        neon(64, 41, 49, 65, 43, 53),
-      ];
-    case 'arcade':
-      // Joystick: base, palanca y bola.
-      return [
-        neon(64, 22, 43, 65, 42, 47),
-        neon(64, 30, 47, 65, 34, 53),
-        neon(64, 28, 53, 65, 36, 57),
-      ];
-    case 'barber':
-      // Tijeras abiertas: dos hojas en V y dos anillas abajo.
-      return [
-        neon(64, 28, 51, 65, 30, 53),
-        neon(64, 26, 53, 65, 28, 55),
-        neon(64, 24, 55, 65, 26, 57),
-        neon(64, 34, 51, 65, 36, 53),
-        neon(64, 36, 53, 65, 38, 55),
-        neon(64, 38, 55, 65, 40, 57),
-        neon(64, 30, 49, 65, 34, 51),
-        neon(64, 22, 43, 65, 28, 45),
-        neon(64, 22, 45, 65, 24, 49),
-        neon(64, 26, 45, 65, 28, 49),
-        neon(64, 36, 43, 65, 42, 45),
-        neon(64, 36, 45, 65, 38, 49),
-        neon(64, 40, 45, 65, 42, 49),
-      ];
-    case 'greengrocer':
-      // Manzana: contorno, rabito y hoja.
-      return [
-        neon(64, 24, 43, 65, 40, 45),
-        neon(64, 24, 51, 65, 40, 53),
-        neon(64, 24, 45, 65, 26, 51),
-        neon(64, 38, 45, 65, 40, 51),
-        neon(64, 31, 53, 65, 33, 57),
-        neon(64, 33, 55, 65, 37, 57),
-      ];
-    case 'workshop':
-      // Martillo: mango vertical y cabeza horizontal.
-      return [neon(64, 30, 43, 65, 34, 51), neon(64, 20, 51, 65, 44, 56)];
-    case 'store':
-      // Bolsa de la compra: el contorno de la bolsa y el asa.
-      return [
-        neon(64, 22, 43, 65, 42, 45),
-        neon(64, 22, 45, 65, 24, 51),
-        neon(64, 40, 45, 65, 42, 51),
-        neon(64, 22, 51, 65, 42, 53),
-        neon(64, 27, 53, 65, 29, 57),
-        neon(64, 35, 53, 65, 37, 57),
-      ];
-    case 'clothing':
-      // Percha: gancho arriba, hombros en escalera y barra abajo.
-      return [
-        neon(64, 31, 53, 65, 33, 57),
-        neon(64, 33, 55, 65, 35, 57),
-        neon(64, 29, 49, 65, 35, 53),
-        neon(64, 26, 47, 65, 29, 49),
-        neon(64, 35, 47, 65, 38, 49),
-        neon(64, 22, 45, 65, 26, 47),
-        neon(64, 38, 45, 65, 42, 47),
-        neon(64, 22, 43, 65, 42, 45),
-      ];
-    default:
-      return [];
-  }
+const LOGO = { x: 64, yCenter: 32, zTop: 74, scale: 2 };
+
+/**
+ * Logo de neón del negocio en el cartel (ver shopLogos.ts): cada píxel es un
+ * tubito de neón. Los píxeles seguidos del mismo color de una fila van en un
+ * solo tubo, para no generar cientos de piezas. Visto de frente, la izquierda
+ * del dibujo es la y alta del modelo.
+ */
+function logoBoxes(business: BusinessType | undefined, neonColor: string): Box[] {
+  const logo = business ? SHOP_LOGOS[business] : undefined;
+  if (!logo) return [];
+  const width = Math.max(...logo.rows.map((r) => r.length));
+  const s = LOGO.scale;
+  const left = LOGO.yCenter + Math.ceil(width / 2) * s;
+  const colorOf = (ch: string) => (ch === 'n' ? neonColor : logo.palette[ch]);
+  const boxes: Box[] = [];
+  logo.rows.forEach((row, r) => {
+    const z1 = LOGO.zTop - r * s;
+    let c = 0;
+    while (c < row.length) {
+      const ch = row[c];
+      let end = c + 1;
+      while (end < row.length && row[end] === ch) end++;
+      const color = ch === '.' ? undefined : colorOf(ch);
+      if (color) boxes.push(glow(LOGO.x, left - end * s, z1 - s, LOGO.x + 1, left - c * s, z1, color));
+      c = end;
+    }
+  });
+  return boxes;
 }

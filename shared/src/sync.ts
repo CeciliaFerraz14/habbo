@@ -28,14 +28,27 @@ const RECORD_KEYS = [
   'lots',
   'money',
   'materials',
+  'subsidies',
+  'gasPlayers',
+  'progress',
   'vehicles',
 ] as const;
 
 /** Partes del estado que se mandan enteras si cambian. */
-const VALUE_KEYS = ['messages', 'notices', 'tick', 'nextCarAt', 'nextId'] as const;
+const VALUE_KEYS = [
+  'messages',
+  'notices',
+  'tick',
+  'nextCarAt',
+  'nextId',
+  'orders',
+  'pinballRecord',
+  'mayors',
+] as const;
 
-// No se sincronizan: los "cerebros" de los NPC y la semilla del azar solo los
-// necesita el servidor, que es quien simula.
+// No se sincronizan: los "cerebros" de los NPC, la semilla del azar y cuándo
+// llegará el próximo encargo o autobús solo los necesita el servidor, que es
+// quien simula.
 
 type RecordKey = (typeof RECORD_KEYS)[number];
 type ValueKey = (typeof VALUE_KEYS)[number];

@@ -4,6 +4,8 @@ import type { FurniId, Rotation } from './catalog';
 import type { Lot } from './economy';
 import type { Materials } from './economy.config';
 import type { GarmentId, Outfit } from './garments';
+import type { GasPlayerState, HankOrder, PinballRecord } from './gasStation';
+import type { PlayerProgress } from './levels';
 import type { NpcBrain } from './npcs';
 import type { Vehicle } from './travelers';
 import type { Scene } from './scene';
@@ -21,12 +23,14 @@ export interface TilePoint {
  */
 export type Direction = 'NE' | 'SE' | 'SW' | 'NW';
 
-/** Partes del avatar que tienen color. */
+/** Partes del avatar que tienen color (el sombrero y las prendas no). */
 export type LookPart = 'hair' | 'skin' | 'shirt' | 'pants';
 
-/** Colores del avatar, en formato "#rrggbb", y la ropa que lleva puesta. */
+/** Colores del avatar, en formato "#rrggbb", y lo que lleva encima. */
 export interface AvatarLook extends Record<LookPart, string> {
   outfit?: Outfit;
+  /** Sombrero de vaquero (recompensa del rango Cowboy del asfalto). */
+  hat?: boolean;
 }
 
 export interface Avatar {
@@ -44,6 +48,16 @@ export interface Avatar {
   isBot: boolean;
   /** ¿Está sentado? Se calcula solo: al terminar de caminar sobre un mueble sentable. */
   sitting: boolean;
+  /** Algo que lleva en la mano (un refresco de la gasolinera) y hasta qué tick. */
+  holding?: { item: 'soda'; until: number };
+}
+
+/** Dónde estaba un jugador al desconectarse, para devolverlo ahí al volver. */
+export interface SavedPosition {
+  sceneId: string;
+  x: number;
+  y: number;
+  direction: Direction;
 }
 
 /** Un mensaje del chat de la sala. */
@@ -130,6 +144,32 @@ export interface GameState {
   money: Record<string, number>;
   /** Materiales (chapa, madera...) de cada jugador. */
   materials: Record<string, Materials>;
+  /**
+   * Tick a partir del cual cada jugador puede recoger la subvención del
+   * pueblo. Si no aparece, puede recogerla ya.
+   */
+  subsidies: Record<string, number>;
+  /** Parcela de cada jugador en la calle (0 = la primera caravana; ver addHome). */
+  homes: Record<string, number>;
+  /** Nombres de los alcaldes (jugadores que han llegado a nivel 10), en orden. */
+  mayors: string[];
+  /** Experiencia y rango de cada jugador (ver levels.ts). */
+  progress: Record<string, PlayerProgress>;
+  /**
+   * Última posición de cada jugador desconectado. Al volver a entrar (por
+   * ejemplo, tras bloquear el móvil) aparece ahí y no en su caravana.
+   */
+  lastPositions: Record<string, SavedPosition>;
+  /** Encargos de Hank abiertos (ver gasStation.ts). */
+  orders: HankOrder[];
+  /** Tick en el que Hank podrá pedir un encargo nuevo (si hay hueco). */
+  nextOrderAt: number;
+  /** Turnos y boletos de rasca y gana de cada jugador en la gasolinera. */
+  gasPlayers: Record<string, GasPlayerState>;
+  /** Mejor partida de la máquina recreativa (o null si nadie ha jugado). */
+  pinballRecord: PinballRecord | null;
+  /** Tick en el que llegará el próximo autobús de turistas (0 = sin programar). */
+  nextBusAt: number;
   /**
    * Contador de turnos de simulación. Es el "reloj" de la economía: los
    * tiempos (producción, fabricación...) se miden en ticks, no con la hora real,

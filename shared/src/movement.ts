@@ -96,3 +96,29 @@ export function updateDoors(state: GameState): GameState {
   }
   return avatars === state.avatars ? state : { ...state, avatars };
 }
+
+/**
+ * Primera puerta que hay que cruzar, desde la escena `fromSceneId`, para llegar
+ * a `toSceneId` (por ejemplo: de la calle a una plaza, o de un local a la
+ * calle). Busca el camino más corto por las puertas (búsqueda en anchura). Las
+ * caravanas no cuentan como paso. Devuelve null si ya está o si no hay camino.
+ */
+export function nextDoorToward(state: GameState, fromSceneId: string, toSceneId: string): Door | null {
+  if (fromSceneId === toSceneId) return null;
+  const firstDoor = new Map<string, Door>(); // escena alcanzada → primera puerta del camino
+  const queue = [fromSceneId];
+  const seen = new Set(queue);
+  while (queue.length > 0) {
+    const sceneId = queue.shift()!;
+    for (const door of state.scenes[sceneId]?.doors ?? []) {
+      const target = door.to.sceneId;
+      if (seen.has(target) || target.startsWith(SCENES.trailer) || isDoorLocked(state, door)) continue;
+      seen.add(target);
+      const first = firstDoor.get(sceneId) ?? door;
+      if (target === toSceneId) return first;
+      firstDoor.set(target, first);
+      queue.push(target);
+    }
+  }
+  return null;
+}

@@ -8,36 +8,56 @@
 // devuelve el estado tal cual: la acción se ignora.
 import type { Action } from './actions';
 import { CATALOG } from './catalog';
-import { MAX_CHAT_HISTORY, sanitizeMessage } from './chat';
+import { withChatMessage } from './chat';
 import {
+  buyBusinessDecor,
   buyItem,
-  buyMaterial,
   canEditScene,
+  claimSubsidy,
+  closeBusiness,
   collectCrafted,
   collectMaterials,
   listItem,
   rentLot,
   setFacade,
   setServicePrice,
+  setWorkshopPublic,
   stockLot,
   setPrice,
   startCraft,
+  upgradeLot,
 } from './economy';
 import { ECONOMY } from './economy.config';
-import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
+import {
+  buyMaterial,
+  buyScratch,
+  buySoda,
+  deliverOrder,
+  playPinball,
+  sellMaterial,
+  startShift,
+} from './gasStation';
+import { canPlaceFurni, getBlockedTiles, inventoryItemOf, isPickable, tileKey } from './furniture';
 import { dropUnownedOutfit, isGarmentItem } from './garments';
-import { DEFAULT_LOOK, normalizeLook } from './looks';
-import { createTrailer } from './world';
+import { isInsideScene } from './scene';
+import { addDailyXp, markSeen, perksOf } from './levels';
+import { DEFAULT_LOOK, normalizeLook, sanitizeLook } from './looks';
+import { addHome, buildLot, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
-import type { Avatar, ChatMessage, FurniItem, GameState, InventoryItem } from './types';
+import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
+import { buyFromVendor } from './vendors';
 
 export function applyAction(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'JOIN': {
       let next = state;
       // El aspecto puede venir de fuera (conexión, perfil guardado): se limpia.
-      let avatar = { ...action.avatar, look: normalizeLook(action.avatar.look) ?? DEFAULT_LOOK };
+      // Con los especiales: lo que su rango aún no permite se quita más abajo.
+      let avatar = { ...action.avatar, look: normalizeLook(action.avatar.look, true) ?? DEFAULT_LOOK };
+      // La primera vez que entra un jugador, recibe su parcela en la calle (su
+      // caravana y, si no es el primero, un local nuevo).
+      if (!avatar.isBot) next = addHome(next, avatar.id, nextHomeSlot(next));
       // Cada jugador tiene su caravana: se crea la primera vez que entra.
       const trailerId = trailerSceneId(avatar.id);
       if (!avatar.isBot && !next.scenes[trailerId]) {
@@ -53,6 +73,24 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       // 'trailer' es un alias de "tu caravana".
       if (avatar.sceneId === SCENES.trailer) avatar = { ...avatar, sceneId: trailerId };
+      // Un jugador que vuelve aparece donde estaba: donde sigue su avatar (si
+      // aún no se había ido, por ejemplo al reconectar tras bloquear el móvil)
+      // o donde se desconectó la última vez. Si esa escena ya no existe, entra
+      // por la normal.
+      // (Si esa baldosa ya no está dentro de la escena, por ejemplo porque el
+      // pueblo ha cambiado, también entra por la normal.)
+      const back = avatar.isBot ? undefined : (state.avatars[avatar.id] ?? state.lastPositions[avatar.id]);
+      const backScene = back && next.scenes[back.sceneId];
+      // (Ni si ahora hay un edificio encima, por ejemplo porque se ha movido una parcela.)
+      if (
+        back &&
+        backScene &&
+        isInsideScene(backScene, back.x, back.y) &&
+        !getBlockedTiles(next, back.sceneId).has(tileKey(back.x, back.y))
+      ) {
+        const { sceneId, x, y, direction } = back;
+        avatar = { ...avatar, sceneId, x, y, direction, path: [] };
+      }
       // Solo se puede entrar en una escena que existe.
       if (!next.scenes[avatar.sceneId]) return state;
       next = withAvatar(next, avatar);
@@ -68,14 +106,32 @@ export function applyAction(state: GameState, action: Action): GameState {
           nextId: next.nextId + items.length,
         };
       }
+      // XP por entrar a jugar (una vez al día). Y fuera del aspecto lo que su
+      // rango aún no permite (colores especiales y sombrero).
+      if (!avatar.isBot) {
+        next = markSeen(addDailyXp(next, avatar.id), avatar.id);
+        const look = sanitizeLook(avatar.look, perksOf(next, avatar.id).premiumLook);
+        next = withAvatar(next, { ...next.avatars[avatar.id], look });
+      }
       // El aspecto guardado puede llevar prendas que ya no tiene: se las quitamos.
       return updateSitting(dropUnownedOutfit(next, avatar.id));
     }
 
     case 'LEAVE': {
-      if (!state.avatars[action.avatarId]) return state;
+      const leaving = state.avatars[action.avatarId];
+      if (!leaving) return state;
       const { [action.avatarId]: _gone, ...avatars } = state.avatars;
-      return { ...state, avatars };
+      if (leaving.isBot) return { ...state, avatars };
+      // Recordamos dónde estaba, para devolverlo ahí cuando vuelva, y cuándo se fue.
+      const { sceneId, x, y, direction } = leaving;
+      return markSeen(
+        {
+          ...state,
+          avatars,
+          lastPositions: { ...state.lastPositions, [leaving.id]: { sceneId, x, y, direction } },
+        },
+        leaving.id,
+      );
     }
 
     case 'MOVE': {
@@ -107,6 +163,8 @@ export function applyAction(state: GameState, action: Action): GameState {
         x: action.x,
         y: action.y,
         rotation: action.rotation,
+        // El cartel de neón lleva el nombre de quien lo coloca.
+        ...(item.defId === 'name_sign' ? { variant: avatar.name } : {}),
       };
       const next = withInventory(
         state,
@@ -143,12 +201,16 @@ export function applyAction(state: GameState, action: Action): GameState {
     // --- Negocios: la lógica está en economy.ts ---
     case 'RENT_LOT':
       return rentLot(state, action.avatarId, action.lotId, action.business);
+    case 'BUILD_LOT':
+      return buildLot(state, action.avatarId, action.solar);
     case 'COLLECT_MATERIALS':
       return collectMaterials(state, action.avatarId, action.lotId);
     case 'CRAFT':
       return startCraft(state, action.avatarId, action.lotId, action.recipe, action.color);
     case 'COLLECT_CRAFTED':
       return collectCrafted(state, action.avatarId, action.lotId);
+    case 'SET_WORKSHOP_PUBLIC':
+      return setWorkshopPublic(state, action.avatarId, action.lotId, action.open === true);
     case 'LIST_ITEM':
       return listItem(state, action.avatarId, action.lotId, action.itemId, action.price);
     case 'SET_PRICE':
@@ -159,38 +221,47 @@ export function applyAction(state: GameState, action: Action): GameState {
       return stockLot(state, action.avatarId, action.lotId);
     case 'SET_SERVICE_PRICE':
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
+    case 'BUY_DECOR':
+      return buyBusinessDecor(state, action.avatarId, action.lotId, action.defId);
+    case 'UPGRADE_LOT':
+      return upgradeLot(state, action.avatarId, action.lotId);
     case 'SET_FACADE':
       return setFacade(state, action.avatarId, action.lotId, action.facade);
+    case 'CLOSE_BUSINESS':
+      return closeBusiness(state, action.avatarId, action.lotId);
+    case 'BUY_FROM_VENDOR':
+      return buyFromVendor(state, action.avatarId, action.npcId, action.defId);
+
+    // --- Gasolinera: la lógica está en gasStation.ts ---
     case 'BUY_MATERIAL':
       return buyMaterial(state, action.avatarId, action.material, action.quantity);
+    case 'SELL_MATERIAL':
+      return sellMaterial(state, action.avatarId, action.material, action.quantity);
+    case 'DELIVER_ORDER':
+      return deliverOrder(state, action.avatarId, action.orderId);
+    case 'START_SHIFT':
+      return startShift(state, action.avatarId);
+    case 'BUY_SCRATCH':
+      return buyScratch(state, action.avatarId);
+    case 'BUY_SODA':
+      return buySoda(state, action.avatarId);
+    case 'PLAY_PINBALL':
+      return playPinball(state, action.avatarId);
+    case 'CLAIM_SUBSIDY':
+      return claimSubsidy(state, action.avatarId);
 
     case 'SET_LOOK': {
       const avatar = state.avatars[action.avatarId];
-      // Solo se aceptan colores de la lista de LOOK_COLORS (y prendas que existen).
-      const look = normalizeLook(action.look);
+      // Solo se aceptan colores de la lista de LOOK_COLORS y prendas que existen
+      // (y los especiales y el sombrero, con el rango Cowboy del asfalto).
+      const look = avatar && normalizeLook(action.look, perksOf(state, avatar.id).premiumLook);
       if (!avatar || !look) return state;
       // Las prendas que no tiene no se rechazan: se quitan y el resto se aplica.
       return dropUnownedOutfit(withAvatar(state, { ...avatar, look }), avatar.id);
     }
 
-    case 'SAY': {
-      const avatar = state.avatars[action.avatarId];
-      const text = sanitizeMessage(action.text);
-      if (!avatar || text === '') return state;
-      const message: ChatMessage = {
-        id: `m${state.nextId}`,
-        sceneId: avatar.sceneId,
-        avatarId: avatar.id,
-        name: avatar.name,
-        text,
-      };
-      // Añadimos al final y nos quedamos solo con los últimos MAX_CHAT_HISTORY.
-      return {
-        ...state,
-        messages: [...state.messages, message].slice(-MAX_CHAT_HISTORY),
-        nextId: state.nextId + 1,
-      };
-    }
+    case 'SAY':
+      return withChatMessage(state, action.avatarId, action.text);
   }
 }
 

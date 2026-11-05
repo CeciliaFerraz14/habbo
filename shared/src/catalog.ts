@@ -17,7 +17,16 @@ export type DecorId =
   | 'beer_barrel'
   | 'dartboard'
   | 'arcade_machine'
-  | 'pinball';
+  | 'pinball'
+  // Hogar
+  | 'bed'
+  | 'sofa'
+  | 'radio'
+  | 'rocking_chair'
+  // Diner y desierto
+  | 'open_sign'
+  | 'milkshake_machine'
+  | 'cow_skull';
 
 /**
  * Estructuras FIJAS del escenario (edificios, farolas...). Se dibujan, ordenan
@@ -31,6 +40,7 @@ export type StructureId =
   | 'street_lamp'
   | 'saguaro'
   | 'welcome_sign'
+  | 'solar'
   // Puestos de trabajo de los negocios (dentro de los locales)
   | 'scrap_pile'
   | 'workbench'
@@ -46,10 +56,75 @@ export type StructureId =
   | 'sewing_machine'
   // Expositor de una prenda a la venta en la tienda de ropa (ver FurniItem.garment)
   | 'clothes_rack'
+  // Gasolinera (interior)
+  | 'gas_counter'
+  | 'minimart_shelf'
+  | 'soda_machine'
+  | 'arcade_cabinet'
+  | 'notice_board'
   // Vehículos (no se colocan como muebles, pero se dibujan igual)
-  | 'car';
+  | 'car'
+  | 'bus'
+  // Estatua del alcalde (aparece en la calle con el primer jugador de nivel 10)
+  | 'mayor_statue'
+  // Plazas
+  | 'fountain'
+  | 'park_bench';
 
-export type FurniId = DecorId | StructureId;
+/**
+ * Muebles EXCLUSIVOS: solo se consiguen como recompensa de rango,
+ * comprándoselos a los vecinos del pueblo (ver vendors.ts) o, la decoración
+ * de cada negocio, desde la ventana de tu negocio (ECONOMY.businessDecor). Se
+ * colocan como cualquier mueble, pero no se fabrican, no se venden en tiendas
+ * y Hank no los pide.
+ */
+export type ExclusiveId = 'name_sign' | 'golden_jukebox' | VendorItemId | BusinessDecorId;
+
+/** Decoración propia de cada negocio (ver ECONOMY.businessDecor). */
+export type BusinessDecorId =
+  // Chatarrería
+  | 'oil_drum'
+  | 'engine_block'
+  | 'scrap_robot'
+  // Pozo
+  | 'water_bucket'
+  | 'hand_pump'
+  | 'windmill'
+  // Invernadero
+  | 'seed_sacks'
+  | 'flower_box'
+  | 'scarecrow'
+  // Taller
+  | 'toolbox'
+  | 'sawhorse'
+  | 'tool_rack'
+  // Tienda
+  | 'cash_register'
+  | 'gift_boxes'
+  | 'mannequin'
+  // Diner
+  | 'menu_board'
+  | 'pie_stand'
+  | 'neon_burger'
+  // Peluquería
+  | 'barber_pole'
+  | 'standing_mirror'
+  | 'hair_dryer'
+  // Frutería
+  | 'orange_crate'
+  | 'watermelons'
+  | 'old_scale';
+
+/** Exclusivos que venden los vecinos (ver ECONOMY.vendors). */
+export type VendorItemId =
+  | 'pink_flamingo'
+  | 'lava_lamp'
+  | 'wagon_wheel'
+  | 'gas_pump'
+  | 'neon_cactus'
+  | 'retro_tv';
+
+export type FurniId = DecorId | ExclusiveId | StructureId;
 
 /**
  * Rotación de un mueble: 0, 1, 2 o 3 cuartos de vuelta.
@@ -79,6 +154,8 @@ export interface FurniDef {
   walkable: boolean;
   /** Estructura fija del escenario: no se puede mover, recoger ni comprar. */
   fixed?: true;
+  /** Exclusivo: no se fabrica ni se vende en las tiendas (ver ExclusiveId). */
+  exclusive?: true;
 }
 
 /** Atajo para definir muebles normales. */
@@ -90,6 +167,16 @@ function decor(
   sittable = false,
 ): FurniDef {
   return { id, name, width, depth, sittable, walkable: false };
+}
+
+/** Atajo para definir los exclusivos que venden los vecinos. */
+function vendorItem(id: VendorItemId, name: string): FurniDef {
+  return { id, name, width: 1, depth: 1, sittable: false, walkable: false, exclusive: true };
+}
+
+/** Atajo para definir la decoración de los negocios (sentable o no). */
+function businessDecor(id: BusinessDecorId, name: string, sittable = false): FurniDef {
+  return { id, name, width: 1, depth: 1, sittable, walkable: false, exclusive: true };
 }
 
 /** Atajo para definir estructuras fijas (no sentables ni pisables). */
@@ -112,6 +199,13 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   dartboard: decor('dartboard', 'Diana', 1, 1),
   arcade_machine: decor('arcade_machine', 'Máquina recreativa', 1, 1),
   pinball: decor('pinball', 'Pinball', 1, 2),
+  bed: decor('bed', 'Cama', 1, 2, true),
+  sofa: decor('sofa', 'Sofá', 1, 2, true),
+  radio: decor('radio', 'Radio antigua', 1, 1),
+  rocking_chair: decor('rocking_chair', 'Mecedora', 1, 1, true),
+  open_sign: decor('open_sign', 'Cartel de neón OPEN', 1, 1),
+  milkshake_machine: decor('milkshake_machine', 'Máquina de batidos', 1, 1),
+  cow_skull: decor('cow_skull', 'Calavera de vaca', 1, 1),
 
   // Estructuras de la calle. Como todo mueble, en rotación 0 miran a +x; en la
   // calle se colocan con rotación 1 para que su fachada mire a la carretera (+y).
@@ -121,6 +215,7 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   street_lamp: structure('street_lamp', 'Farola', 1, 1),
   saguaro: structure('saguaro', 'Cactus', 1, 1),
   welcome_sign: structure('welcome_sign', 'Cartel de bienvenida', 1, 2),
+  solar: structure('solar', 'Solar en venta', 4, 4),
   scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
   workbench: structure('workbench', 'Banco de trabajo', 1, 2),
   shop_counter: structure('shop_counter', 'Mostrador', 1, 2),
@@ -134,10 +229,55 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   token_machine: structure('token_machine', 'Cambio de fichas', 1, 2),
   sewing_machine: structure('sewing_machine', 'Máquina de coser', 1, 2),
   clothes_rack: structure('clothes_rack', 'Burro de ropa', 1, 1),
+  gas_counter: structure('gas_counter', 'Mostrador de Hank', 1, 2),
+  minimart_shelf: structure('minimart_shelf', 'Estantería', 1, 2),
+  soda_machine: structure('soda_machine', 'Máquina de refrescos', 1, 1),
+  arcade_cabinet: structure('arcade_cabinet', 'Máquina recreativa', 1, 1),
+  notice_board: structure('notice_board', 'Tablón de anuncios', 1, 1),
+  // Exclusivos (recompensas de rango)
+  name_sign: { id: 'name_sign', name: 'Cartel de neón con tu nombre', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
+  golden_jukebox: { id: 'golden_jukebox', name: 'Jukebox dorada', width: 1, depth: 1, sittable: false, walkable: false, exclusive: true },
+  // Exclusivos de los vecinos
+  pink_flamingo: vendorItem('pink_flamingo', 'Flamenco rosa'),
+  lava_lamp: vendorItem('lava_lamp', 'Lámpara de lava'),
+  wagon_wheel: vendorItem('wagon_wheel', 'Rueda de carreta'),
+  gas_pump: vendorItem('gas_pump', 'Surtidor antiguo'),
+  neon_cactus: vendorItem('neon_cactus', 'Cactus de neón'),
+  retro_tv: vendorItem('retro_tv', 'Televisor retro'),
+  // Decoración de cada negocio
+  oil_drum: businessDecor('oil_drum', 'Bidón de aceite'),
+  engine_block: businessDecor('engine_block', 'Motor viejo'),
+  scrap_robot: businessDecor('scrap_robot', 'Robot de chatarra'),
+  water_bucket: businessDecor('water_bucket', 'Cubo de agua'),
+  hand_pump: businessDecor('hand_pump', 'Bomba de mano'),
+  windmill: businessDecor('windmill', 'Molino de viento'),
+  seed_sacks: businessDecor('seed_sacks', 'Sacos de semillas'),
+  flower_box: businessDecor('flower_box', 'Jardinera de flores'),
+  scarecrow: businessDecor('scarecrow', 'Espantapájaros'),
+  toolbox: businessDecor('toolbox', 'Caja de herramientas'),
+  sawhorse: businessDecor('sawhorse', 'Caballete', true),
+  tool_rack: businessDecor('tool_rack', 'Panel de herramientas'),
+  cash_register: businessDecor('cash_register', 'Caja registradora'),
+  gift_boxes: businessDecor('gift_boxes', 'Pila de regalos'),
+  mannequin: businessDecor('mannequin', 'Maniquí'),
+  menu_board: businessDecor('menu_board', 'Pizarra del menú'),
+  pie_stand: businessDecor('pie_stand', 'Vitrina de tartas'),
+  neon_burger: businessDecor('neon_burger', 'Hamburguesa de neón'),
+  barber_pole: businessDecor('barber_pole', 'Poste de barbero'),
+  standing_mirror: businessDecor('standing_mirror', 'Espejo de pie'),
+  hair_dryer: businessDecor('hair_dryer', 'Secador de casco', true),
+  orange_crate: businessDecor('orange_crate', 'Caja de naranjas'),
+  watermelons: businessDecor('watermelons', 'Montón de sandías'),
+  old_scale: businessDecor('old_scale', 'Báscula antigua'),
+  mayor_statue: structure('mayor_statue', 'Estatua del alcalde', 2, 2),
+  fountain: structure('fountain', 'Fuente', 2, 2),
+  // Banco de la plaza: fijo, pero se puede uno sentar.
+  park_bench: { id: 'park_bench', name: 'Banco', width: 1, depth: 2, sittable: true, walkable: false, fixed: true },
   car: structure('car', 'Coche', 2, 1),
+  bus: structure('bus', 'Autobús', 3, 1),
 };
 
 /** Muebles que se pueden tener (excluye las estructuras fijas). */
 export const DECOR_IDS = (Object.keys(CATALOG) as FurniId[]).filter(
-  (id): id is DecorId => !CATALOG[id].fixed,
+  (id): id is DecorId => !CATALOG[id].fixed && !CATALOG[id].exclusive,
 );

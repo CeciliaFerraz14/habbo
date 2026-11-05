@@ -1,4 +1,6 @@
-// Ventana para alquilar un local libre y elegir qué negocio abrir en él.
+// Ventana para alquilar un local libre y elegir qué negocio abrir en él. En un
+// local construido por el propio jugador (ver buildLot) no hay alquiler ni
+// fianza: solo se elige el negocio.
 //
 // Se reconstruye cuando cambia algo que se ve (una "firma" en JSON), para que
 // los botones reflejen en todo momento si el dinero alcanza para la fianza.
@@ -23,8 +25,8 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
   let currentLot: string | null = null;
   let signature = '';
 
-  const build = (lot: Lot, money: number) => {
-    win.setTitle(`En alquiler: ${lot.label}`);
+  const build = (lot: Lot, money: number, own: boolean) => {
+    win.setTitle(own ? `Tu local: ${lot.label}` : `En alquiler: ${lot.label}`);
 
     const list = document.createElement('div');
     list.className = 'option-list';
@@ -47,15 +49,18 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
 
       const button = document.createElement('button');
       button.className = 'btn btn-small';
-      button.textContent = `Alquilar · ${formatMoney(config.deposit)}`;
-      button.disabled = money < config.deposit;
+      button.textContent = own ? 'Abrir' : `Alquilar · ${formatMoney(config.deposit)}`;
+      button.disabled = !own && money < config.deposit;
       if (button.disabled) button.title = 'No tienes dinero suficiente';
       button.addEventListener('click', () => onRent(lot.id, type));
 
       card.append(title, desc, button);
       list.append(card);
     }
-    win.body.replaceChildren(text('Elige qué negocio abrir. Al alquilar pagas una fianza.'), list);
+    const intro = own
+      ? 'Es tuyo: elige qué negocio abrir. No pagas fianza ni alquiler.'
+      : 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
+    win.body.replaceChildren(text(intro), list);
   };
 
   const update = (state: GameState, playerId: string) => {
@@ -70,7 +75,7 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
     const next = JSON.stringify([lot.id, money]);
     if (next === signature) return;
     signature = next;
-    build(lot, money);
+    build(lot, money, lot.builtBy === playerId);
   };
 
   return {

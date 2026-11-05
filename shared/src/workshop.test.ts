@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { testPlayer } from './testHelpers';
-import { ECONOMY, SUPPLIER_MATERIAL_IDS, applyAction, createInitialState, isGarmentItem } from './index';
+import { ECONOMY, SCENES, SUPPLIER_MATERIAL_IDS, applyAction, createInitialState, isGarmentItem } from './index';
 import type { BusinessType, CraftJob, FacadeId, GameState, MaterialId, Materials, RecipeId } from './index';
 
 /** Jugador p1 dentro de lot1, que es suyo y es un taller. */
@@ -66,10 +66,10 @@ test('supplier does not sell fabric or tokens', () => {
   const sold: MaterialId[] = SUPPLIER_MATERIAL_IDS;
   assert.ok(!sold.includes('fabric'));
   assert.ok(!sold.includes('tokens'));
-  const street = withWorkshop({});
-  street.avatars.p1 = { ...street.avatars.p1, sceneId: 'street' };
-  const bought = applyAction(street, { type: 'BUY_MATERIAL', avatarId: 'p1', material: 'fabric', quantity: 1 });
-  assert.equal(bought, street);
+  const gas = withWorkshop({});
+  gas.avatars.p1 = { ...gas.avatars.p1, sceneId: SCENES.gas };
+  const bought = applyAction(gas, { type: 'BUY_MATERIAL', avatarId: 'p1', material: 'fabric', quantity: 1 });
+  assert.equal(bought, gas);
 });
 
 test('furniture recipe spends materials and delivers the item', () => {
@@ -94,15 +94,15 @@ test('collecting only furniture leaves the materials untouched', () => {
 });
 
 test('BUY_MATERIAL with a non-material key does nothing', () => {
-  const street = withWorkshop({});
-  street.avatars.p1 = { ...street.avatars.p1, sceneId: 'street' };
-  const bought = applyAction(street, {
+  const gas = withWorkshop({});
+  gas.avatars.p1 = { ...gas.avatars.p1, sceneId: SCENES.gas };
+  const bought = applyAction(gas, {
     type: 'BUY_MATERIAL',
     avatarId: 'p1',
     material: 'toString' as MaterialId,
     quantity: 1,
   });
-  assert.equal(bought, street);
+  assert.equal(bought, gas);
 });
 
 test('SET_FACADE with a non-facade key does nothing', () => {

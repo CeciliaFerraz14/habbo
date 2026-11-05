@@ -15,7 +15,7 @@
 // estado si la acción no es válida (no eres el dueño, no tienes dinero...).
 // =============================================================================
 
-import { CATALOG, type DecorId, type FurniId, type Rotation } from './catalog';
+import { CATALOG, type BusinessDecorId, type DecorId, type FurniId, type Rotation } from './catalog';
 import {
   ECONOMY,
   FACADES,
@@ -35,6 +35,7 @@ import {
 import { MOVE_TICK_MS } from './constants';
 import { canPlaceFurni, inventoryItemOf, isPickable } from './furniture';
 import { dropUnownedOutfit, GARMENTS, isGarmentDisplay, isGarmentId, isGarmentItem, type GarmentId } from './garments';
+import { addOpenBusinessXp, addXpFor, storeListingsMax, subsidyAmount, workshopQueueSize } from './levels';
 import { isGarmentColor } from './looks';
 import { lotBuildingId, trailerSceneId } from './world.ids';
 import type { FurniItem, GameState, InventoryItem, Product } from './types';
@@ -43,34 +44,43 @@ import type { FurniItem, GameState, InventoryItem, Product } from './types';
  * Un trabajo en la cola del taller: un mueble (`defId`) o un material
  * (`material`); o de la tienda de ropa: una prenda (`garment`) de un color.
  * La forma de los muebles no cambia: así se leen los guardados.
- * `readyAt` es el tick en el que estará terminado.
+ * `readyAt` es el tick en el que estará terminado. `by` y `byName`: quién lo
+ * encargó, si no es el dueño del taller (taller público), y su nombre.
  */
-export type CraftJob =
-  | { defId: DecorId; readyAt: number }
-  | { material: MaterialId; readyAt: number }
-  | { garment: GarmentId; color: string; readyAt: number };
+export type CraftJob = (
+  | { defId: DecorId }
+  | { material: MaterialId }
+  | { garment: GarmentId; color: string }
+) & { readyAt: number; by?: string; byName?: string };
 
 /**
- * Lo que se sabe de un trabajo de la cola: nombre, duración y materiales que
- * da al recogerlo (vacío en los muebles). Única política para una receta que
- * ya no existe: devuelve null y tanto el reducer como la interfaz ignoran el
- * trabajo.
+ * Lo que se sabe de un trabajo de la cola: nombre, duración, materiales que
+ * gasta y materiales que da al recogerlo (vacío en los muebles). Única política
+ * para una receta que ya no existe: devuelve null y tanto el reducer como la
+ * interfaz ignoran el trabajo.
  */
-export function craftJobInfo(job: CraftJob): { name: string; seconds: number; yields: Materials } | null {
+export function craftJobInfo(
+  job: CraftJob,
+): { name: string; seconds: number; materials: Materials; yields: Materials } | null {
   if ('defId' in job) {
-    return { name: CATALOG[job.defId].name, seconds: ECONOMY.recipes[job.defId].seconds, yields: {} };
+    return { name: CATALOG[job.defId].name, ...ECONOMY.recipes[job.defId], yields: {} };
   }
   if ('garment' in job) {
     if (!isGarmentId(job.garment)) return null;
-    return { name: GARMENTS[job.garment].name, seconds: ECONOMY.garmentRecipes[job.garment].seconds, yields: {} };
+    return { name: GARMENTS[job.garment].name, ...ECONOMY.garmentRecipes[job.garment], yields: {} };
   }
   if (!isMaterialRecipe(job.material)) return null;
-  const recipe = ECONOMY.materialRecipes[job.material];
+  const { quantity, ...recipe } = ECONOMY.materialRecipes[job.material];
   return {
     name: ECONOMY.materials[job.material].name,
-    seconds: recipe.seconds,
-    yields: { [job.material]: recipe.quantity },
+    ...recipe,
+    yields: { [job.material]: quantity },
   };
+}
+
+/** De quién es un trabajo de la cola: de quien lo encargó o, si no, del dueño del taller. */
+export function jobOwner(job: CraftJob, lot: Lot): string | null {
+  return job.by ?? lot.ownerId;
 }
 
 /** Un local de la calle. */
@@ -91,7 +101,11 @@ export interface Lot {
    * Servicios: materiales que el dueño ha dejado para servir a los clientes.
    */
   storage: Materials;
-  /** Servicios: precio que cobra el local por servir (0 en los demás). */
+  /**
+   * Servicios: precio que cobra el local por servir. Taller: 1 si es público
+   * (otros pueden usarlo pagando, ver workshopFee) y 0 si es privado. En los
+   * demás, 0.
+   */
   price: number;
   /** Productores: tick de la próxima producción. */
   nextProductionAt: number;
@@ -99,11 +113,27 @@ export interface Lot {
   jobs: CraftJob[];
   /** Local de un jugador: tick en el que se cobrará el próximo alquiler. */
   nextRentAt: number;
+  /**
+   * Locales construidos en un solar (ver buildLot): quién lo construyó, que es
+   * su propietario para siempre (no paga alquiler, y cerrado sigue siendo
+   * suyo), y el tick en que acaba la obra.
+   */
+  builtBy?: string;
+  readyAt?: number;
+  /** Nivel del local (1 si no se indica; ver ECONOMY.lotLevels). */
+  level?: number;
+  /** Mejora en obras: tick en que sube al nivel siguiente (0 o nada = sin obras). */
+  upgradeReadyAt?: number;
 }
 
 /** Convierte segundos de la configuración a ticks de simulación. */
 export function secondsToTicks(seconds: number): number {
   return Math.round((seconds * 1000) / MOVE_TICK_MS);
+}
+
+/** Número de día de la simulación (cambia cada 24 h de servidor en marcha). */
+export function dayIndex(tick: number): number {
+  return Math.floor(tick / secondsToTicks(24 * 60 * 60));
 }
 
 export function createLot(id: string, label: string): Lot {
@@ -160,6 +190,31 @@ export function servesCustomers(lot: Lot | undefined): boolean {
   return sellsProducts(lot) || isKind(lot, 'service');
 }
 
+/** ¿El local es de su propio dueño (lo construyó él), y por tanto no paga alquiler? */
+export function isOwnLot(lot: Lot | undefined, avatarId: string | null): boolean {
+  return !!lot?.builtBy && lot.builtBy === avatarId;
+}
+
+/** ¿El local está aún en obras? */
+export function isUnderConstruction(lot: Lot | undefined, tick: number): boolean {
+  return (lot?.readyAt ?? 0) > tick;
+}
+
+/** Nivel del local (1..ECONOMY.lotLevels.max). */
+export function lotLevel(lot: Lot | undefined): number {
+  return lot?.level ?? 1;
+}
+
+/** ¿Está el local en obras de mejora? */
+export function isUpgrading(lot: Lot | undefined): boolean {
+  return (lot?.upgradeReadyAt ?? 0) > 0;
+}
+
+/** Lo que cuesta subir el local al nivel siguiente (o null si ya está al máximo). */
+export function upgradeCost(lot: Lot | undefined) {
+  return ECONOMY.lotLevels.upgrades[lotLevel(lot) - 1] ?? null;
+}
+
 /** ¿Este dueño es un NPC? Los ids de los NPC empiezan por "npc-". */
 export function isNpcId(id: string | null): boolean {
   return id?.startsWith('npc-') ?? false;
@@ -208,13 +263,37 @@ const STATIONS: Record<BusinessType, { defId: FurniId; x: number; y: number; rot
 };
 
 /**
+ * Dónde van los puestos de más al subir de nivel (en orden). Si uno está
+ * tapado por un mueble, se usa el siguiente libre. La tienda no tiene puestos
+ * de más: gana huecos de venta.
+ */
+const EXTRA_STATIONS: Record<BusinessType, { x: number; y: number }[]> = {
+  scrapyard: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  well: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  greenhouse: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  cotton_field: [{ x: 6, y: 2 }, { x: 5, y: 5 }],
+  workshop: [{ x: 5, y: 2 }, { x: 3, y: 5 }],
+  barber: [{ x: 5, y: 2 }, { x: 3, y: 5 }],
+  diner: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  bar: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  arcade: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  clothing: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  greengrocer: [{ x: 1, y: 3 }, { x: 4, y: 1 }],
+  store: [],
+};
+
+/**
  * Huecos de exposición de una tienda (local de 8x8). Al poner algo a la venta
  * se coloca en el primer hueco donde quepa. Están separados para dejar
- * pasillos entre los productos.
+ * pasillos entre los productos. Los últimos solo se usan con el rango de
+ * Empresario o con la tienda mejorada (ver storeListingsMax en levels.ts).
  */
 const DISPLAY_SLOTS = [
   { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 3, y: 3 }, { x: 5, y: 3 },
   { x: 7, y: 1 }, { x: 7, y: 3 }, { x: 5, y: 6 }, { x: 7, y: 6 },
+  { x: 3, y: 6 }, { x: 1, y: 7 },
+  // Junto a la pared del fondo y junto al mostrador.
+  { x: 3, y: 0 }, { x: 5, y: 0 }, { x: 1, y: 3 }, { x: 7, y: 5 },
 ];
 /** Los productos se exponen mirando a SW (hacia la cámara). */
 const DISPLAY_ROTATION: Rotation = 1;
@@ -226,11 +305,43 @@ const DISPLAY_ROTATION: Rotation = 1;
  * puesto de trabajo.
  */
 const STATION_PREFIX = 'station:';
-export const stationId = (lotId: string) => `${STATION_PREFIX}${lotId}`;
+/** Id del puesto número `n` de un local ("station:lot1", "station:lot1:2"...). */
+export const stationId = (lotId: string, n = 1) => `${STATION_PREFIX}${lotId}${n > 1 ? `:${n}` : ''}`;
 
-/** Si el mueble es el puesto de trabajo de un local, devuelve el id del local. */
+/** Si el mueble es un puesto de trabajo de un local, devuelve el id del local. */
 export function lotOfStation(itemId: string): string | null {
-  return itemId.startsWith(STATION_PREFIX) ? itemId.slice(STATION_PREFIX.length) : null;
+  return itemId.startsWith(STATION_PREFIX) ? itemId.slice(STATION_PREFIX.length).split(':')[0] : null;
+}
+
+/**
+ * Coloca el puesto número `n` de un negocio en el primer sitio libre (sin
+ * muebles ni avatares encima). Devuelve el estado tal cual si no hay sitio.
+ */
+function withStation(state: GameState, lotId: string, business: BusinessType, n: number): GameState {
+  const { defId, rotation, ...main } = STATIONS[business];
+  const id = stationId(lotId, n);
+  if (state.furniture[id]) return state;
+  const spot = [main, ...EXTRA_STATIONS[business]].find((s) => canPlaceFurni(state, lotId, defId, s.x, s.y, rotation));
+  if (!spot) return state;
+  const station: FurniItem = { id, sceneId: lotId, defId, x: spot.x, y: spot.y, rotation };
+  return { ...state, furniture: { ...state.furniture, [id]: station } };
+}
+
+/** ¿Hay sitio para otro puesto si quitamos de en medio a los avatares? (los muebles sí cuentan) */
+function hasStationRoom(state: GameState, lotId: string, business: BusinessType): boolean {
+  const { defId, rotation, ...main } = STATIONS[business];
+  const empty = { ...state, avatars: {} };
+  return [main, ...EXTRA_STATIONS[business]].some((s) => canPlaceFurni(empty, lotId, defId, s.x, s.y, rotation));
+}
+
+/**
+ * Baldosa delante del puesto `n` de un local, donde se pone el cliente que
+ * atiende (o null si ese puesto no existe). Los puestos miran a +x.
+ */
+export function stationFront(state: GameState, lotId: string, n: number): { x: number; y: number } | null {
+  const station = state.furniture[stationId(lotId, n)];
+  if (!station) return null;
+  return { x: station.x + CATALOG[station.defId].width, y: station.y };
 }
 
 /**
@@ -265,10 +376,14 @@ export function rentLot(
   const config = ECONOMY.businesses[business];
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
-  if (!lot || !avatar || lot.ownerId !== null || money < config.deposit) return state;
+  if (!lot || !avatar || lot.ownerId !== null) return state;
+  // Un local construido solo lo abre su propietario, sin fianza, y acabada la obra.
+  if (lot.builtBy && (lot.builtBy !== avatarId || isUnderConstruction(lot, state.tick))) return state;
+  const cost = lot.builtBy ? 0 : config.deposit;
+  if (money < cost) return state;
 
-  const paid = { ...state, money: { ...state.money, [avatarId]: money - config.deposit } };
-  return openBusiness(paid, lotId, avatarId, avatar.name, business);
+  const paid = { ...state, money: { ...state.money, [avatarId]: money - cost } };
+  return addOpenBusinessXp(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, business);
 }
 
 /**
@@ -292,7 +407,8 @@ function openBusiness(
     business,
     facade: config.defaultFacade,
     storage: {},
-    price: config.service?.baseValue ?? 0,
+    // Los talleres empiezan públicos (1); ver workshopFee.
+    price: config.service?.baseValue ?? (config.kind === 'workshop' ? 1 : 0),
     nextProductionAt: state.tick + secondsToTicks(config.production?.seconds ?? 0),
     jobs: [],
     nextRentAt: state.tick + secondsToTicks(ECONOMY.rent.periodSeconds),
@@ -304,17 +420,18 @@ function openBusiness(
   const building = furniture[buildingId];
   if (building) furniture[buildingId] = { ...building, variant: buildingVariant(rented) };
 
-  // Puesto de trabajo dentro del local.
-  const station: FurniItem = { id: stationId(lotId), sceneId: lotId, ...STATIONS[business] };
-  furniture[station.id] = station;
-
   const scene = state.scenes[lotId];
-  return {
+  let next: GameState = {
     ...state,
     lots: { ...state.lots, [lotId]: rented },
     furniture,
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lotSceneName(rented) } } : state.scenes,
   };
+  // Puestos de trabajo dentro del local: uno por nivel (un local construido
+  // conserva su nivel aunque cambie de negocio). La tienda tiene solo uno.
+  const stations = business === 'store' ? 1 : lotLevel(rented);
+  for (let n = 1; n <= stations; n++) next = withStation(next, lotId, business, n);
+  return next;
 }
 
 /** Nombre de la escena de un local ("Chatarrería · Local 1"). */
@@ -331,11 +448,12 @@ export function collectMaterials(state: GameState, avatarId: string, lotId: stri
   if (totalMaterials(lot.storage) === 0) return state;
 
   const mine = state.materials[avatarId] ?? {};
-  return {
+  const collected = {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, storage: {} } },
     materials: { ...state.materials, [avatarId]: addMaterials(mine, lot.storage) },
   };
+  return addXpFor(collected, avatarId, 'collect');
 }
 
 /**
@@ -374,47 +492,88 @@ export function startCraft(
   color?: string,
 ): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot)) return state;
+  const avatar = state.avatars[avatarId];
+  const owner = lot?.ownerId;
+  if (!avatar || avatar.sceneId !== lotId || !owner) return state;
   const order = craftOrder(lot, recipeId, color);
-  if (!order || lot.jobs.length >= ECONOMY.workshop.queueSize) return state;
+  if (!order || lot.jobs.length >= workshopQueueSize(state, owner, lot)) return state;
   const { recipe } = order;
+  // El dueño fabrica gratis; los demás, solo muebles y si el taller es público,
+  // y pagan una parte del valor del mueble.
+  const isOwner = owner === avatarId;
+  let fee = 0;
+  if (!isOwner) {
+    if (lot.price <= 0 || !isFurnitureRecipe(recipeId)) return state;
+    fee = workshopFee(recipeId);
+  }
 
   const mine = state.materials[avatarId] ?? {};
-  if (!hasMaterials(mine, recipe.materials)) return state;
+  const money = state.money[avatarId] ?? 0;
+  if (!hasMaterials(mine, recipe.materials) || money < fee) return state;
 
-  // Los trabajos se hacen uno detrás de otro: el nuevo empieza cuando acabe el
-  // último de la cola (o ahora, si la cola está vacía o ya terminó).
-  const lastReady = lot.jobs.at(-1)?.readyAt ?? state.tick;
-  const start = Math.max(state.tick, lastReady);
-  const job = order.job(start + secondsToTicks(recipe.seconds));
+  // Cada banco hace un trabajo detrás de otro (hay tantos bancos como nivel).
+  // El nuevo empieza en cuanto quede libre un banco: el que acabe antes de los
+  // que están ocupados, que es el menor de los `benches` finales más tardíos.
+  const benches = lotLevel(lot);
+  const pending = lot.jobs.map((j) => j.readyAt).filter((t) => t > state.tick).sort((a, b) => a - b);
+  const start = pending.length < benches ? state.tick : pending[pending.length - benches];
+  const job: CraftJob = {
+    ...order.job(start + secondsToTicks(recipe.seconds)),
+    ...(isOwner ? {} : { by: avatarId, byName: avatar.name }),
+  };
 
-  return {
+  let next: GameState = {
     ...state,
     lots: { ...state.lots, [lotId]: { ...lot, jobs: [...lot.jobs, job] } },
     materials: { ...state.materials, [avatarId]: addMaterials(mine, recipe.materials, -1) },
   };
+  if (fee > 0) {
+    // Lo que paga va al dueño (es dinero entre jugadores: no da XP).
+    next = {
+      ...next,
+      money: { ...next.money, [avatarId]: money - fee, [owner]: (next.money[owner] ?? 0) + fee },
+    };
+    next = addNotice(next, owner, `${avatar.name} ha usado tu taller (${craftJobInfo(job)?.name}): +${ECONOMY.currency}${fee}`);
+  }
+  return next;
 }
 
 /**
- * Taller y tienda de ropa: el dueño recoge lo terminado. Los muebles y las
- * prendas van a su inventario y los materiales se suman a los suyos.
+ * Taller y tienda de ropa: recoger lo terminado. Cada uno recoge lo SUYO (el
+ * dueño, lo que encargó él; quien usa un taller público, lo que pagó). Los
+ * muebles y las prendas van a su inventario y los materiales se suman a los suyos.
  */
 export function collectCrafted(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
-  if (!isOwnerInside(state, avatarId, lot) || !craftsGoods(lot)) return state;
+  if (state.avatars[avatarId]?.sceneId !== lotId || !lot?.ownerId || !craftsGoods(lot)) return state;
 
-  const done = lot.jobs.filter((j) => j.readyAt <= state.tick);
+  const mine = (job: CraftJob) => jobOwner(job, lot) === avatarId && job.readyAt <= state.tick;
+  const done = lot.jobs.filter(mine);
   if (done.length === 0) return state;
 
+  const collected = deliverJobs(
+    { ...state, lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => !mine(j)) } } },
+    avatarId,
+    done,
+  );
+  // La XP es por lo fabricado para vender o colocar, no por los materiales.
+  return addXpFor(collected, avatarId, 'craft', done.filter((job) => !('material' in job)).length);
+}
+
+/**
+ * Entrega trabajos terminados a un jugador: los muebles y las prendas a su
+ * inventario y los materiales a los suyos.
+ */
+function deliverJobs(state: GameState, avatarId: string, jobs: CraftJob[]): GameState {
   const items: InventoryItem[] = [];
-  for (const job of done) {
+  for (const job of jobs) {
     const id = `i${state.nextId + items.length}`;
     if ('defId' in job) items.push({ id, defId: job.defId });
     // Una prenda que ya no existe se ignora (ver craftJobInfo).
     else if ('garment' in job && craftJobInfo(job)) items.push({ id, garment: job.garment, color: job.color });
   }
   // Solo se toca el almacén del jugador si se recogió algún material.
-  const materialJobs = done.filter((job) => 'material' in job);
+  const materialJobs = jobs.filter((job) => 'material' in job);
   let materials = state.materials;
   if (materialJobs.length > 0) {
     let mine = state.materials[avatarId] ?? {};
@@ -423,7 +582,6 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
   }
   return {
     ...state,
-    lots: { ...state.lots, [lotId]: { ...lot, jobs: lot.jobs.filter((j) => j.readyAt > state.tick) } },
     inventories: {
       ...state.inventories,
       [avatarId]: [...(state.inventories[avatarId] ?? []), ...items],
@@ -431,6 +589,21 @@ export function collectCrafted(state: GameState, avatarId: string, lotId: string
     materials,
     nextId: state.nextId + items.length,
   };
+}
+
+/**
+ * Lo que paga quien fabrica un mueble en un taller público ajeno: una parte de
+ * su valor de referencia (ECONOMY.workshop.feeRate), como poco $1.
+ */
+export function workshopFee(defId: DecorId): number {
+  return Math.max(1, Math.round(ECONOMY.baseValue[defId] * ECONOMY.workshop.feeRate));
+}
+
+/** Taller: el dueño lo abre a todos o lo hace privado. */
+export function setWorkshopPublic(state: GameState, avatarId: string, lotId: string, open: boolean): GameState {
+  const lot = state.lots[lotId];
+  if (!isOwnerInside(state, avatarId, lot) || !isKind(lot, 'workshop')) return state;
+  return { ...state, lots: { ...state.lots, [lotId]: { ...lot, price: open ? 1 : 0 } } };
 }
 
 // --- Simulación ---------------------------------------------------------------
@@ -446,9 +619,11 @@ export function economyTick(state: GameState): GameState {
     const production = businessOf(lot)?.production;
     if (!production || state.tick < lot.nextProductionAt) continue;
 
+    // Con cada nivel hay otro montón, pozo o bancal: produce y almacena más.
+    const level = lotLevel(lot);
     const storage: Materials = { ...lot.storage };
     for (const [m, qty] of Object.entries(production.output) as [MaterialId, number][]) {
-      storage[m] = Math.min(production.storageCap, (storage[m] ?? 0) + qty);
+      storage[m] = Math.min(production.storageCap * level, (storage[m] ?? 0) + qty * level);
     }
     if (lots === state.lots) lots = { ...lots };
     lots[lot.id] = {
@@ -458,7 +633,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return chargeRent(produced);
+  return finishUpgrades(finishConstructions(releaseAbandonedLots(chargeRent(produced))));
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -511,7 +686,8 @@ function placeOnDisplay(
   product: Product,
   price: number,
 ): FurniItem | null {
-  if (getListings(state, lotId).length >= ECONOMY.store.maxListings) return null;
+  const lot = state.lots[lotId];
+  if (getListings(state, lotId).length >= storeListingsMax(state, lot?.ownerId ?? '', lot)) return null;
   const slot = DISPLAY_SLOTS.find((s) =>
     canPlaceFurni(state, lotId, product.defId, s.x, s.y, DISPLAY_ROTATION),
   );
@@ -534,7 +710,8 @@ export function listItem(
   if (!isOwnerInside(state, avatarId, lot) || !isValidPrice(price)) return state;
   const inventory = state.inventories[avatarId] ?? [];
   const item = inventory.find((i) => i.id === itemId);
-  if (!item || !sellsItem(lot, item)) return state;
+  // Cada tienda vende lo suyo, y los exclusivos (recompensas de rango) no se venden.
+  if (!item || !sellsItem(lot, item) || (!isGarmentItem(item) && CATALOG[item.defId].exclusive)) return state;
 
   const product = placeOnDisplay(state, lotId, displayOf(item), price);
   if (!product) return state;
@@ -692,6 +869,26 @@ export function addNotice(state: GameState, avatarId: string, text: string): Gam
 // --- Alquiler periódico -------------------------------------------------------
 
 /**
+ * Locales abandonados: si el dueño (un jugador) no está conectado y no ha
+ * entrado en ECONOMY.rent.abandonSeconds, el local vuelve a estar en alquiler y
+ * sus muebles vuelven a su inventario, como al no pagar el alquiler.
+ */
+function releaseAbandonedLots(state: GameState): GameState {
+  const limit = secondsToTicks(ECONOMY.rent.abandonSeconds);
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    const owner = lot.ownerId;
+    // Un local construido es de su dueño: no se pierde por no venir.
+    if (!owner || isNpcId(owner) || next.avatars[owner] || isOwnLot(lot, owner)) continue;
+    const lastSeen = next.progress[owner]?.lastSeen;
+    if (lastSeen === undefined || next.tick - lastSeen < limit) continue;
+    next = addNotice(next, owner, `Has estado mucho tiempo fuera: el ${lot.label} vuelve a estar en alquiler.`);
+    next = closeLot(next, lot.id);
+  }
+  return next;
+}
+
+/**
  * Cobra el alquiler de los locales de los jugadores cuando toca. Si el dueño
  * no tiene dinero suficiente, pierde el local.
  */
@@ -699,6 +896,7 @@ function chargeRent(state: GameState): GameState {
   let next = state;
   for (const lot of Object.values(state.lots)) {
     if (!lot.ownerId || !lot.business || next.tick < lot.nextRentAt) continue;
+    if (isOwnLot(lot, lot.ownerId)) continue; // los locales construidos no pagan alquiler
     const rent = ECONOMY.businesses[lot.business].rent;
     const money = next.money[lot.ownerId] ?? 0;
 
@@ -718,6 +916,38 @@ function chargeRent(state: GameState): GameState {
     next = addNotice(next, lot.ownerId, `Alquiler del ${lot.label}: -${ECONOMY.currency}${rent}`);
   }
   return next;
+}
+
+/**
+ * El dueño cierra su negocio por su cuenta (para dejar el local o abrir otro
+ * negocio en él). Recupera todo lo de dentro: los muebles (también los que
+ * tenía a la venta) y los materiales del almacén; los muebles de la cola del
+ * taller vuelven a quien los encargó (ver closeLot). Y se le devuelve parte de
+ * la fianza (ECONOMY.rent.closeRefund).
+ */
+export function closeBusiness(state: GameState, avatarId: string, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  if (!lot?.business || lot.ownerId !== avatarId) return state;
+  const config = ECONOMY.businesses[lot.business];
+
+  // Los materiales del almacén vuelven al dueño (los muebles de la cola los
+  // reparte closeLot entre quienes los encargaron). En un local propio no se
+  // pagó fianza, así que no hay nada que devolver.
+  const own = isOwnLot(lot, avatarId);
+  const refund = own ? 0 : Math.round(config.deposit * ECONOMY.rent.closeRefund);
+  let next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + refund },
+    materials: { ...state.materials, [avatarId]: addMaterials(state.materials[avatarId] ?? {}, lot.storage) },
+  };
+  next = closeLot(next, lotId);
+  return addNotice(
+    next,
+    avatarId,
+    own
+      ? `Has cerrado ${config.name} (${lot.label}). El local sigue siendo tuyo.`
+      : `Has cerrado ${config.name} (${lot.label}). Te devuelven ${ECONOMY.currency}${refund} de la fianza.`,
+  );
 }
 
 /**
@@ -741,16 +971,35 @@ function closeLot(state: GameState, lotId: string): GameState {
   if (building) furniture[building.id] = { ...building, variant: 'closed' };
 
   const scene = state.scenes[lotId];
-  return {
+  let next: GameState = {
     ...state,
     furniture,
-    lots: { ...state.lots, [lotId]: createLot(lot.id, lot.label) },
+    // Un local construido sigue siendo de quien lo construyó.
+    lots: { ...state.lots, [lotId]: { ...createLot(lot.id, lot.label), ...ownership(lot) } },
     inventories: {
       ...state.inventories,
       [ownerId]: [...(state.inventories[ownerId] ?? []), ...returned],
     },
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lot.label } } : state.scenes,
   };
+  // La cola del taller o de la tienda de ropa: cada trabajo vuelve a quien lo
+  // encargó (el dueño o quien usaba el taller público): hecho, al inventario o
+  // a sus materiales; a medias, lo que gastó.
+  for (const job of lot.jobs) {
+    const info = craftJobInfo(job);
+    if (!info) continue;
+    const who = jobOwner(job, lot)!;
+    if (job.readyAt <= state.tick) {
+      next = deliverJobs(next, who, [job]);
+    } else {
+      const theirs = addMaterials(next.materials[who] ?? {}, info.materials);
+      next = { ...next, materials: { ...next.materials, [who]: theirs } };
+    }
+    if (who !== ownerId) {
+      next = addNotice(next, who, `El taller del ${lot.label} ha cerrado: recuperas tu ${info.name} o sus materiales.`);
+    }
+  }
+  return next;
 }
 
 /**
@@ -774,43 +1023,160 @@ export function releaseNpcLots(state: GameState): GameState {
   return next;
 }
 
-// --- Proveedor de materiales --------------------------------------------------
+/**
+ * Lo que un local construido conserva al cerrarse: su propietario, su obra y
+ * su nivel (con la mejora en obras, si la hay). Uno alquilado lo pierde todo.
+ */
+function ownership(lot: Lot): Partial<Lot> {
+  if (!lot.builtBy) return {};
+  return {
+    builtBy: lot.builtBy,
+    readyAt: lot.readyAt,
+    ...(lot.level ? { level: lot.level } : {}),
+    ...(lot.upgradeReadyAt ? { upgradeReadyAt: lot.upgradeReadyAt } : {}),
+  };
+}
+
+/** Acaba las obras que han llegado a su fin: el edificio pasa a local cerrado y su dueño recibe un aviso. */
+function finishConstructions(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    if (!lot.builtBy || isUnderConstruction(lot, state.tick)) continue;
+    const building = next.furniture[lotBuildingId(lot.id)];
+    if (building?.variant !== 'construction') continue;
+    next = {
+      ...next,
+      furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(lot) } },
+    };
+    next = addNotice(next, lot.builtBy, `¡Se acabó la obra! El ${lot.label} ya es tuyo: entra y abre un negocio.`);
+  }
+  return next;
+}
+
+// --- Niveles de los locales ---------------------------------------------------
 
 /**
- * Comprar materiales al proveedor. Está en la gasolinera, así que hay que
- * estar en la calle. Es una salida de dinero: lo pagado desaparece del pueblo.
+ * El dueño mejora su local al nivel siguiente: paga el dinero y los
+ * materiales y empiezan las obras (ECONOMY.lotLevels). El negocio sigue
+ * abierto; al acabar, sube de nivel y aparece el puesto nuevo (finishUpgrades).
  */
-export function buyMaterial(
-  state: GameState,
-  avatarId: string,
-  material: MaterialId,
-  quantity: number,
-): GameState {
-  const avatar = state.avatars[avatarId];
-  if (!avatar || avatar.sceneId !== 'street' || !isOwnKey(ECONOMY.supplier.prices, material)) return state;
-  const unitPrice = ECONOMY.supplier.prices[material];
-  if (!isIntegerBetween(quantity, 1, ECONOMY.supplier.maxPerPurchase)) return state;
-  const cost = unitPrice * quantity;
+export function upgradeLot(state: GameState, avatarId: string, lotId: string): GameState {
+  const lot = state.lots[lotId];
+  const cost = upgradeCost(lot);
+  if (!lot?.business || lot.ownerId !== avatarId || isNpcId(avatarId) || !cost || isUpgrading(lot)) return state;
+  // Tiene que haber sitio para el puesto nuevo (la tienda no lleva puesto).
+  if (lot.business !== 'store' && !hasStationRoom(state, lotId, lot.business)) return state;
   const money = state.money[avatarId] ?? 0;
-  if (money < cost) return state;
-
   const mine = state.materials[avatarId] ?? {};
-  return {
+  if (money < cost.price || !hasMaterials(mine, cost.materials)) return state;
+
+  const next: GameState = {
     ...state,
-    money: { ...state.money, [avatarId]: money - cost },
-    materials: { ...state.materials, [avatarId]: addMaterials(mine, { [material]: quantity }) },
+    money: { ...state.money, [avatarId]: money - cost.price },
+    materials: { ...state.materials, [avatarId]: addMaterials(mine, cost.materials, -1) },
+    lots: { ...state.lots, [lotId]: { ...lot, upgradeReadyAt: state.tick + secondsToTicks(cost.seconds) } },
   };
+  const minutes = Math.round(cost.seconds / 60);
+  return addNotice(next, avatarId, `Empiezan las obras del ${lot.label}: en ${minutes} min sube al nivel ${lotLevel(lot) + 1}.`);
+}
+
+/**
+ * Acaba las mejoras que han llegado a su fin: el local sube de nivel, aparece
+ * el puesto nuevo y su cartel lo muestra. Si hay alguien justo donde va el
+ * puesto, espera al tick siguiente; si lo tapan muebles, sube de nivel igual.
+ */
+function finishUpgrades(state: GameState): GameState {
+  let next = state;
+  for (const lot of Object.values(state.lots)) {
+    if (!isUpgrading(lot) || state.tick < lot.upgradeReadyAt!) continue;
+    const level = lotLevel(lot) + 1;
+    const upgraded: Lot = { ...lot, level, upgradeReadyAt: 0 };
+    const owner = lot.builtBy ?? lot.ownerId;
+    let placed = true;
+    if (lot.business && lot.business !== 'store') {
+      const before = next;
+      next = withStation(next, lot.id, lot.business, level);
+      placed = next !== before;
+      // Alguien está en el sitio del puesto nuevo: lo volvemos a intentar.
+      if (!placed && hasStationRoom(next, lot.id, lot.business)) continue;
+    }
+    next = { ...next, lots: { ...next.lots, [lot.id]: upgraded } };
+    const building = next.furniture[lotBuildingId(lot.id)];
+    if (building && lot.business) {
+      next = { ...next, furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(upgraded) } } };
+    }
+    if (owner) {
+      next = addXpFor(next, owner, 'upgrade');
+      next = addNotice(
+        next,
+        owner,
+        placed
+          ? `¡Mejora terminada! El ${lot.label} ya es de nivel ${level}.`
+          : `¡Mejora terminada! El ${lot.label} ya es de nivel ${level} (tus muebles tapaban el sitio del puesto nuevo).`,
+      );
+    }
+  }
+  return next;
+}
+
+// --- Decoración de los negocios ------------------------------------------------
+
+/**
+ * El dueño compra decoración propia de su negocio (ECONOMY.businessDecor): va
+ * a su inventario. La de más nivel solo se puede comprar con el local mejorado.
+ */
+export function buyBusinessDecor(state: GameState, avatarId: string, lotId: string, defId: BusinessDecorId): GameState {
+  const lot = state.lots[lotId];
+  if (!lot?.business || lot.ownerId !== avatarId) return state;
+  const offer = ECONOMY.businessDecor[lot.business].find((o) => o.defId === defId);
+  const money = state.money[avatarId] ?? 0;
+  if (!offer || lotLevel(lot) < offer.minLevel || money < offer.price) return state;
+  const item = { id: `i${state.nextId}`, defId };
+  const next: GameState = {
+    ...state,
+    money: { ...state.money, [avatarId]: money - offer.price },
+    inventories: { ...state.inventories, [avatarId]: [...(state.inventories[avatarId] ?? []), item] },
+    nextId: state.nextId + 1,
+  };
+  return addNotice(next, avatarId, `Has comprado ${CATALOG[defId].name}. Colócalo desde el inventario.`);
+}
+
+// --- Subvención del pueblo ----------------------------------------------------
+
+/** Ticks que faltan para poder recoger la subvención (0 si ya se puede). */
+export function subsidyTicksLeft(state: GameState, avatarId: string): number {
+  return Math.max(0, (state.subsidies[avatarId] ?? 0) - state.tick);
+}
+
+/**
+ * Recoger la subvención: da ECONOMY.subsidy.amount (más con el rango de
+ * Comerciante) y la siguiente no estará lista hasta dentro de un periodo. Es
+ * una entrada de dinero al pueblo.
+ */
+export function claimSubsidy(state: GameState, avatarId: string): GameState {
+  const avatar = state.avatars[avatarId];
+  if (!avatar || avatar.isBot || subsidyTicksLeft(state, avatarId) > 0) return state;
+  const { periodSeconds } = ECONOMY.subsidy;
+  const amount = subsidyAmount(state, avatarId);
+  const next = {
+    ...state,
+    money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + amount },
+    subsidies: { ...state.subsidies, [avatarId]: state.tick + secondsToTicks(periodSeconds) },
+  };
+  return addNotice(next, avatarId, `Subvención del pueblo: +${ECONOMY.currency}${amount}`);
 }
 
 // --- Fachadas -----------------------------------------------------------------
 
 /**
- * Variante de dibujo del edificio de un local: "open:<neón>:<fachada>:<negocio>"
- * o "closed". El cliente la usa para elegir colores, plantilla e icono del cartel.
+ * Variante de dibujo del edificio de un local: "open:<neón>:<fachada>:<negocio>:<nivel>",
+ * "closed" o, si se le pasa el tick y está en obras, "construction". El
+ * cliente la usa para elegir colores, plantilla e icono del cartel.
  */
-export function buildingVariant(lot: Lot): string {
+export function buildingVariant(lot: Lot, tick?: number): string {
+  if (tick !== undefined && isUnderConstruction(lot, tick)) return 'construction';
   if (!lot.business || !lot.facade) return 'closed';
-  return `open:${ECONOMY.businesses[lot.business].neon}:${lot.facade}:${lot.business}`;
+  return `open:${ECONOMY.businesses[lot.business].neon}:${lot.facade}:${lot.business}:${lotLevel(lot)}`;
 }
 
 /** El dueño cambia la plantilla de fachada de su local (puede hacerlo desde cualquier sitio). */

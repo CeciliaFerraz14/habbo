@@ -7,6 +7,20 @@
   - Los detalles pequeños (remaches, piquitos) se pintan con bloques de color.
 */
 
+/*
+  Números del texto: en Pixelify Sans el 5 es igual que la S ("$ 1S"), así que
+  las cifras (y solo ellas, por unicode-range) salen de VT323, que las tiene
+  muy claras. Es más bajita: size-adjust la iguala al resto del texto.
+  (Fuente con licencia OFL: ver assets/fonts/VT323-OFL.txt.)
+*/
+@font-face {
+  font-family: 'Pixel Digits';
+  src: url('../assets/fonts/vt323-latin.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+  size-adjust: 125%;
+  font-display: swap;
+}
+
 :root {
   /* Desierto */
   --sand: #e8c48a;
@@ -31,7 +45,7 @@
   --text: var(--outline);
   --muted: #7a5a40;
   --font-title: 'Press Start 2P', monospace;
-  --font-text: 'Pixelify Sans', 'VT323', monospace;
+  --font-text: 'Pixel Digits', 'Pixelify Sans', 'VT323', monospace;
 }
 
 * {
@@ -43,20 +57,27 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  /* En el móvil: sin rebote al deslizar ni recuadro azul al tocar. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   background: var(--sky);
   color: var(--text);
   font-family: var(--font-text);
 }
 
 /* El canvas ocupa toda la ventana. Su resolución interna es menor y se
-   escala con "pixelated" para que cada píxel del juego se vea como un bloque. */
+   escala con "pixelated" para que cada píxel del juego se vea como un bloque.
+   El tamaño en pantalla lo pone main.ts (resize), siempre un múltiplo exacto
+   de la resolución, para que nunca se estire.
+   touch-action: none → el dedo mueve el mapa y el pellizco hace zoom del
+   juego, en vez de desplazar o ampliar la página. */
 #game {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  left: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  touch-action: none;
 }
 
 /* Capa de interfaz HTML por encima del canvas. Solo sus hijos capturan el ratón,
@@ -154,6 +175,8 @@ body {
 
 /* Bisel pixel: luz arriba-izquierda y sombra abajo-derecha, sin difuminar. */
 .btn {
+  /* Sin el retraso del doble toque (que en el móvil amplía la página). */
+  touch-action: manipulation;
   font-family: var(--font-title);
   font-size: 11px;
   color: var(--outline);
@@ -174,6 +197,19 @@ body {
 .btn:active:not(:disabled) {
   transform: translate(2px, 2px);
   box-shadow: inset 2px 2px 0 var(--mustard-dark);
+}
+
+/* Botón para algo que no se puede deshacer (cerrar un negocio): rojo. */
+.btn.btn-danger {
+  color: var(--cream);
+  background: #c83c3c;
+  box-shadow:
+    inset -2px -2px 0 #8f2b2b,
+    inset 2px 2px 0 #e06060;
+}
+
+.btn.btn-danger:hover:not(:disabled) {
+  background: #e05050;
 }
 
 .btn:disabled {
@@ -218,6 +254,35 @@ body {
     4px 4px 0 rgba(42, 26, 20, 0.45);
 }
 
+/* En pantallas estrechas, la barra ocupa el ancho (menos el hueco de los
+   botones de zoom, a la derecha): el chat arriba y los botones debajo. */
+@media (max-width: 760px) {
+  #hud {
+    left: 8px;
+    right: 56px;
+    bottom: 8px;
+    transform: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+  }
+
+  #hud .chat-form {
+    flex: 1 1 100%;
+  }
+
+  #hud .chat-input {
+    width: 100%;
+    max-width: none;
+  }
+
+  #hud .btn {
+    flex: 1 1 0;
+    padding: 8px 4px;
+    font-size: 9px;
+  }
+}
+
 /* ---------- Chat ---------- */
 
 .chat-form {
@@ -250,6 +315,241 @@ body {
   overflow-y: auto;
   line-height: 1.1;
 }
+
+/* ---------- Nombre del dueño en los locales ---------- */
+
+#ui > .lot-signs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Tamaño, posición e inclinación (la de la pared) los pone ui/lotSigns.ts. */
+.lot-sign {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-text);
+  line-height: 1;
+  white-space: pre-line;
+  overflow: hidden;
+}
+
+/* Encima de cada caravana: tablilla de madera con el nombre de su dueño. */
+.home-sign {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 6px;
+  background: #8a5a34;
+  color: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: inset 0 1px 0 #a8754a;
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Dentro del local: cartel de madera colgado en la pared del fondo. */
+.lot-sign.wall {
+  background: var(--terracotta-dark);
+  color: var(--cream);
+  border: 2px solid var(--outline);
+  box-shadow: inset 0 0 0 2px var(--ochre);
+}
+
+/* ---------- Textos sobre muebles (cartel con tu nombre, estatua) ---------- */
+
+#ui > .furni-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Medidas y matriz (para seguir el plano del panel) las pone furniLabels.ts. */
+.furni-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-title);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Letras de neón cian que brillan. */
+.furni-label.neon {
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 4px var(--neon-cyan),
+    0 0 8px var(--neon-pink);
+}
+
+/* Letras grabadas en la placa dorada de la estatua. */
+.furni-label.plaque {
+  font-family: var(--font-text);
+  color: var(--outline);
+}
+
+/* ---------- Nombres de los jugadores ---------- */
+
+#ui > .name-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Cartelito oscuro y pequeño, para que no compita con los bocadillos. */
+.name-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 4px;
+  background: rgba(42, 26, 20, 0.75);
+  color: var(--cream);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* La insignia de nivel, un poco más pequeña sobre la cabeza. */
+.name-tag .level-badge {
+  min-width: 12px;
+  margin-right: 3px;
+  padding: 0 2px;
+  border-width: 1px;
+  font-size: 7px;
+  vertical-align: 1px;
+}
+
+/* Vecinos que venden exclusivos: rosa neón, para que se vea que se les puede tocar. */
+.name-tag.vendor {
+  background: rgba(150, 30, 90, 0.85);
+}
+
+/* El tuyo, en mostaza para encontrarte de un vistazo. */
+.name-tag.me {
+  color: var(--mustard-light);
+}
+
+/* ---------- Turnos en la gasolinera ---------- */
+
+#ui > .work-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Barra del turno encima del nombre: se llena de mostaza según pasa el tiempo. */
+.work-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  height: 8px;
+  background: #3a3434;
+  border: 2px solid var(--outline);
+}
+
+.work-bar i {
+  display: block;
+  height: 100%;
+  background: var(--mustard);
+}
+
+/* Dinero que sube flotando al cobrar una propina o el sueldo. */
+.money-float {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: #7be35b;
+  text-shadow:
+    1px 1px 0 var(--outline),
+    -1px -1px 0 var(--outline),
+    1px -1px 0 var(--outline),
+    -1px 1px 0 var(--outline);
+  white-space: nowrap;
+}
+
+/* ---------- Subida de nivel ---------- */
+
+#ui > .level-ups {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Punto de la explosión (sobre la cabeza): las chispas salen de aquí. */
+.level-up {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.level-up i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  animation: level-spark 1.2s steps(8) forwards;
+}
+
+.level-up span {
+  position: absolute;
+  left: 0;
+  top: -24px;
+  translate: -50% 0;
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--neon-yellow);
+  text-shadow:
+    2px 2px 0 var(--outline),
+    -1px -1px 0 var(--outline);
+  white-space: nowrap;
+  animation: level-text 2.2s steps(11) forwards;
+}
+
+@keyframes level-spark {
+  to {
+    translate: var(--dx) var(--dy);
+    opacity: 0;
+  }
+}
+
+@keyframes level-text {
+  0% {
+    translate: -50% 10px;
+    opacity: 0;
+  }
+  20%,
+  80% {
+    translate: -50% 0;
+    opacity: 1;
+  }
+  100% {
+    translate: -50% -10px;
+    opacity: 0;
+  }
+}
+
+/* ---------- Bocadillos ---------- */
 
 /* Capa de bocadillos: ocupa toda la pantalla pero deja pasar los clics al juego. */
 #ui > .bubbles {
@@ -319,7 +619,12 @@ body {
     inset 0 0 0 5px var(--outline),
     4px 4px 0 rgba(42, 26, 20, 0.45);
   padding: 5px;
+  /* Nunca más grande que la pantalla: la barra de título queda fija y el
+     contenido hace scroll (ver .win-body). El JS la recoloca para que quepa. */
   max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
 }
 
 .win[hidden] {
@@ -366,6 +671,12 @@ body {
 .win-body {
   padding: 10px;
   font-size: 17px;
+  /* min-height: 0 deja que el cuerpo encoja dentro de la ventana y haga scroll. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Barra de scroll a juego con el letrero. */
+  scrollbar-color: var(--ochre) var(--cream-dark);
 }
 
 /*
@@ -394,6 +705,150 @@ body {
     inset 0 0 0 2px var(--ochre),
     4px 4px 0 rgba(42, 26, 20, 0.45);
   pointer-events: none;
+  /* Que no llegue al centro: ahí están el logo y el cartel de la escena (que
+     mide hasta unos 280 px). Si no cabe, los materiales bajan de fila. */
+  max-width: calc(50vw - 150px);
+}
+
+/* En el móvil no hay sitio para todo arriba: la cartera ocupa el ancho, el
+   logo se oculta y el cartel de la escena baja sobre la barra inferior.
+   (Hasta 900 px: por debajo, la cartera junto al logo quedaría demasiado estrecha.) */
+@media (max-width: 900px) {
+  #wallet {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    padding: 4px 8px;
+  }
+
+  #wallet .chips {
+    font-size: 14px;
+  }
+
+  #logo {
+    display: none;
+  }
+
+  #location {
+    top: auto;
+    bottom: 108px;
+  }
+
+  #toast {
+    bottom: 140px;
+  }
+}
+
+/* Rango en la cartera: insignia, nombre y barra de XP. Se puede tocar (abre "Mi rango"). */
+.wallet-rank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-text);
+  font-size: 15px;
+  color: var(--outline);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.wallet-rank .xp-bar {
+  flex: 1 0 100%;
+}
+
+/* Insignia de nivel: cuadradito con el número, de bronce, plata, oro o neón. */
+.level-badge {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 3px;
+  border: 2px solid var(--outline);
+  font-family: var(--font-title);
+  font-size: 8px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--outline);
+}
+
+.level-badge.bronze { background: #d08a4e; }
+.level-badge.silver { background: #d8dde3; }
+.level-badge.gold { background: var(--neon-yellow); }
+.level-badge.legend {
+  background: var(--neon-pink);
+  color: var(--cream);
+}
+
+/* Barra de XP: del rango actual al siguiente. */
+.xp-bar {
+  height: 8px;
+  background: #3a3434;
+  border: 2px solid var(--outline);
+}
+
+.xp-bar i {
+  display: block;
+  height: 100%;
+  background: var(--turquoise-light);
+}
+
+/* Ventana "Mi rango". */
+.rank-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rank-head .level-badge {
+  font-size: 12px;
+}
+
+.rank-name {
+  font-family: var(--font-title);
+  font-size: 12px;
+}
+
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--cream-dark);
+  border: 2px solid var(--outline);
+  font-size: 15px;
+  opacity: 0.7;
+}
+
+.rank-row.reached {
+  background: var(--sand);
+  opacity: 1;
+}
+
+.rank-row.current {
+  outline: 3px solid var(--mustard);
+}
+
+.rank-reward {
+  color: var(--muted);
+}
+
+/* La cartera deja pasar el ratón, salvo su botón. */
+.wallet-subsidy {
+  margin-top: 6px;
+  pointer-events: auto;
 }
 
 .wallet-money {
@@ -468,6 +923,17 @@ body {
   width: 8px;
   height: 8px;
   border: 2px solid var(--outline);
+}
+
+/* En pantallas estrechas, el botón de cada opción va debajo del texto. */
+@media (max-width: 480px) {
+  .option {
+    grid-template-columns: 1fr;
+  }
+
+  .option .btn {
+    justify-self: start;
+  }
 }
 
 /* Taller: recetas y cola de fabricación. */
@@ -626,6 +1092,27 @@ body {
   outline-offset: 0;
 }
 
+/* Colores especiales (rango Cowboy del asfalto): con una estrellita; bloqueados, apagados. */
+.swatch.premium {
+  position: relative;
+}
+
+.swatch.premium::after {
+  content: '★';
+  position: absolute;
+  right: -5px;
+  top: -7px;
+  font-size: 10px;
+  color: var(--mustard);
+  text-shadow: 1px 1px 0 var(--outline);
+}
+
+.swatch:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* ---------- Tarjetas de muebles ---------- */
 
 .grid {
@@ -685,6 +1172,57 @@ body {
   flex-wrap: wrap;
 }
 
+/* Pestañas de una ventana (mostrador de Hank). La activa, hundida. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tabs .btn.active {
+  background: var(--mustard-light);
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 var(--mustard-dark);
+}
+
+/* Proveedor: una fila por material, con los botones a la derecha (o debajo si no caben). */
+.supplier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supplier-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+  font-size: 16px;
+}
+
+/* Oferta del día: tira de papel amarillo. */
+.deal {
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  background: #fff6a0;
+  border: 2px dashed var(--outline);
+  font-size: 16px;
+}
+
+/* Tablón: listas sencillas con viñeta cuadrada. */
+.board-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: square;
+  font-size: 16px;
+  line-height: 1.15;
+}
+
 .hint {
   margin: 8px 0 0;
   color: var(--muted);
@@ -721,6 +1259,36 @@ body {
 }
 
 /* ---------- Plantillas de fachada ---------- */
+
+/* Vista previa del local con la fachada elegida (el tamaño lo pone el JS). */
+.facade-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: var(--sand);
+  border: 2px solid var(--outline);
+}
+
+.facade-preview .icon {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+/* Cabecera plegable de la fachada: el título a la izquierda y Cambiar/Ocultar a la derecha. */
+.facade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.facade-header .section-title {
+  margin: 0;
+}
 
 .facade-picker {
   display: grid;
@@ -794,6 +1362,148 @@ body {
 .splash-status:empty,
 .splash-content:has(.login) .splash-status {
   display: none;
+}
+
+/* Bajo el logo: el estado, la barra de carga y la pista (o el login), en columna. */
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Barra de carga: 8 bloques que se encienden uno detrás de otro, en bucle. */
+.splash-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--outline);
+}
+
+.splash-bar i {
+  width: 14px;
+  height: 14px;
+  background: var(--cream-dark);
+  animation: splash-block 1.6s steps(1) infinite;
+}
+
+.splash-bar i:nth-child(2) { animation-delay: 0.2s; }
+.splash-bar i:nth-child(3) { animation-delay: 0.4s; }
+.splash-bar i:nth-child(4) { animation-delay: 0.6s; }
+.splash-bar i:nth-child(5) { animation-delay: 0.8s; }
+.splash-bar i:nth-child(6) { animation-delay: 1s; }
+.splash-bar i:nth-child(7) { animation-delay: 1.2s; }
+.splash-bar i:nth-child(8) { animation-delay: 1.4s; }
+
+@keyframes splash-block {
+  0% {
+    background: var(--mustard);
+  }
+  25% {
+    background: var(--cream-dark);
+  }
+}
+
+/* Aclaración que aparece si el servidor tarda (ver main.ts). */
+.splash-hint {
+  max-width: 340px;
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  color: var(--cream);
+  text-shadow: 1px 1px 0 var(--outline);
+}
+
+/* Con el login delante, o si no se ha podido conectar, la barra y la pista sobran. */
+.splash-hint:empty,
+.splash-content:has(.login) .splash-bar,
+.splash-content:has(.login) .splash-hint,
+#splash.failed .splash-bar {
+  display: none;
+}
+
+/* Carretera del horizonte: una franja justo encima de la arena (que empieza
+   al 78 % de la altura), por la que pasan el coche y el matorral. */
+.splash-road {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(78% - 36px);
+  height: 36px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.splash-car,
+.splash-weed {
+  position: absolute;
+  bottom: 0;
+}
+
+/* El coche cruza de izquierda a derecha a saltos (steps), con aire retro, y
+   bota 1 píxel al ritmo del motor. */
+.splash-car {
+  width: 64px;
+  height: 36px;
+  animation:
+    splash-drive 5s steps(60) infinite,
+    splash-bounce 0.3s steps(1) infinite;
+}
+
+/* El matorral rueda despacio en sentido contrario. */
+.splash-weed {
+  width: 21px;
+  height: 21px;
+  animation:
+    splash-roll-across 9s steps(90) infinite,
+    splash-spin 0.8s steps(4) infinite;
+}
+
+@keyframes splash-drive {
+  from {
+    left: -80px;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes splash-bounce {
+  50% {
+    translate: 0 -2px;
+  }
+}
+
+@keyframes splash-roll-across {
+  from {
+    left: 100%;
+  }
+  to {
+    left: -30px;
+  }
+}
+
+@keyframes splash-spin {
+  to {
+    rotate: -360deg;
+  }
+}
+
+/* Quien prefiere menos movimiento ve el coche aparcado y la barra quieta. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-car,
+  .splash-weed,
+  .splash-bar i {
+    animation: none;
+  }
+
+  .splash-car {
+    left: 20%;
+  }
+
+  .splash-weed {
+    display: none;
+  }
 }
 
 /* ---------- Pantalla de login ---------- */

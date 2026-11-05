@@ -6,7 +6,9 @@ import {
   getFootprint,
   getSeatAt,
   isInsideScene,
+  SCENES,
   type Avatar,
+  type Direction,
   type Door,
   type FurniItem,
   type FurniPlacement,
@@ -15,6 +17,8 @@ import {
   type InteriorTheme,
   type Scene,
   type Vehicle,
+  vehicleLength,
+  vendorOf,
 } from '@juego/shared';
 import type { AvatarView, AvatarViews } from '../game/avatarViews';
 import type { VehicleView, VehicleViews } from '../game/vehicleViews';
@@ -28,10 +32,13 @@ import {
   WALK_CYCLE,
 } from '../sprites/avatar';
 import type { Sprite } from '../sprites/canvas';
+import { bakePixelArt } from '../sprites/pixelArt';
+import { HAT, HAT_RISE } from '../sprites/hat';
 import { getFurniSprite, getModel, getPartSprite } from '../sprites/furniture/bake';
 import type { LightPool } from '../sprites/furniture/model';
 import { createBackdrop } from './backdrop';
 import { PHASE_DARKNESS, type DayPhase } from './daylight';
+import { PALETTE } from '../sprites/palette';
 import { Lighting } from './lighting';
 import { buildRoomSprites, WALL_HEIGHT, type RoomSprites } from '../sprites/room';
 import type { Camera } from './camera';
@@ -44,6 +51,30 @@ const HALF_H = TILE_HEIGHT / 2;
 const WALK_FRAME_MS = 130;
 /** Desempate enorme para que un avatar sentado se dibuje después de su asiento. */
 const SEATED_TIE_BONUS = 1000;
+
+/**
+ * Gorra roja de la gasolinera, para quien trabaja en la caja. Se pinta encima
+ * de las 4 primeras filas de la cabeza (ver HEAD_FRONT en avatar.ts). De frente
+ * la visera asoma hacia donde mira; de espaldas solo se ve la copa.
+ */
+const CAP_PALETTE = { O: PALETTE.outline, R: '#c83c3c', r: '#8f2b2b', W: PALETTE.cream };
+const CAP_FRONT = ['....OOOOOOOO....', '...ORRRRRRRRO...', '..ORRRRRWWRRRO..', '..OrrrrrrrrrrrrO'];
+const CAP_BACK = ['....OOOOOOOO....', '...ORRRRRRRRO...', '..ORRRRRRRRRRO..', '..OrrrrrrrrrrO..'];
+const WORK_CAP: Record<Direction, Sprite> = {
+  SE: bakePixelArt(CAP_FRONT, CAP_PALETTE),
+  SW: bakePixelArt(CAP_FRONT, CAP_PALETTE, true),
+  NE: bakePixelArt(CAP_BACK, CAP_PALETTE),
+  NW: bakePixelArt(CAP_BACK, CAP_PALETTE, true),
+};
+/** Cada cuánto sube y baja quien trabaja en la caja (como si cobrara), en ms. */
+const WORK_BOB_MS = 260;
+
+/** Lata de refresco que lleva un avatar en la mano (3x5 px, roja con tapa plateada). */
+const SODA_CAN = bakePixelArt(['.s.', 'rrr', 'rwr', 'rrr', 'rrr'], {
+  s: '#d8dde3',
+  r: '#c83c3c',
+  w: '#f6e7c8',
+});
 
 /** Mueble "fantasma" que sigue al ratón mientras lo colocamos o movemos. */
 export interface Ghost extends FurniPlacement {
@@ -76,7 +107,11 @@ export interface RenderInput {
 const INTERIOR_DARKNESS = 0.55;
 
 /** Algo de la escena en lo que se puede hacer clic. */
-export type PickTarget = { kind: 'furni'; item: FurniItem } | { kind: 'door'; door: Door };
+export type PickTarget =
+  | { kind: 'furni'; item: FurniItem }
+  | { kind: 'door'; door: Door }
+  /** Un vecino que vende exclusivos (los demás avatares no se pueden tocar). */
+  | { kind: 'vendor'; avatarId: string };
 
 /** Dónde se dibujó cada cosa "clicable" en el último fotograma, para saber qué hay bajo el ratón. */
 interface DrawnPickable {
@@ -278,6 +313,10 @@ export class Renderer {
         return s.asphalt;
       case '-':
         return s.asphaltLine;
+      case 'p':
+        return even ? s.plazaA : s.plazaB;
+      case 'c':
+        return even ? s.floorA : s.floorB;
       default:
         return even ? s.sandA : s.sandB;
     }
@@ -407,13 +446,14 @@ export class Renderer {
       });
     }
 
-    // Los coches solo circulan por la calle. Ocupan 2 baldosas a lo largo de x.
-    if (state.scenes[sceneId]?.kind === 'street') {
+    // Los coches solo circulan por la Calle Mayor (no por las plazas). Ocupan 2
+    // baldosas a lo largo de x (el autobús, 3).
+    if (sceneId === SCENES.street) {
       for (const car of Object.values(state.vehicles)) {
         const view = vehicles.get(car.id);
         if (!view) continue;
         drawables.push({
-          box: { x0: view.x, y0: view.y, x1: view.x + 2, y1: view.y + 1 },
+          box: { x0: view.x, y0: view.y, x1: view.x + vehicleLength(car), y1: view.y + 1 },
           tie: 0,
           draw: () => this.drawVehicle(car, view, camera),
         });
@@ -431,14 +471,15 @@ export class Renderer {
   }
 
   /**
-   * Un coche se dibuja como un mueble 'car' (con su color como variante),
-   * pero en su posición VISUAL, para que avance suave entre baldosas.
+   * Un coche se dibuja como un mueble 'car' (o 'bus'), con su color como
+   * variante, pero en su posición VISUAL, para que avance suave entre baldosas.
    */
   private drawVehicle(car: Vehicle, view: VehicleView, camera: Camera): void {
-    const { sprite, offsetX, offsetY } = getFurniSprite('car', 0, 'all', car.color);
+    const defId = car.kind === 'bus' ? 'bus' : 'car';
+    const { sprite, offsetX, offsetY } = getFurniSprite(defId, 0, 'all', car.color);
     const at = this.drawAtTile(sprite, view.x, view.y, camera, offsetX, offsetY);
     this.lighting.occlude(sprite, at.x, at.y);
-    const lit = getPartSprite('car', 0, 'emissive', car.color);
+    const lit = getPartSprite(defId, 0, 'emissive', car.color);
     if (lit) {
       const p = tileToScreen(view.x, view.y);
       this.lighting.emit(
@@ -447,9 +488,9 @@ export class Renderer {
         Math.round(camera.originY + p.y + lit.offsetY),
       );
     }
-    const light = getModel('car', car.color).light;
+    const light = getModel(defId, car.color).light;
     if (light) {
-      this.addLightPool({ defId: 'car', x: view.x, y: view.y, rotation: 0 }, light, camera);
+      this.addLightPool({ defId, x: view.x, y: view.y, rotation: 0 }, light, camera);
     }
   }
 
@@ -490,10 +531,25 @@ export class Renderer {
       ? WALK_CYCLE[Math.floor(now / WALK_FRAME_MS) % WALK_CYCLE.length]
       : FRAME_STAND;
     const sprite = frames[frameIndex];
+    // En la caja de la gasolinera: gorra y un vaivén de 1 px mientras está quieto.
+    const working = avatar.sceneId === SCENES.gas && (state.gasPlayers[avatar.id]?.shiftEndsAt ?? 0) > 0;
+    const bob = working && !view.walking && Math.floor(now / WORK_BOB_MS) % 2 === 1 ? -1 : 0;
     this.drawAtTile(SHADOW, view.x, view.y, camera, -SHADOW.width / 2, HALF_H - 2);
-    const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, HALF_H + 2 - sprite.height);
+    const top = HALF_H + 2 - sprite.height + bob;
+    const at = this.drawAtTile(sprite, view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
+    if (vendorOf(avatar.id)) this.drawn.push({ target: { kind: 'vendor', avatarId: avatar.id }, sprite, ...at });
     // Los avatares no dan luz, pero tapan las luces que tengan detrás.
     this.lighting.occlude(sprite, at.x, at.y);
+    // En la caja, la gorra de la gasolinera; si no, el sombrero de vaquero si lo lleva.
+    if (working) this.drawAtTile(WORK_CAP[avatar.direction], view.x, view.y, camera, -AVATAR_WIDTH / 2, top);
+    else if (avatar.look.hat) this.drawAtTile(HAT, view.x, view.y, camera, -AVATAR_WIDTH / 2, top - HAT_RISE);
+
+    // Un refresco en la mano: la lata, junto a la mano del lado que mira a la cámara.
+    if (avatar.holding?.item === 'soda') {
+      const toRight = avatar.direction === 'SE' || avatar.direction === 'NE';
+      const dx = toRight ? AVATAR_WIDTH / 2 - 2 : -AVATAR_WIDTH / 2 - 1;
+      this.drawAtTile(SODA_CAN, view.x, view.y, camera, dx, HALF_H - 12);
+    }
   }
 }
 
