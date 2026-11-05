@@ -18,6 +18,7 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - `normalizeLook` sustituye a `isValidLook` y admite `premium`: un solo sitio para validar colores, sombrero y prendas. El sombrero del rango y las prendas conviven.
 - Cerrar un local devuelve cada trabajo de la cola a quien lo encargó, también materiales y prendas.
 - Los negocios nuevos llevan lo mínimo por nivel y logo; sin decoración propia todavía.
+- La cantidad escrita en el proveedor se conserva al comprar y vender, también en la ventana de la gasolinera: el arreglo se perdió al borrar `supplierWindow.ts` y se recupera en `gasWindow.ts`.
 
 ## 2026-11-05 · Se retiran los solares de casero
 

@@ -77,6 +77,12 @@ export function createGasWindow(actions: GasActions): GasWindow {
   let timers: ((state: GameState) => void)[] = [];
   let lastState: GameState | null = null;
   let lastPlayer = '';
+  /**
+   * Cantidad escrita en cada material del proveedor. La ventana se reconstruye
+   * cuando cambia el estado (al comprar, al vender, con un encargo de otro
+   * jugador...) y así la cantidad se conserva.
+   */
+  const quantities = new Map<MaterialId, string>();
 
   const button = (label: string, enabled: boolean, onClick: () => void) => {
     const b = document.createElement('button');
@@ -132,7 +138,8 @@ export function createGasWindow(actions: GasActions): GasWindow {
       qty.className = 'price-input';
       qty.min = '1';
       qty.max = String(ECONOMY.supplier.maxPerPurchase);
-      qty.value = '5';
+      qty.value = quantities.get(id) ?? '5';
+      qty.addEventListener('input', () => quantities.set(id, qty.value));
       const amount = () => Math.round(Number(qty.value));
       const controls = document.createElement('div');
       controls.className = 'row';
