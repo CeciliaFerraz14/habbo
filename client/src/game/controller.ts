@@ -17,7 +17,7 @@ import {
   isGarmentItem,
   isInsideScene,
   lotOfStation,
-  plotOfSign,
+  plotOfSiteItem,
   sellsProducts,
   type Door,
   type FurniId,
@@ -243,8 +243,8 @@ export class GameController {
       // Las estructuras fijas (edificios, farolas...) no se seleccionan.
       if (CATALOG[item.defId].fixed) {
         this.select(null);
-        // Cartel de un solar libre: ventana para construir en él.
-        const plotId = plotOfSign(item.id);
+        // Solar sin construir: ventana para construir en él.
+        const plotId = plotOfSiteItem(item.id);
         if (plotId) {
           this.events.openPlot(plotId);
           return;

@@ -31,8 +31,8 @@ export type StructureId =
   | 'street_lamp'
   | 'saguaro'
   | 'welcome_sign'
-  // Cartel de "Se vende" de un solar sin construir
-  | 'plot_sign'
+  // Solar sin construir: losa, valla y cartel de "Se vende"
+  | 'plot_site'
   // Puestos de trabajo de los negocios (dentro de los locales)
   | 'scrap_pile'
   | 'workbench'
@@ -123,7 +123,7 @@ export const CATALOG: Record<FurniId, FurniDef> = {
   street_lamp: structure('street_lamp', 'Farola', 1, 1),
   saguaro: structure('saguaro', 'Cactus', 1, 1),
   welcome_sign: structure('welcome_sign', 'Cartel de bienvenida', 1, 2),
-  plot_sign: structure('plot_sign', 'Cartel de solar', 1, 1),
+  plot_site: structure('plot_site', 'Solar', 4, 4),
   scrap_pile: structure('scrap_pile', 'Montón de chatarra', 2, 2),
   workbench: structure('workbench', 'Banco de trabajo', 1, 2),
   shop_counter: structure('shop_counter', 'Mostrador', 1, 2),

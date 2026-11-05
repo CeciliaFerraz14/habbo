@@ -55,11 +55,11 @@ Abre http://localhost:5173
    si el precio les parece bien. Tu tienda vende aunque no estés.
 5. Una vez al día se cobra el **alquiler** de tus locales. Si no puedes pagarlo,
    pierdes el local (lo que había dentro vuelve a tu inventario).
-6. **Solares**: al otro lado de la carretera hay solares con un cartel de "Se vende".
-   Haz clic en el cartel para **construir** un local (cuesta dinero, chapa, madera
+6. **Solares**: al otro lado de la carretera hay dos filas de solares vallados con un
+   cartel de "Se vende". Haz clic en uno para **construir** un local (cuesta dinero, chapa, madera
    vieja y neumáticos). Quien lo construye es su **casero**: no lo usa él, lo
    alquila a otros jugadores. Haciendo clic en su edificio o en su puerta (en la
-   acera de detrás) mientras está libre, el casero fija la **fianza** y el
+   acera de delante) mientras está libre, el casero fija la **fianza** y el
    **alquiler** diario, y ve quién lo tiene alquilado y el **mantenimiento** que
    paga cada día, esté alquilado o no. Cobra la fianza y el alquiler aunque no
    esté, menos una comisión para el pueblo. Si no puede pagar el mantenimiento, el
@@ -88,7 +88,7 @@ Abre http://localhost:5173
 | Chatear | `Enter`, escribir y `Enter` (prueba a saludar a los vecinos) |
 | Cambiar tu aspecto y ponerte prendas | Botón "Avatar" |
 | Comprar en una tienda ajena | Clic en su mostrador, su máquina de coser o en un producto |
-| Construir en un solar | Clic en su cartel de "Se vende" |
+| Construir en un solar | Clic en el solar vallado |
 | Gestionar tu solar (casero) | Clic en su edificio o su puerta mientras está libre |
 | Forzar día / atardecer / noche / amanecer (depuración) | `N` (otra vez para volver a la hora real) |
 

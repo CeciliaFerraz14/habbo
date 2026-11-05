@@ -53,9 +53,10 @@ const THINK_SECONDS = { min: 3, max: 8 };
 
 /**
  * Filas de la calle por las que pasean: la acera norte y la carretera (4-9),
- * la acera sur junto a la carretera (10) y la trasera de los solares (15).
+ * la acera sur junto a la carretera (10) y las aceras de las puertas de las dos
+ * filas de solares (15 y 21).
  */
-const STREET_WANDER_ROWS = [4, 5, 6, 7, 8, 9, 10, 15];
+const STREET_WANDER_ROWS = [4, 5, 6, 7, 8, 9, 10, 15, 21];
 
 const PHRASES = {
   street: [

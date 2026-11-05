@@ -2,13 +2,14 @@
 //  SOLARES: CONSTRUIR Y ALQUILAR COMO CASERO
 // =============================================================================
 //
-// Enfrente de los locales del ayuntamiento hay solares vacíos (PLOT_SITES en
+// Al otro lado de la carretera hay dos filas de solares vacíos (PLOT_SITES en
 // world.ts). Un jugador paga dinero y materiales para construir en uno un
 // local, y pasa a ser su CASERO: no lo usa él, lo alquila a otros jugadores
 // con la fianza y el alquiler que él decide.
 //
 // - Construir crea el Lot (con el casero y sus condiciones) y llama a
-//   restorePlot, que pone en la calle el edificio, la puerta y el interior.
+//   restorePlot, que cambia la estructura del solar por el edificio, la puerta
+//   y el interior.
 // - Alquilar, cobrar el alquiler y perder el local son las mismas funciones de
 //   los locales normales (economy.ts): si el local tiene casero, la fianza y
 //   el alquiler son los suyos y se le pagan a él menos una comisión.
@@ -76,7 +77,7 @@ export function setPlotTerms(
  * El servidor la llama al cargar el mundo guardado: pone en la calle las piezas
  * de cada solar construido (restorePlot). Un solar guardado SIN casero (filas
  * de antes de que los solares tuvieran dueño) se descarta con sus muebles: el
- * sitio vuelve a estar libre, con su cartel, en vez de quedar bloqueado para
+ * sitio vuelve a estar libre, con su valla y su cartel, en vez de quedar bloqueado para
  * siempre sin nadie que pueda alquilarlo.
  */
 export function restoreSavedPlots(state: GameState): GameState {

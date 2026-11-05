@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import {
   applyAction,
   createInitialState,
+  createWalkableCheck,
   ECONOMY,
+  footprintContains,
+  getFootprint,
   isPlotId,
   lotTerms,
   planPath,
-  plotOfSign,
+  plotOfSiteItem,
   PLOT_SITES,
   restorePlot,
   restoreSavedPlots,
@@ -52,6 +55,21 @@ function rentedPlot(tenantMoney = 1000): GameState {
   });
 }
 
+/** p1 ha construido los seis solares. */
+function allBuilt(): GameState {
+  const ready = readyToBuild();
+  const count = PLOT_SITES.length;
+  const rich: GameState = {
+    ...ready,
+    money: { p1: plots.buildCost.money * count },
+    materials: { p1: { sheet_metal: 99, old_wood: 99, tires: 99 } },
+  };
+  return PLOT_SITES.reduce(
+    (state, site) => applyAction(state, { type: 'BUILD_PLOT', avatarId: 'p1', lotId: site.lotId }),
+    rich,
+  );
+}
+
 /** Avanza la simulación hasta el tick indicado. */
 function runUntil(state: GameState, until: number): GameState {
   let next = state;
@@ -61,32 +79,40 @@ function runUntil(state: GameState, until: number): GameState {
 
 const earned = (amount: number) => amount - Math.round(amount * plots.commissionRate);
 
-test('the street has six free plot sites with a sign and no lot', () => {
+test('the street has six free plot sites with a fixed structure and no lot', () => {
   const state = createInitialState();
   const street = state.scenes.street;
-  assert.equal(street.depth, 19);
+  assert.equal(street.depth, 25);
   assert.deepEqual(
-    PLOT_SITES.map((s) => [s.lotId, s.label]),
-    [1, 2, 3, 4, 5, 6].map((n) => [`lot${n + 6}`, `Solar ${n}`]),
+    PLOT_SITES.map((s) => [s.lotId, s.label, s.x, s.y]),
+    [
+      ['lot7', 'Solar 1', 8, 11],
+      ['lot8', 'Solar 2', 20, 11],
+      ['lot9', 'Solar 3', 32, 11],
+      ['lot10', 'Solar 4', 15, 17],
+      ['lot11', 'Solar 5', 27, 17],
+      ['lot12', 'Solar 6', 39, 17],
+    ],
   );
   for (const site of PLOT_SITES) {
     assert.ok(isPlotId(site.lotId));
     assert.equal(state.lots[site.lotId], undefined);
     assert.equal(state.scenes[site.lotId], undefined);
     assert.ok(!street.doors.some((d) => d.lotId === site.lotId));
-    const sign = Object.values(state.furniture).find(
-      (f) => f.defId === 'plot_sign' && f.x === site.x + 3 && f.y === 14,
-    );
-    assert.ok(sign, `cartel de ${site.label}`);
-    assert.equal(plotOfSign(sign.id), site.lotId);
+    const item = Object.values(state.furniture).find((f) => f.defId === 'plot_site' && f.x === site.x && f.y === site.y);
+    assert.ok(item, `estructura de ${site.label}`);
+    assert.equal(plotOfSiteItem(item.id), site.lotId);
+    // Mismo tamaño y orientación que el local que se construirá encima.
+    assert.equal(item.rotation, 1);
+    const { width, depth } = getFootprint(item);
+    assert.deepEqual([width, depth], [4, 4]);
   }
-  assert.equal(plotOfSign('lot1-building'), null);
+  assert.equal(plotOfSiteItem('lot1-building'), null);
   assert.ok(!isPlotId('lot1'));
   assert.ok(!isPlotId('toString'));
-  // Aceras: la sur junto a la carretera (y 10) y la trasera de los solares (y 15).
-  assert.equal(street.ground?.[10][0], 's');
-  assert.equal(street.ground?.[15][0], 's');
-  assert.equal(street.ground?.[12][0], '.');
+  // Aceras: la sur junto a la carretera (y 10) y las de las puertas de los solares (y 15 e y 21).
+  for (const y of [10, 15, 21]) assert.equal(street.ground?.[y][0], 's', `fila ${y}`);
+  for (const y of [12, 16, 19, 22, 24]) assert.equal(street.ground?.[y][0], '.', `fila ${y}`);
 });
 
 test('building a plot charges money and materials and creates lot, interior, building and door', () => {
@@ -101,17 +127,87 @@ test('building a plot charges money and materials and creates lot, interior, bui
   assert.deepEqual(lot.terms, plots.initialTerms);
   assert.equal(lot.nextUpkeepAt, state.tick + DAY);
   assert.equal(lot.suspended, false);
-
   assert.equal(state.scenes[SITE.lotId].name, SITE.label);
-  const building = state.furniture[`${SITE.lotId}-building`];
-  assert.equal(building.defId, 'shop');
-  assert.deepEqual([building.x, building.y, building.rotation, building.variant], [SITE.x, 11, 1, 'closed']);
-  const door = state.scenes.street.doors.find((d) => d.lotId === SITE.lotId);
-  assert.deepEqual(
-    [door?.x, door?.y, door?.spawn, door?.buildingId],
-    [SITE.x + 2, 15, { x: SITE.x + 2, y: 16 }, building.id],
+  assert.ok(!Object.values(state.furniture).some((f) => f.defId === 'plot_site' && f.x === SITE.x && f.y === SITE.y));
+});
+
+test('every built plot has its building on the site and its door on the sidewalk in front', () => {
+  const state = allBuilt();
+  for (const site of PLOT_SITES) {
+    const building = state.furniture[`${site.lotId}-building`];
+    assert.equal(building.defId, 'shop');
+    assert.deepEqual([building.x, building.y, building.rotation, building.variant], [site.x, site.y, 1, 'closed']);
+    const door = state.scenes.street.doors.find((d) => d.lotId === site.lotId);
+    assert.deepEqual(
+      [door?.x, door?.y, door?.spawn, door?.buildingId],
+      [site.x + 2, site.y + 4, { x: site.x + 2, y: site.y + 5 }, building.id],
+    );
+    assert.equal(state.scenes.street.ground?.[site.y + 4][site.x + 2], 's');
+  }
+  assert.ok(!Object.values(state.furniture).some((f) => f.defId === 'plot_site'));
+});
+
+test('an unbuilt site cannot be walked on', () => {
+  const state = readyToBuild();
+  const walkable = createWalkableCheck(state, 'street');
+  const walker = { ...testPlayer('street'), x: 5, y: 5 };
+  for (const site of PLOT_SITES) {
+    for (let y = site.y; y < site.y + 4; y++) {
+      for (let x = site.x; x < site.x + 4; x++) {
+        assert.equal(walkable(x, y), false, `${site.label}: baldosa ${x},${y}`);
+        assert.equal(planPath(state, walker, { x, y }), null, `${site.label}: ruta a ${x},${y}`);
+      }
+    }
+  }
+});
+
+test('every plot door is reachable from the north sidewalk', () => {
+  const state = allBuilt();
+  const walker = { ...testPlayer('street'), x: 5, y: 5 };
+  for (const site of PLOT_SITES) {
+    const door = state.scenes.street.doors.find((d) => d.lotId === site.lotId);
+    assert.ok(door);
+    assert.notEqual(planPath(state, walker, door), null, `puerta de ${site.label}`);
+    assert.notEqual(planPath(state, walker, door.spawn), null, `salida de ${site.label}`);
+  }
+  // También sin construir: los huecos entre filas no dependen de que haya edificios.
+  const empty = readyToBuild();
+  for (const site of PLOT_SITES) {
+    assert.notEqual(planPath(empty, walker, { x: site.x + 2, y: site.y + 5 }), null, `delante de ${site.label}`);
+  }
+});
+
+test('street decor stays off plot sites, doors and spawns, and cacti off the sidewalks', () => {
+  const state = allBuilt();
+  const street = state.scenes.street;
+  const decor = Object.values(state.furniture).filter(
+    (f) => f.sceneId === 'street' && ['street_lamp', 'saguaro', 'welcome_sign'].includes(f.defId),
   );
-  assert.ok(!Object.values(state.furniture).some((f) => f.defId === 'plot_sign' && f.x === SITE.x + 3));
+  const lampRows = new Set(decor.filter((f) => f.defId === 'street_lamp').map((f) => f.y));
+  for (const y of [6, 10, 15, 21]) assert.ok(lampRows.has(y), `farolas en la fila ${y}`);
+
+  const doorTiles = street.doors.flatMap((d) => [d, d.spawn]);
+  for (const item of decor) {
+    const f = getFootprint(item);
+    assert.ok(f.x + f.width <= street.width && f.y + f.depth <= street.depth, `${item.id} dentro de la calle`);
+    for (const site of PLOT_SITES) {
+      const clear = f.x + f.width <= site.x || f.x >= site.x + 4 || f.y + f.depth <= site.y || f.y >= site.y + 4;
+      assert.ok(clear, `${item.id} sobre ${site.label}`);
+    }
+    for (const tile of doorTiles) {
+      assert.ok(!footprintContains(f, tile.x, tile.y), `${item.id} sobre ${tile.x},${tile.y}`);
+    }
+    if (item.defId === 'saguaro') assert.equal(street.ground?.[item.y][item.x], '.', `${item.id} sobre la acera`);
+  }
+});
+
+test('neighbors also stroll along the sidewalk of the second row of plots', () => {
+  let state = createInitialState();
+  const until = secondsToTicks(600);
+  const isThere = (s: GameState) =>
+    Object.values(s.avatars).some((a) => a.id.startsWith('npc-') && a.sceneId === 'street' && a.y === 21);
+  while (state.tick < until && !isThere(state)) state = tick(state);
+  assert.ok(state.tick < until, 'ningún vecino pasó por la fila 21');
 });
 
 test('cannot build without money or materials, twice, or on a non-plot id', () => {
@@ -157,7 +253,7 @@ test('loading a saved plot reproduces the scene, door and building of building i
   assert.deepEqual(loaded.lots, built.lots);
 });
 
-test('loading a plot saved without landlord drops it, its furniture and keeps its sign', () => {
+test('loading a plot saved without landlord drops it and its furniture, and the site goes back to unbuilt', () => {
   const lot = { ...builtPlot().lots[SITE.lotId], landlordId: null, landlordName: null, terms: null };
   const fresh = createInitialState();
   const stray: FurniItem = { id: 'old-f', sceneId: SITE.lotId, defId: 'saguaro', x: 1, y: 1, rotation: 0 };
@@ -261,7 +357,7 @@ test('travelers can reach a shop on a plot', () => {
   const rented = rentedPlot();
   const door = rented.scenes.street.doors.find((d) => d.lotId === SITE.lotId);
   assert.ok(door);
-  // Desde la acera norte, donde se bajan del coche, hasta la puerta trasera.
+  // Desde la acera norte, donde se bajan del coche, hasta la puerta del solar.
   const walker = { ...testPlayer('street'), x: door.x - 1, y: 6 };
   assert.notEqual(planPath(rented, walker, door), null);
 
