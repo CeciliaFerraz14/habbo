@@ -368,6 +368,18 @@ body {
   font-size: 17px;
 }
 
+/*
+ * Las ventanas del juego nunca pasan de la pantalla: su contenido se desplaza.
+ * Los 170 px son la posición inicial más baja de las ventanas altas (110 px),
+ * la barra de título, los bordes y un margen abajo. La del login no entra aquí:
+ * la que se desplaza es la pantalla de carga.
+ */
+#ui > .win > .win-body {
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  scrollbar-color: var(--ochre) var(--cream-dark);
+}
+
 /* ---------- Economía ---------- */
 
 /* Cartera: tablilla arriba a la izquierda con el dinero y los materiales. */
@@ -463,8 +475,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 260px;
-  overflow-y: auto;
 }
 
 .recipe {

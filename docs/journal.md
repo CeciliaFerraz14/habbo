@@ -2,6 +2,17 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Las ventanas altas se pueden desplazar
+
+**Qué se hizo**
+- `styles.css`: el cuerpo de las ventanas del juego tiene una altura máxima según la pantalla y se desplaza; se quita el límite interior de `.recipes`, que ya no hace falta.
+- `rentWindow.ts`: las condiciones van encima de la lista de negocios.
+- La farola de la fila A pasa de (36,15) a (38,15): tapaba la ventana y el cartel del Solar 3.
+
+**Decisiones**
+- El límite va en CSS con un margen fijo. Una ventana arrastrada hacia abajo puede salirse por abajo hasta que se la sube; ajustarlo al arrastrar no compensa.
+- `.chat-log` conserva su propio desplazamiento porque el historial se pega al último mensaje. El login queda fuera: ahí se desplaza la pantalla de carga.
+
 ## 2026-11-05 · Solares en dos filas y correcciones de la revisión
 
 **Qué se hizo**

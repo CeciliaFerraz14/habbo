@@ -200,14 +200,13 @@ function createStreetStructures(): FurniItem[] {
 
   const lamp = (id: string, x: number, y: number) =>
     items.push({ id, sceneId: s, defId: 'street_lamp', x, y, rotation: 0 });
-  // Farolas a lo largo de las aceras, junto al bordillo y en la de la fila A,
-  // donde estas x caen en los huecos entre puertas.
+  // Farolas a lo largo de las dos aceras junto a la carretera.
   [6, 16, 26, 36].forEach((x, i) => {
     lamp(`lamp-${i}`, x, 6);
     lamp(`lamp-south-${i}`, x, 10);
-    lamp(`lamp-row-a-${i}`, x, 15);
   });
-  // En la acera de la fila B, solo en los huecos: delante de una fachada la taparían.
+  // En las aceras de los solares, solo en los huecos: delante de una fachada la taparían.
+  [6, 16, 26, 38].forEach((x, i) => lamp(`lamp-row-a-${i}`, x, 15));
   [8, 23, 35].forEach((x, i) => lamp(`lamp-row-b-${i}`, x, 21));
 
   // Cactus en los huecos entre edificios y en el desierto. Nunca en las líneas

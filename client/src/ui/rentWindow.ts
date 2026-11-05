@@ -14,7 +14,7 @@ export interface RentWindow {
   update: (state: GameState, playerId: string) => void;
 }
 
-/** Texto de debajo de la lista: las condiciones del local. */
+/** Texto de encima de la lista: las condiciones del local, para verlas antes de elegir. */
 function introText(lot: Lot): string {
   if (!lot.terms) return 'Elige qué negocio abrir. Al alquilar pagas una fianza.';
   if (lot.suspended) {
@@ -70,7 +70,7 @@ export function createRentWindow(onRent: (lotId: string, business: BusinessType)
       card.append(title, desc, button);
       list.append(card);
     }
-    win.body.replaceChildren(list, text(introText(lot)));
+    win.body.replaceChildren(text(introText(lot)), list);
   };
 
   const update = (state: GameState, playerId: string) => {

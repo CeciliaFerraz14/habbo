@@ -186,6 +186,13 @@ test('street decor stays off plot sites, doors and spawns, and cacti off the sid
   const lampRows = new Set(decor.filter((f) => f.defId === 'street_lamp').map((f) => f.y));
   for (const y of [6, 10, 15, 21]) assert.ok(lampRows.has(y), `farolas en la fila ${y}`);
 
+  // En la acera de una fila, una farola junto a una fachada taparía su ventana o su cartel.
+  for (const lamp of decor.filter((f) => f.defId === 'street_lamp')) {
+    for (const site of PLOT_SITES.filter((s) => s.y + 4 === lamp.y)) {
+      assert.ok(lamp.x < site.x || lamp.x > site.x + 4, `${lamp.id} delante de ${site.label}`);
+    }
+  }
+
   const doorTiles = street.doors.flatMap((d) => [d, d.spawn]);
   for (const item of decor) {
     const f = getFootprint(item);
