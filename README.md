@@ -73,8 +73,19 @@ Abre http://localhost:5173
      anuncios**, con todos los negocios, los encargos y la oferta del día.
    - De vez en cuando para un **autobús de turistas** y bajan varios viajeros a la vez.
    Los muebles también se compran en las tiendas de otros jugadores.
-7. Decora tu caravana con lo que compres o fabriques.
-8. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
+7. **Niveles y rangos**: ganas experiencia (XP) vendiendo, fabricando, recogiendo
+   materiales, entregando encargos, trabajando en la gasolinera, abriendo negocios
+   nuevos y entrando a jugar cada día. Con la XP subes de rango (de Forastero a
+   Alcalde de Pixel Springs) y cada rango da una recompensa: dinero, muebles, más
+   huecos en el taller y la tienda, más subvención o descuento con Hank. El rango
+   Cowboy del asfalto desbloquea el sombrero de vaquero y colores nuevos.
+   Cada local también tiene **nivel**: se mejora con dinero y da más huecos, y cada
+   negocio tiene decoración propia en tres niveles.
+   En un **taller público** los demás solo pueden fabricar muebles; los materiales y
+   la tienda de ropa son siempre solo del dueño.
+8. Algunos **vecinos venden muebles exclusivos**: tócalos estando cerca de ellos.
+9. Decora tu caravana con lo que compres o fabriques.
+10. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
    te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
    última prenda de un tipo y color que llevas puesta, se te quita.
 
@@ -118,6 +129,8 @@ escriben en segundos.
 | Recetas de la tienda de ropa (tela y tiempo de cada prenda) | `garmentRecipes` |
 | Valor de referencia de cada mueble y de cada prenda | `baseValue`, `garmentValue` (precio sugerido y referencia de los viajeros) |
 | Tamaño de las tiendas y comisión por venta | `store` |
+| XP, rangos y recompensas, y mejoras de local | `levels`, `upgrades` |
+| Vecinos que venden muebles exclusivos | `vendors` |
 | Precios del proveedor, lo que paga al comprarte y la oferta del día | `supplier` |
 | Encargos de Hank, turnos, rasca y gana, máquinas, coches que repostan y autobús | `gasStation` |
 | Frecuencia de coches, probabilidad de parar y forma de comprar de los viajeros | `travelers` |

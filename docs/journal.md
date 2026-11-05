@@ -2,6 +2,24 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Documentación de la fusión y plan de la fase 1
+
+**Qué se hizo**
+- README: rangos y XP, niveles de local, vecinos vendedores y taller público; la economía enlaza `levels`, `upgrades` y `vendors`. Sin solares de casero.
+- Se guardan la spec (`2026-11-05-fusion-y-solares-design.md`) y el plan de la fase 1.
+
+**Decisiones de la fusión (resumen)**
+- Talleres públicos: solo muebles. Los materiales no dan XP de fabricación.
+- La tienda de ropa nunca es pública; tiene cola y bancos por nivel.
+- El proveedor conserva sus 5 materiales: la tela y las fichas no se venden allí.
+
+**Pendiente**
+- Fase 2: rehacer los solares de casero sobre el Ensanche.
+- Despliegue, en este orden y con nadie conectado: copia de seguridad; probar `010` con `begin; ... rollback;`; aplicar `010`; desactivar el despliegue automático de Render y Vercel; desplegar a mano el servidor y después el cliente; revisar el log (carga y guardado sin errores, jugadores con lo suyo); probar y aplicar `011`.
+- No hay vuelta al servidor anterior tras guardar negocios nuevos ni tras la `011`.
+- Antes de cualquier `npm run dev`, confirmar que `server/.env` no apunta a producción.
+- Las migraciones y el `push` los confirma la usuaria; nada de esto se ha tocado.
+
 ## 2026-11-05 · Los negocios nuevos con logo, decoración y niveles
 
 **Qué se hizo**
