@@ -4,7 +4,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInitialState, lotBuildingId, releaseNpcLots, SCENES } from '@juego/shared';
-import { furnitureChanges, worldFromRows, type WorldRows } from './persistence';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchAllRows, furnitureChanges, Persistence, worldFromRows, type WorldRows } from './persistence';
 
 const ANA = '11111111-1111-4111-8111-111111111111';
 const BEA = '22222222-2222-4222-8222-222222222222';
@@ -133,4 +134,102 @@ test('the first save after loading only removes the furniture of NPC lots', () =
   assert.deepEqual(changedLots.sort(), ['lot4', 'lot6']);
   assert.strictEqual(state.inventories[ANA], saved.inventories[ANA]);
   assert.strictEqual(state.money[ANA], saved.money[ANA]);
+});
+
+/** Fuente de páginas falsa: como .range(from, to), con los dos extremos incluidos. */
+function pageSource(total: number) {
+  const rows = Array.from({ length: total }, (_, i) => ({ id: `row-${i}` }));
+  const ranges: [number, number][] = [];
+  const fetchPage = async (from: number, to: number) => {
+    ranges.push([from, to]);
+    return { data: rows.slice(from, to + 1), error: null };
+  };
+  return { rows, ranges, fetchPage };
+}
+
+test('fetchAllRows reads one short page and stops', async () => {
+  const { rows, ranges, fetchPage } = pageSource(1);
+  assert.deepEqual(await fetchAllRows(fetchPage, 'test', 2), rows);
+  assert.deepEqual(ranges, [[0, 1]]);
+});
+
+test('fetchAllRows on an empty table asks once and returns nothing', async () => {
+  const { ranges, fetchPage } = pageSource(0);
+  assert.deepEqual(await fetchAllRows(fetchPage, 'test', 2), []);
+  assert.deepEqual(ranges, [[0, 1]]);
+});
+
+test('fetchAllRows on an exact page boundary asks for one more page', async () => {
+  const { rows, ranges, fetchPage } = pageSource(4);
+  assert.deepEqual(await fetchAllRows(fetchPage, 'test', 2), rows);
+  assert.deepEqual(ranges, [[0, 1], [2, 3], [4, 5]]);
+});
+
+test('fetchAllRows joins more than one page in order', async () => {
+  const { rows, ranges, fetchPage } = pageSource(5);
+  assert.deepEqual(await fetchAllRows(fetchPage, 'test', 2), rows);
+  assert.deepEqual(ranges, [[0, 1], [2, 3], [4, 5]]);
+});
+
+test('fetchAllRows fails if any page fails, instead of returning a truncated list', async () => {
+  const fetchPage = async (from: number) =>
+    from === 0
+      ? { data: [{ id: 'a' }, { id: 'b' }], error: null }
+      : { data: null, error: { message: 'timeout' } };
+  await assert.rejects(fetchAllRows(fetchPage, 'furniture', 2), /furniture.*timeout/);
+});
+
+/**
+ * Supabase falso con lo que usa Persistence.load. Las tablas de `withoutGarment`
+ * se comportan como sin la migración 010: pedir esas columnas devuelve un error.
+ */
+function fakeDb(tables: Record<string, Record<string, unknown>[]>, withoutGarment: string[] = []) {
+  const selects: string[] = [];
+  const orders: string[] = [];
+  const db = {
+    from: (table: string) => ({
+      select: (columns: string) => {
+        selects.push(`${table}:${columns}`);
+        return {
+          limit: async () =>
+            withoutGarment.includes(table)
+              ? { data: null, error: { message: `column ${table}.garment does not exist` } }
+              : { data: [], error: null },
+          maybeSingle: async () => ({ data: null, error: null }),
+          order: (column: string) => {
+            orders.push(`${table}:${column}`);
+            return {
+              range: async (from: number, to: number) => ({
+                data: (tables[table] ?? []).slice(from, to + 1),
+                error: null,
+              }),
+            };
+          },
+        };
+      },
+    }),
+  };
+  return { db: db as unknown as SupabaseClient, selects, orders };
+}
+
+test('load refuses to start without migration 010 and reads nothing else', async () => {
+  const noInventoryColumns = fakeDb({}, ['inventory_items']);
+  await assert.rejects(Persistence.load(noInventoryColumns.db), /migración 010.*inventory_items/);
+  assert.deepEqual(noInventoryColumns.selects, ['inventory_items:garment,color']);
+
+  const noFurnitureColumn = fakeDb({}, ['furniture']);
+  await assert.rejects(Persistence.load(noFurnitureColumn.db), /migración 010.*furniture/);
+  assert.deepEqual(noFurnitureColumn.selects, ['inventory_items:garment,color', 'furniture:garment']);
+});
+
+test('load reads every row of a table larger than the default max_rows', async () => {
+  const items = Array.from({ length: 1201 }, (_, i) => ({ id: `i-${i}`, owner_id: ANA, def_id: 'tire', garment: null, color: null }));
+  const { db, orders } = fakeDb({ profiles: [profileRow(ANA, 'Ana', 0)], inventory_items: items });
+
+  const { state } = await Persistence.load(db);
+
+  assert.equal(state.inventories[ANA].length, 1201);
+  for (const table of ['lots', 'furniture', 'profiles', 'inventory_items']) {
+    assert.ok(orders.includes(`${table}:id`), `${table} is ordered by id`);
+  }
 });

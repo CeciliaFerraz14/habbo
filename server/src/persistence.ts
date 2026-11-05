@@ -38,6 +38,7 @@ import {
   type Lot,
   type Materials,
 } from '@juego/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './auth';
 
 /** Escenas cuyos muebles se guardan: caravanas y locales. */
@@ -133,6 +134,48 @@ function furniToRow(f: FurniItem) {
 function check<T>(result: { data: T; error: { message: string } | null }, what: string): T {
   if (result.error) throw new Error(`Supabase (${what}): ${result.error.message}`);
   return result.data;
+}
+
+/**
+ * Filas por página al cargar. Por debajo del max_rows de Supabase (1000 por
+ * defecto): si el servidor recortara una página, parecería la última.
+ */
+const PAGE_SIZE = 500;
+
+/**
+ * Lee una tabla entera por páginas, hasta una página incompleta. Sin esto,
+ * Supabase corta en max_rows sin avisar, y el siguiente guardado reescribiría
+ * el inventario de un jugador a partir de la lista cortada. Los extremos de
+ * cada página van incluidos, como en .range(from, to).
+ */
+export async function fetchAllRows(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: Record<string, any>[] | null; error: { message: string } | null }>,
+  what: string,
+  pageSize = PAGE_SIZE,
+): Promise<Record<string, any>[]> {
+  const rows: Record<string, any>[] = [];
+  for (;;) {
+    const page = check(await fetchPage(rows.length, rows.length + pageSize - 1), what) ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+/**
+ * Sin la migración 010, el primer cambio de inventario borra las filas del
+ * jugador y luego no puede insertarlas, porque garment no existe: lo perdería
+ * al reiniciar. Por eso el servidor no arranca: mejor un despliegue fallido.
+ */
+async function requireMigration010(db: SupabaseClient): Promise<void> {
+  for (const [table, columns] of [['inventory_items', 'garment,color'], ['furniture', 'garment']]) {
+    const { error } = await db.from(table).select(columns).limit(1);
+    if (error) {
+      throw new Error(
+        `El servidor no arranca: comprueba que está aplicada la migración 010 (010_businesses_and_clothing.sql). ` +
+          `Fallo al leer ${columns} de ${table}: ${error.message}`,
+      );
+    }
+  }
 }
 
 /** Filas de las tablas con las que se reconstruye el mundo. */
@@ -291,26 +334,27 @@ export class Persistence {
    * Crea el mundo: el inicial, con lo guardado en Supabase encima.
    * Sin Supabase configurado, devuelve el mundo inicial y no guarda nada.
    */
-  static async load(): Promise<{ state: GameState; persistence: Persistence | null }> {
+  static async load(db: SupabaseClient | null = supabase): Promise<{ state: GameState; persistence: Persistence | null }> {
     let state = createInitialState();
-    if (!supabase) return { state, persistence: null };
+    if (!db) return { state, persistence: null };
 
-    const [world, lots, furniture, profiles, items] = await Promise.all([
-      supabase.from('world').select('*').maybeSingle(),
-      supabase.from('lots').select('*'),
-      supabase.from('furniture').select('*'),
-      supabase.from('profiles').select('*'),
-      supabase.from('inventory_items').select('*'),
+    await requireMigration010(db);
+
+    const readAll = (table: string) =>
+      fetchAllRows((from, to) => db.from(table).select('*').order('id').range(from, to), table);
+    const [world, lotRows, furniRows, profileRows, itemRows] = await Promise.all([
+      db.from('world').select('*').maybeSingle(),
+      readAll('lots'),
+      readAll('furniture'),
+      readAll('profiles'),
+      readAll('inventory_items'),
     ]);
-    const lotRows = check(lots, 'lots') ?? [];
-    const furniRows = check(furniture, 'furniture') ?? [];
-    const profileRows = check(profiles, 'profiles') ?? [];
     const loaded = worldFromRows(state, {
       world: check(world, 'world'),
       lots: lotRows,
       furniture: furniRows,
       profiles: profileRows,
-      items: check(items, 'inventory_items') ?? [],
+      items: itemRows,
     });
     const persistence = new Persistence(loaded);
     for (const p of profileRows) persistence.profiles.set(p.id, { name: p.name, look: p.look });
