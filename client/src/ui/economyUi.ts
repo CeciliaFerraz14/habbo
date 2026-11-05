@@ -24,14 +24,12 @@ export function formatMoney(amount: number): string {
   return `${ECONOMY.currency} ${amount}`;
 }
 
-/** Ticks → texto: "12 s" si falta menos de una hora; si no, "23 h 5 min". */
+/** Ticks → texto "12 s". */
 export function formatTicks(ticks: number): string {
-  const seconds = Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000));
-  if (seconds < 3600) return `${seconds} s`;
-  return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
+  return `${Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000))} s`;
 }
 
-/** Campo para escribir una cantidad entera (un precio, una fianza...) entre `min` y `max`. */
+/** Campo para escribir una cantidad entera (un precio, unas unidades...) entre `min` y `max`. */
 export function numberInput(value: number, min: number, max: number, enabled = true): HTMLInputElement {
   const input = document.createElement('input');
   input.type = 'number';

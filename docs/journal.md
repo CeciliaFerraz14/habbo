@@ -2,6 +2,18 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-05 · Se retiran los solares de casero
+
+**Qué se hizo**
+- Fuera `plots.ts`, sus tests, `plotWindow.ts`, `plotSite.ts`, la migración `006_plots.sql`, las acciones `BUILD_PLOT` y `SET_PLOT_TERMS`, `ECONOMY.plots` y los campos de casero de `Lot`.
+- La calle vuelve al plano anterior a los solares: 14 de fondo, con sus farolas, cactus y paseo de vecinos de entonces.
+- `rentLot`, `chargeRent` y `closeLot` quedan como antes de los solares; el toast de "Local alquilado" vuelve a `main.ts`.
+
+**Decisiones**
+- Se retiran porque chocan con el plano de `origin/master`. Vuelven en la fase 2 sobre el Ensanche; el código sigue en el historial.
+- Se quedan los arreglos que no son de solares: ventanas con desplazamiento, ventana de alquiler con firma y las utilidades `formatTicks`, `numberInput`, `readNumber`, `text`, `isIntegerBetween` y `lotBuildingId`.
+- `006_plots.sql` se puede borrar porque nunca se aplicó.
+
 ## 2026-11-05 · Las ventanas altas se pueden desplazar
 
 **Qué se hizo**

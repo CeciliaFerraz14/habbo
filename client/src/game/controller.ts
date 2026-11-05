@@ -17,7 +17,6 @@ import {
   isGarmentItem,
   isInsideScene,
   lotOfStation,
-  plotOfSiteItem,
   sellsProducts,
   type Door,
   type FurniId,
@@ -47,8 +46,6 @@ export interface ControllerEvents {
   notify: (message: string) => void;
   /** Abre la ventana para alquilar un local libre. */
   openRent: (lotId: string) => void;
-  /** Abre la ventana de un solar: construir en uno libre o gestionarlo como casero. */
-  openPlot: (lotId: string) => void;
   /** Abre la ventana de gestión de un negocio. */
   openBusiness: (lotId: string) => void;
   /** Abre una tienda como cliente (para ver sus productos y comprar). */
@@ -243,12 +240,6 @@ export class GameController {
       // Las estructuras fijas (edificios, farolas...) no se seleccionan.
       if (CATALOG[item.defId].fixed) {
         this.select(null);
-        // Solar sin construir: ventana para construir en él.
-        const plotId = plotOfSiteItem(item.id);
-        if (plotId) {
-          this.events.openPlot(plotId);
-          return;
-        }
         // Puesto de trabajo de un negocio: abre su ventana si es tuyo y, si es
         // una tienda ajena (mostrador o máquina de coser), la tienda para comprar.
         const lotId = lotOfStation(item.id);
@@ -268,15 +259,7 @@ export class GameController {
         }
         // Edificio con puerta: el clic nos lleva hasta ella.
         const door = this.scene?.doors.find((d) => d.buildingId === item.id);
-        if (!door) return;
-        // El casero va a la ventana de su solar, tenga inquilino o no. Se queda
-        // fuera: entrar cerraría la ventana, que solo se usa desde la calle.
-        if (door.lotId && state.lots[door.lotId]?.landlordId === this.playerId) {
-          this.moveTo(door.spawn);
-          this.events.openPlot(door.lotId);
-        } else {
-          this.goToDoor(door);
-        }
+        if (door) this.goToDoor(door);
         return;
       }
       // Solo se seleccionan (para mover, girar o recoger) los muebles de un
@@ -309,18 +292,13 @@ export class GameController {
   }
 
   /**
-   * Camina hasta una puerta. Si está abierta, entra (el casero, como cliente
-   * de su inquilino). Si el local no tiene inquilino, se queda delante y abre
-   * la ventana para alquilarlo o, si es su propio solar, la del casero (no se
-   * lo alquila a sí mismo).
+   * Camina hasta una puerta. Si es la de un local en alquiler, se queda
+   * delante y abre la ventana para alquilarlo.
    */
   private goToDoor(door: Door): void {
-    const state = this.getState();
-    if (isDoorLocked(state, door)) {
+    if (isDoorLocked(this.getState(), door)) {
       this.moveTo(door.spawn);
-      if (!door.lotId) return;
-      if (state.lots[door.lotId]?.landlordId === this.playerId) this.events.openPlot(door.lotId);
-      else this.events.openRent(door.lotId);
+      if (door.lotId) this.events.openRent(door.lotId);
       return;
     }
     this.moveTo(door);

@@ -51,12 +51,8 @@ const NEIGHBORS = [
 /** Cada cuánto piensan (segundos, entre un mínimo y un máximo al azar). */
 const THINK_SECONDS = { min: 3, max: 8 };
 
-/**
- * Filas de la calle por las que pasean: la acera norte y la carretera (4-9),
- * la acera sur junto a la carretera (10) y las aceras de las puertas de las dos
- * filas de solares (15 y 21).
- */
-const STREET_WANDER_ROWS = [4, 5, 6, 7, 8, 9, 10, 15, 21];
+/** Zona de la calle por la que pasean (filas de la acera y la carretera). */
+const STREET_WANDER_ROWS = { from: 4, to: 9 };
 
 const PHRASES = {
   street: [
@@ -199,7 +195,8 @@ export function wander(state: GameState, avatar: Avatar, random: () => number): 
   for (let attempt = 0; attempt < 10; attempt++) {
     const x = Math.floor(random() * scene.width);
     const y = street
-      ? STREET_WANDER_ROWS[Math.floor(random() * STREET_WANDER_ROWS.length)]
+      ? STREET_WANDER_ROWS.from +
+        Math.floor(random() * (STREET_WANDER_ROWS.to - STREET_WANDER_ROWS.from + 1))
       : Math.floor(random() * scene.depth);
     // Las puertas no cuentan como destino de paseo (te cambiarían de escena).
     if (walkable(x, y) && !scene.doors.some((d) => d.x === x && d.y === y)) {
