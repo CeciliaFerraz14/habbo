@@ -66,6 +66,10 @@ export type Action =
   | { type: 'CLOSE_BUSINESS'; avatarId: string; lotId: string }
   /** Comprar decoración propia de tu negocio (ver buyBusinessDecor). */
   | { type: 'BUY_DECOR'; avatarId: string; lotId: string; defId: BusinessDecorId }
+  /** Poner en alquiler un local construido, o cambiar sus condiciones (ver listLot). */
+  | { type: 'LIST_LOT'; avatarId: string; lotId: string; deposit: number; rent: number }
+  /** Retirar del alquiler un local construido sin inquilino (ver unlistLot). */
+  | { type: 'UNLIST_LOT'; avatarId: string; lotId: string }
   /** Mejorar tu local al nivel siguiente (ver upgradeLot). */
   | { type: 'UPGRADE_LOT'; avatarId: string; lotId: string }
   /** Cambiar la plantilla de fachada de un local propio. */

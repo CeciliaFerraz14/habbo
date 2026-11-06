@@ -13,6 +13,7 @@ export * from './looks';
 export * from './movement';
 export * from './npcs';
 export * from './pathfinding';
+export * from './plots';
 export * from './random';
 export * from './reducer';
 export * from './scene';

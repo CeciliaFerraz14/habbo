@@ -83,6 +83,12 @@ export function jobOwner(job: CraftJob, lot: Lot): string | null {
   return job.by ?? lot.ownerId;
 }
 
+/** Fianza y alquiler diario que fija el dueño de un local del Ensanche. */
+export interface PlotTerms {
+  deposit: number;
+  rent: number;
+}
+
 /** Un local de la calle. */
 export interface Lot {
   /** Mismo id que su escena interior (lot1, lot2...). */
@@ -120,6 +126,15 @@ export interface Lot {
    */
   builtBy?: string;
   readyAt?: number;
+  /**
+   * Local construido en alquiler: sus condiciones. Si existen, el local está
+   * en alquiler (no hay otra bandera); si no, solo lo usa su dueño.
+   */
+  terms?: PlotTerms;
+  /** En alquiler: tick en que se cobrará el próximo mantenimiento al dueño. */
+  nextUpkeepAt?: number;
+  /** En alquiler: el dueño no pudo pagar el mantenimiento y no admite inquilinos nuevos. */
+  suspended?: boolean;
   /** Nivel del local (1 si no se indica; ver ECONOMY.lotLevels). */
   level?: number;
   /** Mejora en obras: tick en que sube al nivel siguiente (0 o nada = sin obras). */
@@ -153,8 +168,17 @@ export function createLot(id: string, label: string): Lot {
 }
 
 /** ¿Es un entero entre min y max (incluidos)? Para los números que manda el cliente. */
-function isIntegerBetween(value: number, min: number, max: number): boolean {
+export function isIntegerBetween(value: number, min: number, max: number): boolean {
   return Number.isInteger(value) && value >= min && value <= max;
+}
+
+/**
+ * Fianza y alquiler de un negocio en un local: en uno construido en alquiler,
+ * los que fija su dueño; en uno del ayuntamiento, los del tipo de negocio.
+ */
+export function lotTerms(lot: Lot, business: BusinessType): PlotTerms {
+  const config = ECONOMY.businesses[business];
+  return lot.terms ?? { deposit: config.deposit, rent: config.rent };
 }
 
 /** Configuración del negocio de un local (o null si está en alquiler). */
@@ -364,7 +388,9 @@ function isOwnerInside(state: GameState, avatarId: string, lot: Lot | undefined)
 
 /**
  * Alquilar un local libre y abrir en él un negocio: se paga la fianza y se
- * abre el negocio.
+ * abre el negocio. En un local construido, su dueño lo abre gratis (y no si
+ * está en alquiler); cualquier otro solo puede abrirlo si está en alquiler,
+ * y la fianza es del dueño menos la comisión.
  */
 export function rentLot(
   state: GameState,
@@ -374,16 +400,24 @@ export function rentLot(
 ): GameState {
   const lot = state.lots[lotId];
   if (!isOwnKey(ECONOMY.businesses, business)) return state;
-  const config = ECONOMY.businesses[business];
   const money = state.money[avatarId] ?? 0;
   const avatar = state.avatars[avatarId];
   if (!lot || !avatar || lot.ownerId !== null) return state;
-  // Un local construido solo lo abre su propietario, sin fianza, y acabada la obra.
-  if (lot.builtBy && (lot.builtBy !== avatarId || isUnderConstruction(lot, state.tick))) return state;
-  const cost = lot.builtBy ? 0 : config.deposit;
+  if (lot.builtBy && isUnderConstruction(lot, state.tick)) return state;
+  const own = lot.builtBy === avatarId;
+  // Un local construido en alquiler no lo abre su dueño; los demás solo si está
+  // en alquiler y al día con el mantenimiento.
+  if (lot.builtBy && (own ? lot.terms : !lot.terms || lot.suspended)) return state;
+  const cost = own ? 0 : lotTerms(lot, business).deposit;
   if (money < cost) return state;
 
-  const paid = { ...state, money: { ...state.money, [avatarId]: money - cost } };
+  let paid: GameState = { ...state, money: { ...state.money, [avatarId]: money - cost } };
+  if (lot.builtBy && !own) {
+    if (cost > 0) {
+      paid = payOwner(paid, lot.builtBy, cost, `Fianza del ${lot.label}`, ECONOMY.plots.commissionRate);
+    }
+    paid = addNotice(paid, lot.builtBy, `${avatar.name} ha alquilado tu ${lot.label}.`);
+  }
   return addOpenBusinessXp(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, business);
 }
 
@@ -634,7 +668,7 @@ export function economyTick(state: GameState): GameState {
     };
   }
   const produced = lots === state.lots ? state : { ...state, lots };
-  return finishUpgrades(finishConstructions(releaseAbandonedLots(chargeRent(produced))));
+  return finishUpgrades(finishConstructions(releaseAbandonedLots(chargeUpkeep(chargeRent(produced)))));
 }
 
 // --- Tiendas --------------------------------------------------------------------
@@ -783,8 +817,14 @@ export function sellProduct(
  * Paga una venta al dueño de un negocio: el precio menos la comisión, que
  * desaparece de la economía. Le deja un aviso con lo cobrado.
  */
-function payOwner(state: GameState, ownerId: string, price: number, what: string): GameState {
-  const earned = price - Math.round(price * ECONOMY.store.commissionRate);
+function payOwner(
+  state: GameState,
+  ownerId: string,
+  price: number,
+  what: string,
+  commissionRate: number = ECONOMY.store.commissionRate,
+): GameState {
+  const earned = price - Math.round(price * commissionRate);
   const paid: GameState = {
     ...state,
     money: { ...state.money, [ownerId]: (state.money[ownerId] ?? 0) + earned },
@@ -891,14 +931,15 @@ function releaseAbandonedLots(state: GameState): GameState {
 
 /**
  * Cobra el alquiler de los locales de los jugadores cuando toca. Si el dueño
- * no tiene dinero suficiente, pierde el local.
+ * no tiene dinero suficiente, pierde el local. En un local construido el
+ * alquiler es el que fija su dueño, y se le paga a él menos la comisión.
  */
 function chargeRent(state: GameState): GameState {
   let next = state;
   for (const lot of Object.values(state.lots)) {
     if (!lot.ownerId || !lot.business || next.tick < lot.nextRentAt) continue;
     if (isOwnLot(lot, lot.ownerId)) continue; // los locales construidos no pagan alquiler
-    const rent = ECONOMY.businesses[lot.business].rent;
+    const { rent } = lotTerms(lot, lot.business);
     const money = next.money[lot.ownerId] ?? 0;
 
     if (money < rent) {
@@ -915,6 +956,49 @@ function chargeRent(state: GameState): GameState {
       },
     };
     next = addNotice(next, lot.ownerId, `Alquiler del ${lot.label}: -${ECONOMY.currency}${rent}`);
+    if (lot.builtBy) {
+      next = payOwner(next, lot.builtBy, rent, `Alquiler del ${lot.label}`, ECONOMY.plots.commissionRate);
+    }
+  }
+  return next;
+}
+
+/**
+ * Cobra al dueño de cada local en alquiler el mantenimiento cuando toca, tenga
+ * inquilino o no. Si no puede pagarlo, el local queda suspendido (no admite
+ * inquilinos nuevos, pero no echa al que hay) y se le vuelve a intentar cobrar
+ * en cada tick hasta que pague; entonces vuelve a admitirlos.
+ */
+function chargeUpkeep(state: GameState): GameState {
+  let next = state;
+  const { upkeep } = ECONOMY.plots;
+  for (const { id } of Object.values(state.lots)) {
+    // Siempre el local de `next`: chargeRent pudo cambiarlo en este mismo tick.
+    const lot = next.lots[id];
+    const owner = lot.builtBy;
+    if (!owner || !lot.terms || lot.nextUpkeepAt === undefined || next.tick < lot.nextUpkeepAt) continue;
+    const money = next.money[owner] ?? 0;
+
+    if (money < upkeep) {
+      // Solo se avisa (y se cambia el estado) la primera vez.
+      if (lot.suspended) continue;
+      next = { ...next, lots: { ...next.lots, [id]: { ...lot, suspended: true } } };
+      next = addNotice(
+        next,
+        owner,
+        `No has podido pagar el mantenimiento del ${lot.label}: no admite inquilinos nuevos hasta que pagues.`,
+      );
+      continue;
+    }
+    next = {
+      ...next,
+      money: { ...next.money, [owner]: money - upkeep },
+      lots: {
+        ...next.lots,
+        [id]: { ...lot, suspended: false, nextUpkeepAt: next.tick + secondsToTicks(ECONOMY.rent.periodSeconds) },
+      },
+    };
+    next = addNotice(next, owner, `Mantenimiento del ${lot.label}: -${ECONOMY.currency}${upkeep}`);
   }
   return next;
 }
@@ -932,10 +1016,11 @@ export function closeBusiness(state: GameState, avatarId: string, lotId: string)
   const config = ECONOMY.businesses[lot.business];
 
   // Los materiales del almacén vuelven al dueño (los muebles de la cola los
-  // reparte closeLot entre quienes los encargaron). En un local propio no se
-  // pagó fianza, así que no hay nada que devolver.
+  // reparte closeLot entre quienes los encargaron). En un local construido no
+  // hay fianza que devolver: en el propio no se pagó, y en uno alquilado se la
+  // quedó el dueño.
   const own = isOwnLot(lot, avatarId);
-  const refund = own ? 0 : Math.round(config.deposit * ECONOMY.rent.closeRefund);
+  const refund = lot.builtBy ? 0 : Math.round(config.deposit * ECONOMY.rent.closeRefund);
   let next: GameState = {
     ...state,
     money: { ...state.money, [avatarId]: (state.money[avatarId] ?? 0) + refund },
@@ -947,7 +1032,9 @@ export function closeBusiness(state: GameState, avatarId: string, lotId: string)
     avatarId,
     own
       ? `Has cerrado ${config.name} (${lot.label}). El local sigue siendo tuyo.`
-      : `Has cerrado ${config.name} (${lot.label}). Te devuelven ${ECONOMY.currency}${refund} de la fianza.`,
+      : lot.builtBy
+        ? `Has cerrado ${config.name} (${lot.label}). La fianza se la queda el dueño.`
+        : `Has cerrado ${config.name} (${lot.label}). Te devuelven ${ECONOMY.currency}${refund} de la fianza.`,
   );
 }
 
@@ -983,6 +1070,11 @@ function closeLot(state: GameState, lotId: string): GameState {
     },
     scenes: scene ? { ...state.scenes, [lotId]: { ...scene, name: lot.label } } : state.scenes,
   };
+  // Un inquilino se va (impago, abandono o cierre): su dueño se entera de que
+  // el local vuelve a estar en alquiler.
+  if (lot.builtBy && lot.builtBy !== ownerId) {
+    next = addNotice(next, lot.builtBy, `El ${lot.label} vuelve a estar en alquiler.`);
+  }
   // La cola del taller o de la tienda de ropa: cada trabajo vuelve a quien lo
   // encargó (el dueño o quien usaba el taller público): hecho, al inventario o
   // a sus materiales; a medias, lo que gastó.
@@ -1025,14 +1117,18 @@ export function releaseNpcLots(state: GameState): GameState {
 }
 
 /**
- * Lo que un local construido conserva al cerrarse: su propietario, su obra y
- * su nivel (con la mejora en obras, si la hay). Uno alquilado lo pierde todo.
+ * Lo que un local construido conserva al cerrarse: su propietario, su obra, su
+ * nivel (con la mejora en obras, si la hay) y, si está en alquiler, sus
+ * condiciones y su mantenimiento. Uno del ayuntamiento lo pierde todo.
  */
 function ownership(lot: Lot): Partial<Lot> {
   if (!lot.builtBy) return {};
   return {
     builtBy: lot.builtBy,
     readyAt: lot.readyAt,
+    ...(lot.terms ? { terms: lot.terms } : {}),
+    ...(lot.nextUpkeepAt !== undefined ? { nextUpkeepAt: lot.nextUpkeepAt } : {}),
+    ...(lot.suspended ? { suspended: lot.suspended } : {}),
     ...(lot.level ? { level: lot.level } : {}),
     ...(lot.upgradeReadyAt ? { upgradeReadyAt: lot.upgradeReadyAt } : {}),
   };
@@ -1049,7 +1145,7 @@ function finishConstructions(state: GameState): GameState {
       ...next,
       furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(lot) } },
     };
-    next = addNotice(next, lot.builtBy, `¡Se acabó la obra! El ${lot.label} ya es tuyo: entra y abre un negocio.`);
+    next = addNotice(next, lot.builtBy, `¡Se acabó la obra! El ${lot.label} ya es tuyo: abre un negocio o ponlo en alquiler.`);
   }
   return next;
 }
@@ -1064,7 +1160,10 @@ function finishConstructions(state: GameState): GameState {
 export function upgradeLot(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
   const cost = upgradeCost(lot);
-  if (!lot?.business || lot.ownerId !== avatarId || isNpcId(avatarId) || !cost || isUpgrading(lot)) return state;
+  // Un local construido lo mejora siempre su dueño, aunque lo use un inquilino.
+  if (!lot?.business || (lot.builtBy ?? lot.ownerId) !== avatarId || isNpcId(avatarId) || !cost || isUpgrading(lot)) {
+    return state;
+  }
   // Tiene que haber sitio para el puesto nuevo (la tienda no lleva puesto).
   if (lot.business !== 'store' && !hasStationRoom(state, lotId, lot.business)) return state;
   const money = state.money[avatarId] ?? 0;

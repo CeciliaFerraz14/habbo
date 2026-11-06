@@ -350,6 +350,7 @@ export const ECONOMY = {
    * se paga el precio y los materiales, la obra dura unos minutos y el local es
    * de quien lo construye para siempre: no paga alquiler y, si cierra el
    * negocio, el local sigue siendo suyo (abrir otro en él no cuesta fianza).
+   * También puede ponerlo en alquiler para otros jugadores (ver `plots`).
    */
   building: {
     price: 300,
@@ -357,6 +358,26 @@ export const ECONOMY = {
     seconds: 3 * 60,
     /** Solares libres que hay siempre a la venta (al construir en uno, se abre otro). */
     freeSolares: 2,
+  },
+
+  /**
+   * Alquiler de los locales construidos en el Ensanche: su dueño puede ponerlos
+   * en alquiler con la fianza y el alquiler que decida, dentro de estos límites.
+   * Paga un mantenimiento por periodo mientras estén en alquiler, tengan
+   * inquilino o no (salida de dinero), y el ayuntamiento se queda una comisión
+   * de cada fianza y alquiler (salida de dinero).
+   */
+  plots: {
+    /** Límites de la fianza que fija el dueño. */
+    deposit: { min: 0, max: 400 },
+    /** Límites del alquiler diario que fija el dueño. */
+    rent: { min: 10, max: 120 },
+    /** Condiciones con las que se abre la ventana de poner en alquiler. */
+    initialTerms: { deposit: 100, rent: 40 },
+    /** Mantenimiento que paga el dueño cada periodo por local en alquiler. */
+    upkeep: 12,
+    /** Parte de cada fianza y alquiler que se queda el ayuntamiento. */
+    commissionRate: 0.1,
   },
 
   /**

@@ -45,6 +45,7 @@ import { DEFAULT_LOOK, normalizeLook, sanitizeLook } from './looks';
 import { addHome, buildLot, createTrailer, nextHomeSlot } from './world';
 import { SCENES, trailerSceneId } from './world.ids';
 import { planPath, updateSitting } from './movement';
+import { listLot, unlistLot } from './plots';
 import type { Avatar, FurniItem, GameState, InventoryItem } from './types';
 import { buyFromVendor } from './vendors';
 
@@ -223,6 +224,10 @@ export function applyAction(state: GameState, action: Action): GameState {
       return setServicePrice(state, action.avatarId, action.lotId, action.price);
     case 'BUY_DECOR':
       return buyBusinessDecor(state, action.avatarId, action.lotId, action.defId);
+    case 'LIST_LOT':
+      return listLot(state, action.avatarId, action.lotId, action.deposit, action.rent);
+    case 'UNLIST_LOT':
+      return unlistLot(state, action.avatarId, action.lotId);
     case 'UPGRADE_LOT':
       return upgradeLot(state, action.avatarId, action.lotId);
     case 'SET_FACADE':
