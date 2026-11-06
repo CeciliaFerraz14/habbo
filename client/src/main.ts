@@ -46,6 +46,7 @@ import { createWallet } from './ui/economyUi';
 import { createInventoryWindow } from './ui/inventoryWindow';
 import { createMapWindow } from './ui/mapWindow';
 import { PriceTags } from './ui/priceTags';
+import { createLandlordWindow } from './ui/landlordWindow';
 import { createRentWindow } from './ui/rentWindow';
 import { createShopWindow } from './ui/shopWindow';
 import { createVendorWindow } from './ui/vendorWindow';
@@ -212,13 +213,16 @@ const controller = new GameController(
       if (lot && isUnderConstruction(lot, state.tick)) {
         const minutes = Math.max(1, Math.ceil(((lot.readyAt ?? 0) - state.tick) / secondsToTicks(60)));
         showToast(`${lot.label} está en obras: faltan ${minutes} min.`);
-      } else if (lot?.builtBy && lot.builtBy !== PLAYER_ID) {
+      } else if (lot?.builtBy === PLAYER_ID && lot.terms) {
+        openLandlordWindow(lotId);
+      } else if (lot?.builtBy && lot.builtBy !== PLAYER_ID && (!lot.terms || lot.suspended)) {
         showToast(`${lot.label}: local de ${state.progress[lot.builtBy]?.name ?? 'otro vecino'}, ahora cerrado.`);
       } else {
         rentWindow.open(lotId);
         rentWindow.update(state, PLAYER_ID);
       }
     },
+    openLandlord: openLandlordWindow,
     openBuild: (solar) => buildWindow.open(solar, state, PLAYER_ID),
     openBusiness: (lotId) => {
       businessWindow.open(lotId);
@@ -285,11 +289,24 @@ const wallet = createWallet(
     rankWindow.update(state, PLAYER_ID);
   },
 );
-const rentWindow = createRentWindow((lotId, business) => {
-  const own = state.lots[lotId]?.builtBy === PLAYER_ID;
-  transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
-  showToast(own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.');
+const rentWindow = createRentWindow(
+  (lotId, business) => {
+    const own = state.lots[lotId]?.builtBy === PLAYER_ID;
+    transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
+    showToast(own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.');
+  },
+  openLandlordWindow,
+);
+const landlordWindow = createLandlordWindow({
+  list: (lotId, deposit, rent) => transport.dispatch({ type: 'LIST_LOT', avatarId: PLAYER_ID, lotId, deposit, rent }),
+  unlist: (lotId) => transport.dispatch({ type: 'UNLIST_LOT', avatarId: PLAYER_ID, lotId }),
+  upgrade: (lotId) => transport.dispatch({ type: 'UPGRADE_LOT', avatarId: PLAYER_ID, lotId }),
 });
+
+function openLandlordWindow(lotId: string): void {
+  landlordWindow.open(lotId);
+  landlordWindow.update(state, PLAYER_ID);
+}
 const buildWindow = createBuildWindow((solar) => {
   transport.dispatch({ type: 'BUILD_LOT', avatarId: PLAYER_ID, solar });
 });
@@ -432,6 +449,7 @@ function refreshUi(): void {
     reopenRentFor = null;
   }
   rentWindow.update(state, PLAYER_ID);
+  landlordWindow.update(state, PLAYER_ID);
   businessWindow.update(state, PLAYER_ID);
   shopWindow.update(state, PLAYER_ID);
   vendorWindow.update(state, PLAYER_ID);

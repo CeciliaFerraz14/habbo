@@ -89,9 +89,20 @@ Abre http://localhost:5173
 9. Decora tu caravana con lo que compres o fabriques.
 10. **El Ensanche**: pasada la gasolinera, al final de la Calle Mayor, hay **solares**
    en venta. Haz clic en uno para construir tu propio local: 300 $, 20 de chapa y 20
-   de madera vieja, con 3 minutos de obra. Es tuyo para siempre: no paga alquiler y
-   abrir un negocio en él no cuesta fianza; si lo cierras, el local y su nivel siguen
-   siendo tuyos. Siempre quedan 2 solares libres: al construir en uno, se abre otro.
+   de madera vieja, con 3 minutos de obra. Es tuyo para siempre y tienes dos opciones:
+   - **Abrir tú un negocio** en él: no paga alquiler ni fianza, y si lo cierras el
+     local y su nivel siguen siendo tuyos.
+   - **Ponerlo en alquiler** para otros jugadores, con la fianza (de 0 a 400 $) y el
+     alquiler diario (de 10 a 120 $) que decidas; empiezan en 100 $ y 40 $. Pagas
+     12 $ de mantenimiento al día mientras esté en alquiler, tenga inquilino o no (el
+     primero, al ponerlo, salvo que el periodo siga pagado), y el pueblo se queda un
+     10 % de cada fianza y alquiler. Si no puedes pagar el mantenimiento, el local se
+     suspende y no admite inquilinos nuevos hasta que lo pagues. Solo tú mejoras el
+     local, aunque lo lleve un inquilino. Si el inquilino cierra, pierde la fianza y
+     el local vuelve a estar en alquiler. No puedes cambiar las condiciones ni
+     retirarlo mientras haya inquilino.
+
+   Siempre quedan 2 solares libres: al construir en uno, se abre otro.
 11. **Prendas**: las que cosas o compres van al inventario. Desde el botón "Avatar"
    te las pones (una por ranura: cabeza, torso y pies) o te las quitas. Si vendes la
    última prenda de un tipo y color que llevas puesta, se te quita.
@@ -138,6 +149,7 @@ escriben en segundos.
 | Tamaño de las tiendas y comisión por venta | `store` |
 | XP, rangos y recompensas, y mejoras de local | `levels`, `lotLevels.upgrades` |
 | Precio, materiales y obra de los locales construidos, y solares libres | `building` |
+| Límites y valores iniciales de la fianza y el alquiler de los locales construidos, mantenimiento y comisión | `plots` |
 | Vecinos que venden muebles exclusivos | `vendors` |
 | Precios del proveedor, lo que paga al comprarte y la oferta del día | `supplier` |
 | Encargos de Hank, turnos, rasca y gana, máquinas, coches que repostan y autobús | `gasStation` |
@@ -151,6 +163,7 @@ Cómo fluye el dinero:
 - **Sale** con el **alquiler** de los locales, la **fianza** (al cerrar el negocio
   solo se devuelve la mitad), la **comisión** de cada venta, las compras al
   **proveedor** de materiales, la **construcción** y las **mejoras** de los locales,
+  el **mantenimiento** de los locales construidos que pones en alquiler y la **comisión** del pueblo en sus fianzas y alquileres,
   la **decoración** propia de cada negocio, los muebles **exclusivos** de los vecinos,
   el **rasca y gana** (de media devuelve menos de lo que cuesta) y las máquinas de la
   gasolinera.

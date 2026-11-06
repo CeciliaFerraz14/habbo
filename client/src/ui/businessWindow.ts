@@ -34,7 +34,6 @@ import {
   sellsItem,
   storeListingsMax,
   totalMaterials,
-  upgradeCost,
   workshopFee,
   workshopQueueSize,
   type BusinessDecorId,
@@ -50,7 +49,17 @@ import {
   type ProductionConfig,
   type ServiceConfig,
 } from '@juego/shared';
-import { formatMoney, formatTicks, materialChips, materialSwatch, numberInput, readNumber, text } from './economyUi';
+import {
+  button,
+  formatMoney,
+  formatTicks,
+  levelSection,
+  materialChips,
+  materialSwatch,
+  numberInput,
+  readNumber,
+  text,
+} from './economyUi';
 import { furniIcon, garmentIcon, productIcon } from './icons';
 import { PixelWindow } from './window';
 
@@ -99,15 +108,6 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   let garmentColor = GARMENT_COLORS[0];
   /** Funciones que actualizan las partes que dependen del tiempo. */
   let timers: ((tick: number) => void)[] = [];
-
-  const button = (label: string, enabled: boolean, onClick: () => void) => {
-    const b = document.createElement('button');
-    b.className = 'btn btn-small';
-    b.textContent = label;
-    b.disabled = !enabled;
-    b.addEventListener('click', onClick);
-    return b;
-  };
 
   // --- Fachada (todos los negocios) -------------------------------------------
   /**
@@ -203,6 +203,7 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     const refund = Math.round(config.deposit * ECONOMY.rent.closeRefund);
     // Un local alquilado pierde su nivel al cerrar; uno construido lo conserva.
     const losesLevel = !lot.builtBy && (lotLevel(lot) > 1 || isUpgrading(lot));
+    const tenant = !!lot.builtBy && lot.builtBy !== lot.ownerId;
     const label = () => (Date.now() < closeArmedUntil ? '¿Seguro? Toca otra vez para cerrar' : 'Cerrar el negocio');
     const close = button(label(), true, () => {
       if (Date.now() < closeArmedUntil) {
@@ -218,10 +219,13 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
     win.body.append(
       text('Cerrar el negocio', 'section-title'),
       text(
-        (lot.builtBy
-          ? 'Recuperas los muebles y materiales de dentro. El local (y su nivel) sigue siendo tuyo.'
-          : `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
-            'Luego puedes abrir otro negocio en el mismo local.') +
+        (tenant
+          ? 'Recuperas los muebles y materiales de dentro, pero no la fianza. El local, con su nivel, ' +
+            'sigue siendo de su dueño y vuelve a estar en alquiler.'
+          : lot.builtBy
+            ? 'Recuperas los muebles y materiales de dentro. El local (y su nivel) sigue siendo tuyo.'
+            : `Recuperas los muebles y materiales de dentro y ${formatMoney(refund)} de la fianza. ` +
+              'Luego puedes abrir otro negocio en el mismo local.') +
           (losesLevel ? ' Ojo: el local vuelve al nivel 1.' : ''),
       ),
       close,
@@ -229,52 +233,11 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   // --- Nivel del local ----------------------------------------------------------
-  /** Qué gana cada tipo de negocio con un nivel más. */
-  const levelBenefit = (lot: Lot): string => {
-    const config = ECONOMY.businesses[lot.business!];
-    const { storeListingsPerLevel, workshopQueuePerLevel } = ECONOMY.lotLevels;
-    if (config.service) return 'Un puesto más: atiendes a un cliente más a la vez y paran más viajeros.';
-    if (config.production) return 'Otro puesto de producción: produce y almacena más.';
-    if (config.kind === 'workshop') {
-      return `Otro banco: fabricas un mueble más a la vez y caben ${workshopQueuePerLevel} más en la cola.`;
-    }
-    if (config.kind === 'clothing') {
-      return `Otra máquina: coses una prenda más a la vez, caben ${workshopQueuePerLevel} más en la cola y ${storeListingsPerLevel} huecos de venta más.`;
-    }
-    return `${storeListingsPerLevel} huecos de venta más, y paran más viajeros.`;
-  };
-
-  /**
-   * Nivel del local: estrellas, lo que da el siguiente y el botón de mejorar
-   * (con lo que cuesta), o la cuenta atrás si ya está en obras.
-   */
+  /** Nivel del local; el inquilino de un local ajeno lo ve, pero no lo mejora. */
   const buildLevel = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
-    const level = lotLevel(lot);
-    const { max } = ECONOMY.lotLevels;
-    const stars = '★'.repeat(level) + '☆'.repeat(max - level);
-    win.body.append(text(`Nivel del local: ${stars} (${level}/${max})`, 'section-title'));
-    if (isUpgrading(lot)) {
-      const countdown = text('');
-      timers.push((tick) => {
-        countdown.textContent = `En obras: sube al nivel ${level + 1} en ${formatTicks(lot.upgradeReadyAt! - tick)}. El negocio sigue abierto.`;
-      });
-      win.body.append(countdown);
-      return;
-    }
-    const cost = upgradeCost(lot);
-    if (!cost) {
-      win.body.append(text('Tu local está al máximo nivel.'));
-      return;
-    }
-    const mine = state.materials[playerId] ?? {};
-    const money = state.money[playerId] ?? 0;
-    const affordable = money >= cost.price && hasMaterials(mine, cost.materials);
-    win.body.append(
-      text(`Nivel ${level + 1}: ${levelBenefit(lot)} Obras: ${Math.round(cost.seconds / 60)} min.`),
-      materialChips(cost.materials, { have: mine }),
-      button(`Mejorar · ${formatMoney(cost.price)}`, inside && affordable, () => actions.upgradeLot(lot.id)),
-    );
-    if (!affordable) win.body.append(text('Te falta dinero o materiales para mejorarlo.'));
+    const tenant = !!lot.builtBy && lot.builtBy !== playerId;
+    const onUpgrade = tenant ? null : () => actions.upgradeLot(lot.id);
+    win.body.append(...levelSection(lot, state, playerId, inside, onUpgrade, timers));
   };
 
   // --- Decoración del negocio ---------------------------------------------------

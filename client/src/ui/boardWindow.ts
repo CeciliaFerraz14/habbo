@@ -25,6 +25,10 @@ export interface BoardWindow {
 function lotLine(state: GameState, lot: Lot): string {
   if (lot.builtBy && !lot.business) {
     const name = state.progress[lot.builtBy]?.name ?? 'un vecino';
+    const { terms } = lot;
+    if (terms && !lot.suspended && !isUnderConstruction(lot, state.tick)) {
+      return `${lot.label} · En alquiler, local de ${name} · fianza ${formatMoney(terms.deposit)}, ${formatMoney(terms.rent)} al día`;
+    }
     return `${lot.label} · local de ${name}, ${isUnderConstruction(lot, state.tick) ? 'en obras' : 'cerrado'}`;
   }
   if (!lot.business || !lot.ownerName) {
@@ -91,7 +95,8 @@ export function createBoardWindow(): BoardWindow {
     section('Negocios', lines);
     section('Solares en el Ensanche', [
       `Construye tu propio local al final de la Calle Mayor: ${formatMoney(ECONOMY.building.price)}, ` +
-        `${ECONOMY.building.materials.sheet_metal} de chapa y ${ECONOMY.building.materials.old_wood} de madera vieja.`,
+        `${ECONOMY.building.materials.sheet_metal} de chapa y ${ECONOMY.building.materials.old_wood} de madera vieja. ` +
+        'Ábrelo tú o ponlo en alquiler para otros jugadores.',
     ]);
     section('Encargos de Hank', orders.length > 0 ? orders : ['Ninguno ahora mismo.']);
     section('Oferta de hoy en el mostrador', [dealText(state.tick)]);

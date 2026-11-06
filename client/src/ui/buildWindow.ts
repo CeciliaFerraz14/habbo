@@ -57,8 +57,12 @@ export function createBuildWindow(onBuild: (solar: number) => void): BuildWindow
 
     win.body.replaceChildren(
       text(
-        'Construye aquí tu propio local. Será tuyo para siempre: no pagas alquiler, ' +
-          'y si cierras el negocio, el local sigue siendo tuyo para abrir otro sin fianza.',
+        'Construye aquí tu propio local. Será tuyo para siempre, y puedes elegir: abrir tú un negocio ' +
+          'en él, sin alquiler ni fianza (si lo cierras, el local sigue siendo tuyo), o ponerlo en alquiler ' +
+          'para otros jugadores con la fianza y el alquiler que decidas.',
+      ),
+      text(
+        `El mantenimiento (${formatMoney(ECONOMY.plots.upkeep)} al día) solo se paga mientras esté en alquiler.`,
       ),
       text('Para construirlo necesitas:', 'section-title'),
       list,

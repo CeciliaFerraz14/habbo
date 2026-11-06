@@ -49,6 +49,8 @@ export interface ControllerEvents {
   notify: (message: string) => void;
   /** Abre la ventana para alquilar un local libre. */
   openRent: (lotId: string) => void;
+  /** Abre la ventana del dueño de un local construido que lleva un inquilino. */
+  openLandlord: (lotId: string) => void;
   /** Abre la ventana de un solar en venta, para construir en él. */
   openBuild: (solar: number) => void;
   /** Abre la ventana de gestión de un negocio. */
@@ -324,15 +326,19 @@ export class GameController {
   }
 
   /**
-   * Camina hasta una puerta. Si es la de un local en alquiler, se queda
-   * delante y abre la ventana para alquilarlo.
+   * Camina hasta una puerta. Si es la de un local libre, se queda delante y
+   * abre la ventana para alquilarlo. Si es la de un local tuyo que lleva un
+   * inquilino, entra y abre la ventana del dueño.
    */
   private goToDoor(door: Door): void {
-    if (isDoorLocked(this.getState(), door)) {
+    const state = this.getState();
+    if (isDoorLocked(state, door)) {
       this.moveTo(door.spawn);
       if (door.lotId) this.events.openRent(door.lotId);
       return;
     }
+    const lot = door.lotId ? state.lots[door.lotId] : undefined;
+    if (lot?.builtBy === this.playerId && lot.ownerId !== this.playerId) this.events.openLandlord(lot.id);
     this.moveTo(door);
   }
 

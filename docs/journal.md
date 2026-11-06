@@ -2,6 +2,25 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-06 · Ventana del dueño para alquilar los locales del Ensanche
+
+**Qué se hizo**
+- `landlordWindow.ts`: ventana del dueño de un local construido. Sin condiciones, pone el local en alquiler; en alquiler y libre, guarda condiciones o lo retira; con inquilino, muestra sus datos, las condiciones sin editar, la cuenta atrás del mantenimiento y el nivel del local con "Mejorar".
+- `rentWindow`: fianzas con `lotTerms`; en un local ajeno enseña al dueño, el alquiler al día y que la fianza no se devuelve; en uno propio añade "Ponerlo en alquiler". Se cierra si el local ajeno se retira o se suspende, o si el propio pasa a alquilarse.
+- `businessWindow`: tres textos al cerrar (ayuntamiento, propio e inquilino); el inquilino ve el nivel sin botón de mejorar.
+- `economyUi`: `levelSection` (nivel, coste y cuenta atrás de la obra) y `button`, extraídos de `businessWindow` para usarlos también en la ventana del dueño; `formatTicks` vuelve a dar `23 h 5 min` a partir de una hora.
+- Navegación: `goToDoor` abre la ventana del dueño al entrar en un local propio que lleva otro; `openRent` elige entre ventana del dueño, de alquilar o aviso.
+- Tablón y ventana de solar en venta explican las dos opciones; README con el Ensanche, `plots` y las nuevas salidas de dinero.
+
+**Decisiones**
+- Cantidades y porcentajes de los textos salen de `ECONOMY.plots`, no de números en el código.
+- La ventana del dueño no se reconstruye por el dinero cuando hay campos: el estado de los botones y la cuenta atrás se actualizan en su sitio, para no borrar lo que se escribe. Con inquilino no hay campos, y ahí el dinero sí entra en la firma.
+- El dueño mejora el local sin tener que estar dentro: paga él y el inquilino solo ve el nivel.
+
+**Pendiente**
+- La prueba de guardar y cargar en una base real de pruebas sigue siendo obligatoria antes de producción, y ahora debe incluir la migración `012`.
+- `npm test` (141 pruebas), `npm run typecheck` y `npm run build` pasan; la prueba en el navegador queda para la sesión principal.
+
 ## 2026-11-05 · Revisión final antes de desplegar la fusión
 
 **Qué se hizo**

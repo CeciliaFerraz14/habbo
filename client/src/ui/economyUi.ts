@@ -1,5 +1,18 @@
 // Piezas de interfaz reutilizables para la economía: dinero y materiales.
-import { ECONOMY, MATERIAL_IDS, MOVE_TICK_MS, rankOf, type MaterialId, type Materials } from '@juego/shared';
+import {
+  ECONOMY,
+  hasMaterials,
+  isUpgrading,
+  lotLevel,
+  MATERIAL_IDS,
+  MOVE_TICK_MS,
+  rankOf,
+  upgradeCost,
+  type GameState,
+  type Lot,
+  type MaterialId,
+  type Materials,
+} from '@juego/shared';
 import { levelBadge, xpBar } from './rankWindow';
 
 /** Color del cuadradito que representa cada material. */
@@ -25,9 +38,21 @@ export function formatMoney(amount: number): string {
   return `${ECONOMY.currency} ${amount}`;
 }
 
-/** Ticks → texto "12 s". */
+/** Ticks → texto: "12 s" si falta menos de una hora; si no, "23 h 5 min". */
 export function formatTicks(ticks: number): string {
-  return `${Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000))} s`;
+  const seconds = Math.max(0, Math.ceil((ticks * MOVE_TICK_MS) / 1000));
+  if (seconds < 3600) return `${seconds} s`;
+  return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
+}
+
+/** Botón pequeño de las ventanas. */
+export function button(label: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.className = 'btn btn-small';
+  b.textContent = label;
+  b.disabled = !enabled;
+  b.addEventListener('click', onClick);
+  return b;
 }
 
 /** Campo para escribir una cantidad entera (un precio, unas unidades...) entre `min` y `max`. */
@@ -86,6 +111,61 @@ export function materialChips(
     row.append(chip);
   }
   return row;
+}
+
+/** Qué gana cada tipo de negocio con un nivel más. */
+function levelBenefit(lot: Lot): string {
+  const config = ECONOMY.businesses[lot.business!];
+  const { storeListingsPerLevel, workshopQueuePerLevel } = ECONOMY.lotLevels;
+  if (config.service) return 'Un puesto más: atiendes a un cliente más a la vez y paran más viajeros.';
+  if (config.production) return 'Otro puesto de producción: produce y almacena más.';
+  if (config.kind === 'workshop') {
+    return `Otro banco: fabricas un mueble más a la vez y caben ${workshopQueuePerLevel} más en la cola.`;
+  }
+  if (config.kind === 'clothing') {
+    return `Otra máquina: coses una prenda más a la vez, caben ${workshopQueuePerLevel} más en la cola y ${storeListingsPerLevel} huecos de venta más.`;
+  }
+  return `${storeListingsPerLevel} huecos de venta más, y paran más viajeros.`;
+}
+
+/**
+ * Nivel de un local con negocio: estrellas, lo que da el siguiente y el botón
+ * de mejorar (con lo que cuesta), o la cuenta atrás si ya está en obras. Sin
+ * `onUpgrade` (el inquilino de un local ajeno) solo se ve el nivel. La cuenta
+ * atrás se añade a `timers`, que quien llama recorre con cada tick.
+ */
+export function levelSection(
+  lot: Lot,
+  state: GameState,
+  playerId: string,
+  canUpgrade: boolean,
+  onUpgrade: (() => void) | null,
+  timers: ((tick: number) => void)[],
+): HTMLElement[] {
+  const level = lotLevel(lot);
+  const { max } = ECONOMY.lotLevels;
+  const stars = '★'.repeat(level) + '☆'.repeat(max - level);
+  const title = text(`Nivel del local: ${stars} (${level}/${max})`, 'section-title');
+  if (!onUpgrade) return [title, text('Las mejoras las paga el dueño del local.')];
+  if (isUpgrading(lot)) {
+    const countdown = text('');
+    timers.push((tick) => {
+      countdown.textContent = `En obras: sube al nivel ${level + 1} en ${formatTicks(lot.upgradeReadyAt! - tick)}. El negocio sigue abierto.`;
+    });
+    return [title, countdown];
+  }
+  const cost = upgradeCost(lot);
+  if (!cost) return [title, text('Tu local está al máximo nivel.')];
+  const mine = state.materials[playerId] ?? {};
+  const affordable = (state.money[playerId] ?? 0) >= cost.price && hasMaterials(mine, cost.materials);
+  const nodes = [
+    title,
+    text(`Nivel ${level + 1}: ${levelBenefit(lot)} Obras: ${Math.round(cost.seconds / 60)} min.`),
+    materialChips(cost.materials, { have: mine }),
+    button(`Mejorar · ${formatMoney(cost.price)}`, canUpgrade && affordable, onUpgrade),
+  ];
+  if (!affordable) nodes.push(text('Te falta dinero o materiales para mejorarlo.'));
+  return nodes;
 }
 
 /** "5 h", "12 min" o "30 s": tiempo aproximado que falta, para mostrarlo. */
