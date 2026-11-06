@@ -23,7 +23,12 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - Los avisos no llegan a quien estaba desconectado: no se guardan y hay un tope global de 30; un dueño o inquilino ausente no sabe por qué cambió su dinero o perdió el local.
 - RENT_LOT no lleva las condiciones vistas: si el dueño las cambia en ese instante se paga lo nuevo.
 - Cerrar y volver a alquilar antes del primer cobro reinicia el alquiler.
-- `npm test` (141 pruebas), `npm run typecheck` y `npm run build` pasan; la prueba en el navegador queda para la sesión principal.
+- Al parar el servidor, `shutdown` no espera a un guardado en marcha: `save` vuelve al instante si ya está guardando y `process.exit` lo corta. Si cae entre el `delete` y el `insert` de un inventario, ese inventario se pierde. El fallo ya existía; hay que arreglarlo antes de reiniciar producción.
+
+**Comprobado**
+- `npm test` (145 pruebas), `npm run typecheck` y `npm run build` pasan.
+- En Chrome sin interfaz, con dos jugadores, servidor local sin Supabase y un local ya construido: poner en alquiler, cambiar condiciones, retirar, alquilar, entrar como dueño, mejorar, ver la ventana del inquilino y cerrar sin devolución; ventana del dueño a 390 px. Sin errores en la consola.
+- Sin probar en el navegador: la obra de construcción real, el botón de mejorar sin sitio para el puesto y el cobro al pasar 24 h (estos dos últimos, por tests o por lectura del código).
 
 ## 2026-11-05 · Revisión final antes de desplegar la fusión
 
