@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInitialState, lotBuildingId, releaseNpcLots, SCENES } from '@juego/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchAllRows, furnitureChanges, Persistence, worldFromRows, type WorldRows } from './persistence';
+import { fetchAllRows, furnitureChanges, lotToRow, Persistence, worldFromRows, type WorldRows } from './persistence';
 
 const ANA = '11111111-1111-4111-8111-111111111111';
 const BEA = '22222222-2222-4222-8222-222222222222';
@@ -30,6 +30,9 @@ function lotRow(id: string, label: string, fields: Record<string, unknown> = {})
     ready_at: 0,
     level: 1,
     upgrade_ready_at: 0,
+    terms: null,
+    next_upkeep_at: 0,
+    suspended: false,
     ...fields,
   };
 }
@@ -124,6 +127,42 @@ test('a saved world with production shape loads intact', () => {
   assert.deepEqual(state.inventories[BEA], []);
 });
 
+test('a listed lot with a tenant survives a save and load', () => {
+  const listed = {
+    ...load().state.lots['lot-e1'],
+    ownerId: ANA,
+    ownerName: 'Ana',
+    builtBy: BEA,
+    level: 2,
+    terms: { deposit: 300, rent: 40 },
+    nextUpkeepAt: TICK + 900,
+    suspended: true,
+  };
+  const row = { ...lotToRow(listed), next_restock_at: 0 };
+  const loaded = worldFromRows(createInitialState(), { ...ROWS, lots: [row] }).lots['lot-e1'];
+
+  assert.deepEqual(loaded.terms, { deposit: 300, rent: 40 });
+  assert.equal(loaded.nextUpkeepAt, TICK + 900);
+  assert.equal(loaded.suspended, true);
+  assert.equal(loaded.builtBy, BEA);
+  assert.equal(loaded.ownerId, ANA);
+  assert.equal(loaded.level, 2);
+});
+
+test('an unlisted built lot loads without rental fields', () => {
+  const rows = { ...ROWS, lots: [lotRow('lot-e2', 'Ensanche 2', { built_by: ANA, ready_at: 1000, terms: null, next_upkeep_at: 0, suspended: false })] };
+  const lot = worldFromRows(createInitialState(), rows).lots['lot-e2'];
+  for (const key of ['terms', 'nextUpkeepAt', 'suspended']) assert.ok(!(key in lot), `${key} is absent`);
+});
+
+test('production-shaped rows without rental values stay unlisted', () => {
+  const productionRows = ROWS.lots.map(({ terms, next_upkeep_at, suspended, ...row }) => row);
+  const { lots } = worldFromRows(createInitialState(), { ...ROWS, lots: productionRows });
+  for (const id of ['lot-e1', 'lot-e3']) {
+    for (const key of ['terms', 'nextUpkeepAt', 'suspended']) assert.ok(!(key in lots[id]), `${id} has no ${key}`);
+  }
+});
+
 test('the first save after loading only removes the furniture of NPC lots', () => {
   const { saved, state } = load();
   const { upserts, deletes } = furnitureChanges(saved, state);
@@ -180,10 +219,10 @@ test('fetchAllRows fails if any page fails, instead of returning a truncated lis
 });
 
 /**
- * Supabase falso con lo que usa Persistence.load. Las tablas de `withoutGarment`
- * se comportan como sin la migración 010: pedir esas columnas devuelve un error.
+ * Supabase falso con lo que usa Persistence.load. Las tablas de `failing` se
+ * comportan como sin la migración que les añade columnas: pedirlas devuelve un error.
  */
-function fakeDb(tables: Record<string, Record<string, unknown>[]>, withoutGarment: string[] = []) {
+function fakeDb(tables: Record<string, Record<string, unknown>[]>, failing: string[] = []) {
   const selects: string[] = [];
   const orders: string[] = [];
   const db = {
@@ -192,8 +231,8 @@ function fakeDb(tables: Record<string, Record<string, unknown>[]>, withoutGarmen
         selects.push(`${table}:${columns}`);
         return {
           limit: async () =>
-            withoutGarment.includes(table)
-              ? { data: null, error: { message: `column ${table}.garment does not exist` } }
+            failing.includes(table)
+              ? { data: null, error: { message: `column of ${table} does not exist` } }
               : { data: [], error: null },
           maybeSingle: async () => ({ data: null, error: null }),
           order: (column: string) => {
@@ -220,6 +259,16 @@ test('load refuses to start without migration 010 and reads nothing else', async
   const noFurnitureColumn = fakeDb({}, ['furniture']);
   await assert.rejects(Persistence.load(noFurnitureColumn.db), /migración 010.*furniture/);
   assert.deepEqual(noFurnitureColumn.selects, ['inventory_items:garment,color', 'furniture:garment']);
+});
+
+test('the server refuses to start without migration 012', async () => {
+  const noRentalColumns = fakeDb({}, ['lots']);
+  await assert.rejects(Persistence.load(noRentalColumns.db), /012_lot_rental\.sql.*lots/);
+  assert.deepEqual(noRentalColumns.selects, [
+    'inventory_items:garment,color',
+    'furniture:garment',
+    'lots:terms,next_upkeep_at,suspended',
+  ]);
 });
 
 test('load reads every row of a table larger than the default max_rows', async () => {

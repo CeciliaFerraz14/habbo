@@ -71,10 +71,13 @@ function rowToLot(row: Record<string, any>): Lot {
     ...(row.built_by ? { builtBy: row.built_by, readyAt: Number(row.ready_at ?? 0) } : {}),
     ...(row.level > 1 ? { level: Number(row.level) } : {}),
     ...(Number(row.upgrade_ready_at ?? 0) > 0 ? { upgradeReadyAt: Number(row.upgrade_ready_at) } : {}),
+    ...(row.terms ? { terms: row.terms } : {}),
+    ...(Number(row.next_upkeep_at ?? 0) > 0 ? { nextUpkeepAt: Number(row.next_upkeep_at) } : {}),
+    ...(row.suspended ? { suspended: true } : {}),
   };
 }
 
-function lotToRow(lot: Lot) {
+export function lotToRow(lot: Lot) {
   return {
     id: lot.id,
     label: lot.label,
@@ -91,6 +94,9 @@ function lotToRow(lot: Lot) {
     ready_at: lot.readyAt ?? 0,
     level: lot.level ?? 1,
     upgrade_ready_at: lot.upgradeReadyAt ?? 0,
+    terms: lot.terms ?? null,
+    next_upkeep_at: lot.nextUpkeepAt ?? 0,
+    suspended: lot.suspended ?? false,
   };
 }
 
@@ -164,14 +170,20 @@ export async function fetchAllRows(
 /**
  * Sin la migración 010, el primer cambio de inventario borra las filas del
  * jugador y luego no puede insertarlas, porque garment no existe: lo perdería
- * al reiniciar. Por eso el servidor no arranca: mejor un despliegue fallido.
+ * al reiniciar. Sin la 012, guardar un local falla (escribe terms,
+ * next_upkeep_at y suspended) y un local en alquiler volvería a ser privado al
+ * reiniciar. Por eso el servidor no arranca: mejor un despliegue fallido.
  */
-async function requireMigration010(db: SupabaseClient): Promise<void> {
-  for (const [table, columns] of [['inventory_items', 'garment,color'], ['furniture', 'garment']]) {
+async function requireMigrations(db: SupabaseClient): Promise<void> {
+  for (const [table, columns, migration] of [
+    ['inventory_items', 'garment,color', '010_businesses_and_clothing.sql'],
+    ['furniture', 'garment', '010_businesses_and_clothing.sql'],
+    ['lots', 'terms,next_upkeep_at,suspended', '012_lot_rental.sql'],
+  ]) {
     const { error } = await db.from(table).select(columns).limit(1);
     if (error) {
       throw new Error(
-        `El servidor no arranca: comprueba que está aplicada la migración 010 (010_businesses_and_clothing.sql). ` +
+        `El servidor no arranca: comprueba que está aplicada la migración ${migration.slice(0, 3)} (${migration}). ` +
           `Fallo al leer ${columns} de ${table}: ${error.message}`,
       );
     }
@@ -338,7 +350,7 @@ export class Persistence {
     let state = createInitialState();
     if (!db) return { state, persistence: null };
 
-    await requireMigration010(db);
+    await requireMigrations(db);
 
     const readAll = (table: string) =>
       fetchAllRows((from, to) => db.from(table).select('*').order('id').range(from, to), table);

@@ -142,14 +142,20 @@ alquiler y de abandono dejan de aplicarse al inquilino por sí solas.
 
 ## Migraciones
 
-Las dos son nuevas y no se edita ninguna ya aplicada.
+Las tres son nuevas y no se edita ninguna ya aplicada.
 
 - **`010`, antes de desplegar, solo amplía:** `lots_business_check` con los
   negocios nuevos; `inventory_items` y `furniture` con prendas, como la `005`
   local. No añade `terms`, `next_upkeep_at` ni `suspended`: esas columnas van en la
-  `012`, en la fase 2. Es segura con el servidor actual. Sin ella, todos los
+  `012`. Es segura con el servidor actual. Sin ella, todos los
   guardados de inventario o de muebles del servidor nuevo fallan, así que ese
   servidor se niega a arrancar.
+- **`012`, antes de desplegar, solo amplía:** `lots.terms`, `lots.next_upkeep_at` y
+  `lots.suspended`, las condiciones de alquiler de los locales del Ensanche. Es
+  segura con el servidor actual (las filas toman los valores por defecto) y no
+  depende de la `011`: se aplica con la `010`, antes que el servidor, aunque su
+  número sea posterior. Sin ella, los guardados de locales del servidor nuevo
+  fallan, así que se niega a arrancar.
 - **`011`, después de desplegar y comprobar el guardado, limpia:** elimina
   `next_restock_at` y limpia lo que quede de los locales de NPC. No debe ejecutarse
   antes de que el servidor nuevo esté funcionando.
@@ -166,8 +172,8 @@ local statement_timeout = '30s'; ...; commit;`, y se ensayan igual con `rollback
 
 1. Copia de seguridad de los datos de producción. Anotar el dinero total de los
    jugadores y los tipos de negocio abiertos, para compararlos en el paso 5.
-2. Probar `010` con `rollback` en producción.
-3. Aplicar `010`.
+2. Probar `010` y `012` con `rollback` en producción.
+3. Aplicar `010` y `012`.
 4. Desplegar, a mano y en un momento sin jugadores conectados:
    1. Desactivar el despliegue automático de Render y Vercel, si está activo, antes
       del `push`.
@@ -190,8 +196,8 @@ local statement_timeout = '30s'; ...; commit;`, y se ensayan igual con `rollback
 ### Vuelta atrás
 
 Se puede volver al servidor `5539996`, y a su cliente, mientras no se haya guardado
-ninguna prenda ni negocio nuevo, ni ningún mueble o material que ese servidor no
-conoce, y `011` no esté aplicada. Las tiendas de NPC no vuelven: `lot4` y `lot6` se
+ninguna prenda ni negocio nuevo, ningún local en alquiler, ni ningún mueble o
+material que ese servidor no conoce, y `011` no esté aplicada. Las tiendas de NPC no vuelven: `lot4` y `lot6` se
 quedan libres desde el primer guardado del servidor nuevo. Pasado ese punto, la única
 vuelta atrás es restaurar la copia de seguridad.
 
