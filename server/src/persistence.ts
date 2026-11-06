@@ -327,13 +327,22 @@ export function furnitureChanges(prev: GameState, next: GameState): { upserts: F
   };
 }
 
+/** Ids por filtro `in` al borrar inventario: con ids cortos la URL queda muy por debajo del límite. */
+const INVENTORY_DELETE_CHUNK = 100;
+/** Los ids de objeto son `i123` o uuid: nada que rompa la sintaxis del filtro `in` de PostgREST. */
+const SAFE_ITEM_ID = /^[\w-]+$/;
+
 export class Persistence {
   /** Estado en el último guardado correcto. */
   private saved: GameState;
   private readonly profiles = new Map<string, ProfileInfo>();
-  private saving = false;
+  /** Guardado en marcha (nunca rechaza: `write` registra sus errores). */
+  private inFlight: Promise<void> | null = null;
 
-  private constructor(state: GameState) {
+  private constructor(
+    state: GameState,
+    private readonly db: SupabaseClient,
+  ) {
     this.saved = state;
   }
 
@@ -368,7 +377,7 @@ export class Persistence {
       profiles: profileRows,
       items: itemRows,
     });
-    const persistence = new Persistence(loaded);
+    const persistence = new Persistence(loaded, db);
     for (const p of profileRows) persistence.profiles.set(p.id, { name: p.name, look: p.look });
     // Mundos guardados de antes de quitar las tiendas NPC: se liberan después de
     // fijar `saved`, así el primer guardado escribe los locales ya reseteados y
@@ -389,9 +398,26 @@ export class Persistence {
    * Guarda lo que ha cambiado desde el último guardado. Si un guardado está
    * en marcha, no empieza otro (el siguiente recogerá todos los cambios).
    */
-  async save(state: GameState): Promise<void> {
-    if (this.saving || !supabase) return;
-    this.saving = true;
+  save(state: GameState): Promise<void> {
+    if (this.inFlight) return Promise.resolve();
+    this.inFlight = this.write(state).finally(() => {
+      this.inFlight = null;
+    });
+    return this.inFlight;
+  }
+
+  /**
+   * Para apagar el servidor: espera al guardado en marcha (si lo hay) y hace
+   * uno último con el estado más reciente. Un guardado normal que llegue
+   * mientras tanto se salta, así que no hay dos a la vez.
+   */
+  async flush(state: GameState): Promise<void> {
+    while (this.inFlight) await this.inFlight;
+    await this.save(state);
+  }
+
+  private async write(state: GameState): Promise<void> {
+    const { db } = this;
     const prev = this.saved;
     try {
       // Perfiles: jugadores cuyo avatar, dinero, materiales, subvención o datos
@@ -436,30 +462,48 @@ export class Persistence {
         }];
       });
       // Los perfiles van primero: el inventario tiene una clave ajena hacia ellos.
-      if (profileRows.length) check(await supabase.from('profiles').upsert(profileRows), 'profiles');
+      if (profileRows.length) check(await db.from('profiles').upsert(profileRows), 'profiles');
 
-      // Inventarios: los que han cambiado se reescriben enteros.
-      for (const id of changedPlayers) {
-        if (state.inventories[id] === prev.inventories[id]) continue;
-        check(await supabase.from('inventory_items').delete().eq('owner_id', id), 'inventory');
+      // Inventarios que han cambiado. Primero se escribe lo nuevo (upsert por
+      // id, que también cambia de dueño un objeto traspasado) y solo después se
+      // borra lo que sobra, así una caída entre pasos deja a lo sumo un objeto
+      // de más y el siguiente guardado lo corrige. Nunca deja a nadie sin nada.
+      const changedInventories = [...changedPlayers].filter((id) => state.inventories[id] !== prev.inventories[id]);
+      for (const id of changedInventories) {
         const rows = (state.inventories[id] ?? []).map((i) => itemToRow(i, id));
-        if (rows.length) check(await supabase.from('inventory_items').insert(rows), 'inventory');
+        if (rows.length) check(await db.from('inventory_items').upsert(rows), 'inventory');
+      }
+      for (const id of changedInventories) {
+        const kept = new Set((state.inventories[id] ?? []).map((i) => i.id));
+        if (!kept.size) {
+          check(await db.from('inventory_items').delete().eq('owner_id', id), 'inventory');
+          continue;
+        }
+        // Se borra por los ids del último guardado que ya no están (no con un
+        // `not in` de cientos de ids, que podría pasar el límite de la URL) y
+        // en trozos pequeños por la misma razón.
+        const stale = (prev.inventories[id] ?? []).map((i) => i.id).filter((itemId) => !kept.has(itemId));
+        for (let i = 0; i < stale.length; i += INVENTORY_DELETE_CHUNK) {
+          const chunk = stale.slice(i, i + INVENTORY_DELETE_CHUNK);
+          if (!chunk.every((itemId) => SAFE_ITEM_ID.test(itemId))) throw new Error(`Supabase (inventory): id no válido para el filtro`);
+          check(await db.from('inventory_items').delete().eq('owner_id', id).in('id', chunk), 'inventory');
+        }
       }
 
       // Muebles de caravanas y locales: añadidos o cambiados, y borrados.
       if (state.furniture !== prev.furniture) {
         const { upserts, deletes } = furnitureChanges(prev, state);
-        if (upserts.length) check(await supabase.from('furniture').upsert(upserts.map(furniToRow)), 'furniture');
-        if (deletes.length) check(await supabase.from('furniture').delete().in('id', deletes), 'furniture');
+        if (upserts.length) check(await db.from('furniture').upsert(upserts.map(furniToRow)), 'furniture');
+        if (deletes.length) check(await db.from('furniture').delete().in('id', deletes), 'furniture');
       }
 
       // Locales que han cambiado.
       const lots = Object.values(state.lots).filter((l) => l !== prev.lots[l.id]);
-      if (lots.length) check(await supabase.from('lots').upsert(lots.map(lotToRow)), 'lots');
+      if (lots.length) check(await db.from('lots').upsert(lots.map(lotToRow)), 'lots');
 
       // Reloj de la simulación.
       check(
-        await supabase.from('world').upsert({
+        await db.from('world').upsert({
           id: 1,
           tick: state.tick,
           seed: state.seed,
@@ -473,8 +517,6 @@ export class Persistence {
     } catch (error) {
       // Si falla, no movemos `saved`: el próximo guardado reintentará todo.
       console.error('Error al guardar:', (error as Error).message);
-    } finally {
-      this.saving = false;
     }
   }
 }

@@ -2,6 +2,20 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-06 · Guardar sin perder el inventario
+
+**Qué se hizo**
+- `Persistence.save` guarda el guardado en marcha en `inFlight` y `Persistence.flush` lo espera antes de hacer uno último con el estado más reciente. `GameServer.flush` lo expone y `shutdown` lo usa; una segunda señal reutiliza la misma parada (no guarda en paralelo ni sale antes). Si el guardado falla, se registra y se sale con código 0, como antes.
+- Los inventarios ya no se borran y reinsertan: primero un `upsert` por `id` de todos los cambiados y después se borra lo que sobra. El cliente de Supabase se inyecta en el constructor para poder probarlo.
+- Seis pruebas nuevas en `persistence.test.ts` con un Supabase falso que anota las escrituras.
+
+**Decisiones**
+- Los guardados normales que coinciden con otro se siguen saltando: no se forma cola.
+- El borrado usa los ids del último guardado (`prev.inventories`) que ya no están, en trozos de 100 y con el id validado, y no un `not in` con cientos de ids (un jugador real tiene unos 390 filas) que podría pasar el límite de la URL. Un inventario vacío borra por dueño.
+- Los `upsert` de todos los jugadores van antes que los borrados, y el borrado filtra por dueño: un objeto traspasado acaba solo con el nuevo dueño, sea cual sea el orden.
+- Si falla un paso, `saved` no avanza y el siguiente guardado repite todo; lo peor tras una caída es un objeto de más.
+- Una fila que esté en la base y no en `prev` no se borra salvo que el inventario quede vacío.
+
 ## 2026-11-06 · Ventana del dueño para alquilar los locales del Ensanche
 
 **Qué se hizo**
@@ -23,7 +37,6 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - Los avisos no llegan a quien estaba desconectado: no se guardan y hay un tope global de 30; un dueño o inquilino ausente no sabe por qué cambió su dinero o perdió el local.
 - RENT_LOT no lleva las condiciones vistas: si el dueño las cambia en ese instante se paga lo nuevo.
 - Cerrar y volver a alquilar antes del primer cobro reinicia el alquiler.
-- Al parar el servidor, `shutdown` no espera a un guardado en marcha: `save` vuelve al instante si ya está guardando y `process.exit` lo corta. Si cae entre el `delete` y el `insert` de un inventario, ese inventario se pierde. El fallo ya existía; hay que arreglarlo antes de reiniciar producción.
 
 **Comprobado**
 - `npm test` (145 pruebas), `npm run typecheck` y `npm run build` pasan.

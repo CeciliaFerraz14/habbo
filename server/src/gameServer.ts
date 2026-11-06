@@ -91,6 +91,11 @@ export class GameServer {
     return this.persistence?.save(this.state) ?? Promise.resolve();
   }
 
+  /** Último guardado al apagar: espera al que esté en marcha y guarda el estado más reciente. */
+  flush(): Promise<void> {
+    return this.persistence?.flush(this.state) ?? Promise.resolve();
+  }
+
   /**
    * Un jugador se conecta: creamos su avatar, le mandamos el estado completo
    * y a partir de ahí escuchamos sus acciones.

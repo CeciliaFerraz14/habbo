@@ -3,7 +3,7 @@
 // de NPC. Ver el commit de las migraciones 010 y 011.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createInitialState, lotBuildingId, releaseNpcLots, SCENES } from '@juego/shared';
+import { createInitialState, lotBuildingId, releaseNpcLots, SCENES, type InventoryItem } from '@juego/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAllRows, furnitureChanges, lotToRow, Persistence, worldFromRows, type WorldRows } from './persistence';
 
@@ -121,7 +121,7 @@ test('a saved world with production shape loads intact', () => {
   }
 
   assert.deepEqual(state.inventories[ANA], [
-    { id: 'i-furni', defId: 'tire' },
+    { id: 'i-furni', defId: 'tire' as const },
     { id: 'i-garment', garment: 'cap', color: '#d94040' },
   ]);
   assert.deepEqual(state.inventories[BEA], []);
@@ -281,4 +281,114 @@ test('load reads every row of a table larger than the default max_rows', async (
   for (const table of ['lots', 'furniture', 'profiles', 'inventory_items']) {
     assert.ok(orders.includes(`${table}:id`), `${table} is ordered by id`);
   }
+});
+
+/**
+ * Supabase falso que apunta cada escritura (tabla, operación y filtros) en
+ * `calls`. `gate` retrasa el upsert de perfiles hasta que se llame a `release`,
+ * para tener un guardado en marcha; `failOn` hace fallar la operación indicada.
+ */
+function recordingDb(items: Record<string, unknown>[], options: { failOn?: string; gate?: boolean } = {}) {
+  const calls: string[] = [];
+  let release = () => {};
+  const gate = options.gate ? new Promise<void>((resolve) => (release = resolve)) : null;
+  const loaded = fakeDb({
+    profiles: [profileRow(ANA, 'Ana', 0), profileRow(BEA, 'Bea', 1)],
+    inventory_items: items,
+  }).db as unknown as { from: (table: string) => Record<string, unknown> };
+  const db = {
+    from: (table: string) => {
+      const filters: string[] = [];
+      const write = (op: string, arg?: unknown) => {
+        const rows = Array.isArray(arg) ? ` ${(arg as { id: string; owner_id?: string }[]).map((r) => `${r.id}>${r.owner_id}`).join(',')}` : '';
+        const label = `${table}.${op}`;
+        const builder = {
+          eq: (column: string, value: string) => (filters.push(`${column}=${value}`), builder),
+          in: (column: string, values: string[]) => (filters.push(`${column} in ${values.join(',')}`), builder),
+          then: (resolve: (result: unknown) => void) => {
+            calls.push(`${label}${rows}${filters.length ? ` [${filters.join(' ')}]` : ''}`);
+            const result = { data: null, error: options.failOn === label ? { message: 'boom' } : null };
+            return (gate && label === 'profiles.upsert' ? gate : Promise.resolve()).then(() => resolve(result));
+          },
+        };
+        return builder;
+      };
+      return { ...loaded.from(table), upsert: (rows: unknown) => write('upsert', rows), delete: () => write('delete') };
+    },
+  };
+  return { db: db as unknown as SupabaseClient, calls, release };
+}
+
+const item = (id: string) => ({ id, owner_id: ANA, def_id: 'tire', garment: null, color: null });
+const writesTo = (calls: string[], table: string) => calls.filter((c) => c.startsWith(`${table}.`));
+
+/** Carga un mundo con los objetos dados y le cambia los inventarios indicados. */
+async function loadWithInventories(db: SupabaseClient, inventories: Record<string, InventoryItem[]>) {
+  const { state, persistence } = await Persistence.load(db);
+  return { persistence: persistence!, next: { ...state, inventories: { ...state.inventories, ...inventories } } };
+}
+
+test('shutdown flush waits for an in-flight save and then saves the latest state', async () => {
+  const { db, calls, release } = recordingDb([item('i1')], { gate: true });
+  const { persistence, next } = await loadWithInventories(db, {});
+  const first = persistence.save({ ...next, money: { ...next.money, [ANA]: 1 } });
+  const flushing = persistence.flush({ ...next, money: { ...next.money, [ANA]: 2 } });
+  let done = false;
+  void flushing.then(() => (done = true));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(done, false, 'flush is still waiting');
+  release();
+  await Promise.all([first, flushing]);
+  assert.equal(writesTo(calls, 'profiles').length, 2, 'two saves ran, one after the other');
+});
+
+test('a normal save during an in-flight save is skipped', async () => {
+  const { db, calls, release } = recordingDb([], { gate: true });
+  const { persistence, next } = await loadWithInventories(db, {});
+  const first = persistence.save({ ...next, money: { ...next.money, [ANA]: 1 } });
+  await persistence.save({ ...next, money: { ...next.money, [ANA]: 2 } });
+  release();
+  await first;
+  assert.equal(writesTo(calls, 'profiles').length, 1);
+});
+
+test('changed inventory is written before stale rows are removed', async () => {
+  const { db, calls } = recordingDb([item('i1'), item('i2')]);
+  const { persistence, next } = await loadWithInventories(db, { [ANA]: [{ id: 'i2', defId: 'tire' as const }, { id: 'i3', defId: 'tire' as const }] });
+  await persistence.save(next);
+  assert.deepEqual(writesTo(calls, 'inventory_items'), [
+    `inventory_items.upsert i2>${ANA},i3>${ANA}`,
+    `inventory_items.delete [owner_id=${ANA} id in i1]`,
+  ]);
+});
+
+test('a failure on the write step removes no rows and leaves saved unmoved, so the next save retries', async () => {
+  const failing = recordingDb([item('i1')], { failOn: 'inventory_items.upsert' });
+  const { persistence, next } = await loadWithInventories(failing.db, { [ANA]: [{ id: 'i2', defId: 'tire' as const }] });
+  await persistence.save(next);
+  assert.deepEqual(writesTo(failing.calls, 'inventory_items'), [`inventory_items.upsert i2>${ANA}`]);
+  const before = failing.calls.length;
+  await persistence.save(next);
+  assert.equal(failing.calls.slice(before).filter((c) => c.startsWith('inventory_items.upsert')).length, 1, 'retried');
+});
+
+test('an item moved between two players ends up only with the new owner', async () => {
+  const { db, calls } = recordingDb([item('i1'), item('i2')]);
+  const { persistence, next } = await loadWithInventories(db, {
+    [ANA]: [{ id: 'i2', defId: 'tire' as const }],
+    [BEA]: [{ id: 'i1', defId: 'tire' as const }],
+  });
+  await persistence.save(next);
+  const writes = writesTo(calls, 'inventory_items');
+  const upsertOfMove = writes.findIndex((c) => c.includes(`i1>${BEA}`));
+  const deleteOfOld = writes.findIndex((c) => c.startsWith('inventory_items.delete') && c.includes(`owner_id=${ANA}`) && c.includes('id in i1'));
+  assert.ok(upsertOfMove >= 0 && deleteOfOld > upsertOfMove, 'new owner is written before the old owner row is removed');
+  assert.ok(writes.every((c) => !c.includes(`owner_id=${BEA}`)), 'the new owner row is never deleted');
+});
+
+test('a player whose inventory becomes empty has their rows removed', async () => {
+  const { db, calls } = recordingDb([item('i1')]);
+  const { persistence, next } = await loadWithInventories(db, { [ANA]: [] });
+  await persistence.save(next);
+  assert.deepEqual(writesTo(calls, 'inventory_items'), [`inventory_items.delete [owner_id=${ANA}]`]);
 });

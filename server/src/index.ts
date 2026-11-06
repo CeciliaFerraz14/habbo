@@ -25,11 +25,18 @@ const io = new Server(http, { cors: { origin: CLIENT_ORIGIN } });
 const { state, persistence } = await Persistence.load();
 const game = new GameServer(io, state, persistence);
 
-/** Al parar el servidor (Ctrl+C), guardamos antes de salir. */
-async function shutdown(): Promise<void> {
-  console.log('Guardando antes de salir...');
-  await game.save();
-  process.exit(0);
+/**
+ * Al parar el servidor (Ctrl+C o SIGTERM), guardamos antes de salir. Una
+ * segunda señal reutiliza la misma parada: ni guarda en paralelo ni sale antes.
+ */
+let stopping: Promise<void> | undefined;
+function shutdown(): Promise<void> {
+  stopping ??= (async () => {
+    console.log('Guardando antes de salir...');
+    await game.flush();
+    process.exit(0);
+  })();
+  return stopping;
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
