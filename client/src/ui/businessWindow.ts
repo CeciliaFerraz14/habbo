@@ -29,6 +29,7 @@ import {
   jobOwner,
   listingValue,
   lotLevel,
+  lotTerms,
   productName,
   secondsToTicks,
   sellsItem,
@@ -233,11 +234,24 @@ export function createBusinessWindow(actions: BusinessActions): BusinessWindow {
   };
 
   // --- Nivel del local ----------------------------------------------------------
-  /** Nivel del local; el inquilino de un local ajeno lo ve, pero no lo mejora. */
+  /**
+   * Nivel del local; el inquilino de un local ajeno lo ve, pero no lo mejora, y
+   * además ve lo que paga y cuándo se le cobra (si no puede pagar, pierde el local).
+   */
   const buildLevel = (lot: Lot, inside: boolean, state: GameState, playerId: string) => {
     const tenant = !!lot.builtBy && lot.builtBy !== playerId;
     const onUpgrade = tenant ? null : () => actions.upgradeLot(lot.id);
     win.body.append(...levelSection(lot, state, playerId, inside, onUpgrade, timers));
+    if (!tenant) return;
+    const countdown = text('');
+    timers.push((tick) => {
+      countdown.textContent = `Próximo cobro en ${formatTicks(lot.nextRentAt - tick)}. Si no puedes pagarlo, pierdes el local.`;
+    });
+    win.body.append(
+      text('Alquiler:', 'section-title'),
+      text(`${formatMoney(lotTerms(lot, lot.business!).rent)} al día.`),
+      countdown,
+    );
   };
 
   // --- Decoración del negocio ---------------------------------------------------

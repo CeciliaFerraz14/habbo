@@ -95,7 +95,10 @@ export interface Lot {
   id: string;
   /** Nombre fijo ("Local 1"). */
   label: string;
-  /** Dueño (id de avatar o de NPC), o null si está en alquiler. */
+  /**
+   * Quien usa el local: su dueño (id de avatar o de NPC) o, en un local
+   * construido, el inquilino (el dueño es `builtBy`). Null si está en alquiler.
+   */
   ownerId: string | null;
   /** Nombre del dueño, para mostrarlo en la tienda. */
   ownerName: string | null;
@@ -353,7 +356,7 @@ function withStation(state: GameState, lotId: string, business: BusinessType, n:
 }
 
 /** ¿Hay sitio para otro puesto si quitamos de en medio a los avatares? (los muebles sí cuentan) */
-function hasStationRoom(state: GameState, lotId: string, business: BusinessType): boolean {
+export function hasStationRoom(state: GameState, lotId: string, business: BusinessType): boolean {
   const { defId, rotation, ...main } = STATIONS[business];
   const empty = { ...state, avatars: {} };
   return [main, ...EXTRA_STATIONS[business]].some((s) => canPlaceFurni(empty, lotId, defId, s.x, s.y, rotation));
@@ -371,7 +374,8 @@ export function stationFront(state: GameState, lotId: string, n: number): { x: n
 
 /**
  * ¿Puede este avatar decorar (colocar, mover, recoger muebles) en esta escena?
- * En su propia caravana sí, y en los locales de los que es dueño.
+ * En su propia caravana sí, y en los locales que usa: los suyos o el que
+ * tiene alquilado (en uno construido, el dueño no decora mientras haya inquilino).
  */
 export function canEditScene(state: GameState, avatarId: string, sceneId: string): boolean {
   if (sceneId === trailerSceneId(avatarId)) return true;
@@ -418,7 +422,12 @@ export function rentLot(
     }
     paid = addNotice(paid, lot.builtBy, `${avatar.name} ha alquilado tu ${lot.label}.`);
   }
-  return addOpenBusinessXp(openBusiness(paid, lotId, avatarId, avatar.name, business), avatarId, business);
+  const opened = addNotice(
+    openBusiness(paid, lotId, avatarId, avatar.name, business),
+    avatarId,
+    own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.',
+  );
+  return addOpenBusinessXp(opened, avatarId, business);
 }
 
 /**
@@ -1007,8 +1016,9 @@ function chargeUpkeep(state: GameState): GameState {
  * El dueño cierra su negocio por su cuenta (para dejar el local o abrir otro
  * negocio en él). Recupera todo lo de dentro: los muebles (también los que
  * tenía a la venta) y los materiales del almacén; los muebles de la cola del
- * taller vuelven a quien los encargó (ver closeLot). Y se le devuelve parte de
- * la fianza (ECONOMY.rent.closeRefund).
+ * taller vuelven a quien los encargó (ver closeLot). En un local del pueblo se
+ * le devuelve parte de la fianza (ECONOMY.rent.closeRefund); en uno construido
+ * no hay devolución.
  */
 export function closeBusiness(state: GameState, avatarId: string, lotId: string): GameState {
   const lot = state.lots[lotId];
@@ -1205,6 +1215,7 @@ function finishUpgrades(state: GameState): GameState {
     if (building && lot.business) {
       next = { ...next, furniture: { ...next.furniture, [building.id]: { ...building, variant: buildingVariant(upgraded) } } };
     }
+    const tenant = lot.builtBy && lot.ownerId !== lot.builtBy ? lot.ownerId : null;
     if (owner) {
       next = addXpFor(next, owner, 'upgrade');
       next = addNotice(
@@ -1212,7 +1223,18 @@ function finishUpgrades(state: GameState): GameState {
         owner,
         placed
           ? `¡Mejora terminada! El ${lot.label} ya es de nivel ${level}.`
-          : `¡Mejora terminada! El ${lot.label} ya es de nivel ${level} (tus muebles tapaban el sitio del puesto nuevo).`,
+          : tenant
+            ? `¡Mejora terminada! El ${lot.label} ya es de nivel ${level} (los muebles del inquilino tapaban el sitio del puesto nuevo).`
+            : `¡Mejora terminada! El ${lot.label} ya es de nivel ${level} (tus muebles tapaban el sitio del puesto nuevo).`,
+      );
+    }
+    if (tenant) {
+      next = addNotice(
+        next,
+        tenant,
+        placed
+          ? `El dueño ha mejorado el ${lot.label}: ya es de nivel ${level}.`
+          : `El dueño ha mejorado el ${lot.label} a nivel ${level}, pero tus muebles tapan el sitio del puesto nuevo.`,
       );
     }
   }

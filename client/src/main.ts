@@ -289,12 +289,10 @@ const wallet = createWallet(
     rankWindow.update(state, PLAYER_ID);
   },
 );
+// El aviso de que se ha abierto el negocio llega del servidor (rentLot), así que
+// no sale si la acción se rechaza.
 const rentWindow = createRentWindow(
-  (lotId, business) => {
-    const own = state.lots[lotId]?.builtBy === PLAYER_ID;
-    transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business });
-    showToast(own ? '¡Negocio abierto! Ya puedes entrar.' : '¡Local alquilado! Ya puedes entrar.');
-  },
+  (lotId, business) => transport.dispatch({ type: 'RENT_LOT', avatarId: PLAYER_ID, lotId, business }),
   openLandlordWindow,
 );
 const landlordWindow = createLandlordWindow({
@@ -331,10 +329,12 @@ const businessWindow = createBusinessWindow({
   // Retirar un producto es recogerlo: vuelve al inventario.
   unlist: (itemId) => transport.dispatch({ type: 'PICKUP_FURNI', avatarId: PLAYER_ID, itemId }),
   // Al cerrar, en cuanto el local quede libre se abre la ventana para alquilar
-  // otro negocio en él (ver refreshUi).
+  // otro negocio en él (ver refreshUi). Si era un local ajeno no: el inquilino
+  // no tiene que volver a pagar la fianza.
   closeBusiness: (lotId) => {
+    const builtBy = state.lots[lotId]?.builtBy;
     transport.dispatch({ type: 'CLOSE_BUSINESS', avatarId: PLAYER_ID, lotId });
-    reopenRentFor = lotId;
+    if (!builtBy || builtBy === PLAYER_ID) reopenRentFor = lotId;
   },
   upgradeLot: (lotId) => transport.dispatch({ type: 'UPGRADE_LOT', avatarId: PLAYER_ID, lotId }),
   buyDecor: (lotId, defId) => transport.dispatch({ type: 'BUY_DECOR', avatarId: PLAYER_ID, lotId, defId }),

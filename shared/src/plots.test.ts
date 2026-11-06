@@ -320,3 +320,49 @@ test('a city lot behaves as before', () => {
   assert.equal(closed.money.p2, rented.money.p2 + Math.round(config.deposit * ECONOMY.rent.closeRefund));
   assert.equal(closed.lots.lot2.level, undefined);
 });
+
+test('opening a business leaves a notice for whoever opens it', () => {
+  const tenant = rent(list(withBuiltLot()));
+  assert.ok(noticesFor(tenant, 'p2').some((n) => n.text.includes('alquilado')));
+
+  const own = applyAction(withBuiltLot(), { type: 'RENT_LOT', avatarId: 'p1', lotId: 'lot1', business: 'store' });
+  assert.equal(own.lots.lot1.ownerId, 'p1');
+  assert.ok(noticesFor(own, 'p1').some((n) => n.text.includes('abierto')));
+
+  const city = applyAction(withBuiltLot(), { type: 'RENT_LOT', avatarId: 'p2', lotId: 'lot2', business: 'store' });
+  assert.ok(noticesFor(city, 'p2').some((n) => n.text.includes('alquilado')));
+});
+
+test('a rejected rent leaves no notice', () => {
+  const unlisted = withBuiltLot();
+  assert.equal(noticesFor(rent(unlisted), 'p2').length, 0);
+  const poor = list(withBuiltLot());
+  const broke = rent({ ...poor, money: { ...poor.money, p2: 0 } });
+  assert.equal(noticesFor(broke, 'p2').length, 0);
+});
+
+test('a finished upgrade of a leased lot notifies owner and tenant', () => {
+  const upgrading = applyAction(leased(), { type: 'UPGRADE_LOT', avatarId: 'p1', lotId: 'lot1' });
+  const done = at(upgrading, upgrading.lots.lot1.upgradeReadyAt!);
+  assert.equal(done.lots.lot1.level, 2);
+  assert.ok(noticesFor(done, 'p1').some((n) => n.text.includes('nivel 2')));
+  assert.ok(noticesFor(done, 'p2').some((n) => n.text.includes('nivel 2')));
+});
+
+test('tenant furniture covering the new station is reported to both sides', () => {
+  const rented = rent(list(withBuiltLot()), 'p2', 'diner');
+  const state = setLot(rented, { nextUpkeepAt: rented.tick + 10 * P, nextRentAt: rented.tick + 10 * P });
+  const upgrading = applyAction(state, { type: 'UPGRADE_LOT', avatarId: 'p1', lotId: 'lot1' });
+  const tire = (id: string, x: number, y: number) => ({ id, sceneId: 'lot1', defId: 'tire' as const, x, y, rotation: 0 as const });
+  // Se tapan los dos sitios libres del puesto (el primero ya lo ocupa el puesto 1).
+  const covered: GameState = {
+    ...upgrading,
+    furniture: { ...upgrading.furniture, f1: tire('f1', 1, 3), f2: tire('f2', 4, 1) },
+  };
+  const done = at(covered, covered.lots.lot1.upgradeReadyAt!);
+  assert.equal(done.lots.lot1.level, 2);
+  assert.ok(noticesFor(done, 'p1').some((n) => n.text.includes('inquilino')));
+  assert.ok(noticesFor(done, 'p2').some((n) => n.text.includes('tus muebles')));
+  assert.ok(done.progress.p1.xp > (covered.progress.p1?.xp ?? 0));
+  assert.equal(done.progress.p2?.xp ?? 0, covered.progress.p2?.xp ?? 0);
+});

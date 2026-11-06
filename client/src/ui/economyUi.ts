@@ -2,6 +2,7 @@
 import {
   ECONOMY,
   hasMaterials,
+  hasStationRoom,
   isUpgrading,
   lotLevel,
   MATERIAL_IDS,
@@ -158,13 +159,24 @@ export function levelSection(
   if (!cost) return [title, text('Tu local está al máximo nivel.')];
   const mine = state.materials[playerId] ?? {};
   const affordable = (state.money[playerId] ?? 0) >= cost.price && hasMaterials(mine, cost.materials);
+  // Misma regla que upgradeLot: la tienda no lleva puesto, el resto necesita sitio.
+  const noRoom = lot.business !== 'store' && !hasStationRoom(state, lot.id, lot.business!);
   const nodes = [
     title,
     text(`Nivel ${level + 1}: ${levelBenefit(lot)} Obras: ${Math.round(cost.seconds / 60)} min.`),
     materialChips(cost.materials, { have: mine }),
-    button(`Mejorar · ${formatMoney(cost.price)}`, canUpgrade && affordable, onUpgrade),
+    button(`Mejorar · ${formatMoney(cost.price)}`, canUpgrade && affordable && !noRoom, onUpgrade),
   ];
   if (!affordable) nodes.push(text('Te falta dinero o materiales para mejorarlo.'));
+  if (noRoom) {
+    nodes.push(
+      text(
+        lot.ownerId === playerId
+          ? 'Mueve tus muebles para dejar sitio al puesto nuevo.'
+          : 'Los muebles del inquilino tapan el sitio del puesto nuevo.',
+      ),
+    );
+  }
   return nodes;
 }
 

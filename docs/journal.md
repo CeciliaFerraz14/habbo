@@ -16,9 +16,13 @@ Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más recien
 - Cantidades y porcentajes de los textos salen de `ECONOMY.plots`, no de números en el código.
 - La ventana del dueño no se reconstruye por el dinero cuando hay campos: el estado de los botones y la cuenta atrás se actualizan en su sitio, para no borrar lo que se escribe. Con inquilino no hay campos, y ahí el dinero sí entra en la firma.
 - El dueño mejora el local sin tener que estar dentro: paga él y el inquilino solo ve el nivel.
+- `rentLot` deja el aviso de apertura ("Local alquilado" / "Negocio abierto") en lugar del toast del cliente: el toast salía aunque el servidor rechazara `RENT_LOT`, y el aviso solo existe si la acción se acepta.
 
 **Pendiente**
 - La prueba de guardar y cargar en una base real de pruebas sigue siendo obligatoria antes de producción, y ahora debe incluir la migración `012`.
+- Los avisos no llegan a quien estaba desconectado: no se guardan y hay un tope global de 30; un dueño o inquilino ausente no sabe por qué cambió su dinero o perdió el local.
+- RENT_LOT no lleva las condiciones vistas: si el dueño las cambia en ese instante se paga lo nuevo.
+- Cerrar y volver a alquilar antes del primer cobro reinicia el alquiler.
 - `npm test` (141 pruebas), `npm run typecheck` y `npm run build` pasan; la prueba en el navegador queda para la sesión principal.
 
 ## 2026-11-05 · Revisión final antes de desplegar la fusión
