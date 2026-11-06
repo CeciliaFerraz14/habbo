@@ -11,7 +11,7 @@ const ANA = '11111111-1111-4111-8111-111111111111';
 const BEA = '22222222-2222-4222-8222-222222222222';
 const TICK = 500_000;
 
-/** Fila de lots como la devuelve Supabase (next_restock_at incluida: aún existe). */
+/** Fila de lots como la devuelve Supabase (next_restock_at incluida, como las filas de antes de la 011). */
 function lotRow(id: string, label: string, fields: Record<string, unknown> = {}) {
   return {
     id,

@@ -2,6 +2,25 @@
 
 Una entrada por paso: fecha, qué se hizo, decisiones y por qué. Lo más reciente arriba.
 
+## 2026-11-06 · Despliegue de la fusión y los locales en alquiler
+
+**Qué se hizo**
+- El primer `push` falló en Render porque faltaba la `010`: el servidor nuevo se negó a arrancar y quedó activo `5539996`. Vercel sí publicó el cliente nuevo.
+- Copia de las tablas en el esquema privado `backup_20261106` (RLS activado y sin permisos para la API), en una transacción `repeatable read`.
+- `010` y `012` ensayadas con `rollback` y aplicadas desde el SQL Editor; después, despliegue de `8a3a4c7` con el servidor antiguo dormido, y `011` ensayada y aplicada al final.
+- Comprobado con la cuenta real: colocar y recoger un mueble, comprar decoración ($40) y reiniciar con el jugador conectado. La partida se reconecta sola y conserva todo.
+- Comparado con la copia: ninguna fila de inventario perdida, ningún local de jugador cambiado. Solo faltan los 12 muebles de `lot4` y `lot6`, que debían desaparecer.
+
+**Decisiones**
+- La prueba de guardar y cargar en una base de pruebas no se hizo: la usuaria pidió desplegar ya. Su lugar lo ocupó la copia de seguridad y la comparación fila a fila.
+- La copia va en la misma base porque el plan gratuito no ofrece copias descargables; no protege si se pierde la base entera.
+
+**Pendiente**
+- Borrar `backup_20261106` cuando se confirme que todo va bien (`drop schema backup_20261106 cascade`).
+- En los logs de Render no aparece `Guardando antes de salir...`, aunque en local la señal llega y guarda. Sin confirmar que `flush` corra allí.
+- Render arranca la instancia nueva antes de parar la anterior: lo que haga un jugador en esos segundos puede perderse. Desplegar con nadie conectado.
+- Volver a `5539996` ya no es posible sin restaurar la copia.
+
 ## 2026-11-06 · Guardar sin perder el inventario
 
 **Qué se hizo**
